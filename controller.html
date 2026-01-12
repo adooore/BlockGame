@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>赛博朋克控制器</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body {
+            min-height: 100vh;
+            background: #0a0a0f;
+            font-family: 'Orbitron', monospace;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 网格背景 */
+        .grid-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: gridMove 20s linear infinite;
+        }
+
+        @keyframes gridMove {
+            0% { transform: perspective(500px) rotateX(60deg) translateY(0); }
+            100% { transform: perspective(500px) rotateX(60deg) translateY(50px); }
+        }
+
+        /* 扫描线效果 */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 0, 0, 0.1) 2px,
+                rgba(0, 0, 0, 0.1) 4px
+            );
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        /* 控制器容器 */
+        .controller {
+            position: relative;
+            width: 100%;
+            max-width: 700px;
+            height: 100vh;
+            max-height: 400px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 120px;
+            padding: 20px;
+            z-index: 10;
+        }
+
+        /* 摇杆区域 */
+        .joystick-zone {
+            position: relative;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #1a1a2e 0%, #0f0f1a 100%);
+            border: 3px solid #00ffff;
+            box-shadow: 
+                0 0 20px rgba(0, 255, 255, 0.5),
+                0 0 40px rgba(0, 255, 255, 0.3),
+                0 0 60px rgba(0, 255, 255, 0.1),
+                inset 0 0 30px rgba(0, 255, 255, 0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .joystick-zone::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.5; }
+        }
+
+        .joystick-base {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: 
+                radial-gradient(circle at 50% 50%, transparent 30%, rgba(0, 255, 255, 0.1) 70%);
+            border: 1px dashed rgba(0, 255, 255, 0.3);
+        }
+
+        .joystick {
+            position: absolute;
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #2a2a4a 0%, #1a1a2e 50%, #0f0f1a 100%);
+            border: 3px solid #ff00ff;
+            box-shadow: 
+                0 0 15px rgba(255, 0, 255, 0.6),
+                0 0 30px rgba(255, 0, 255, 0.4),
+                inset 0 -5px 15px rgba(0, 0, 0, 0.5),
+                inset 0 5px 15px rgba(255, 255, 255, 0.1);
+            cursor: grab;
+            transition: box-shadow 0.1s;
+            touch-action: none;
+        }
+
+        .joystick:active {
+            cursor: grabbing;
+            box-shadow: 
+                0 0 25px rgba(255, 0, 255, 0.8),
+                0 0 50px rgba(255, 0, 255, 0.5),
+                inset 0 -5px 15px rgba(0, 0, 0, 0.5),
+                inset 0 5px 15px rgba(255, 255, 255, 0.1);
+        }
+
+        .joystick::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #ff00ff 0%, transparent 70%);
+            animation: glow 1.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            0% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        /* 按钮区域 */
+        .buttons-zone {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .btn {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #2a2a4a 0%, #1a1a2e 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Orbitron', monospace;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.1s ease;
+            touch-action: manipulation;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .btn:active::before,
+        .btn.pressed::before {
+            opacity: 1;
+        }
+
+        /* 按下状态 - 使用 scale 但保留原有 transform */
+        .btn.pressed {
+            filter: brightness(1.2);
+        }
+
+        /* Y按钮 - 黄色 */
+        .btn-y {
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 3px solid #ffff00;
+            color: #ffff00;
+            text-shadow: 0 0 10px #ffff00;
+            box-shadow: 
+                0 0 15px rgba(255, 255, 0, 0.5),
+                0 0 30px rgba(255, 255, 0, 0.3),
+                inset 0 0 20px rgba(255, 255, 0, 0.1);
+        }
+
+        .btn-y:active {
+            background: radial-gradient(circle, rgba(255, 255, 0, 0.3) 0%, #1a1a2e 100%);
+            box-shadow: 
+                0 0 25px rgba(255, 255, 0, 0.8),
+                0 0 50px rgba(255, 255, 0, 0.5),
+                inset 0 0 30px rgba(255, 255, 0, 0.3);
+        }
+
+        /* A按钮 - 绿色 */
+        .btn-a {
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 3px solid #00ff00;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+            box-shadow: 
+                0 0 15px rgba(0, 255, 0, 0.5),
+                0 0 30px rgba(0, 255, 0, 0.3),
+                inset 0 0 20px rgba(0, 255, 0, 0.1);
+        }
+
+        .btn-a:active {
+            background: radial-gradient(circle, rgba(0, 255, 0, 0.3) 0%, #1a1a2e 100%);
+            box-shadow: 
+                0 0 25px rgba(0, 255, 0, 0.8),
+                0 0 50px rgba(0, 255, 0, 0.5),
+                inset 0 0 30px rgba(0, 255, 0, 0.3);
+        }
+
+        /* X按钮 - 蓝色 */
+        .btn-x {
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            border: 3px solid #00aaff;
+            color: #00aaff;
+            text-shadow: 0 0 10px #00aaff;
+            box-shadow: 
+                0 0 15px rgba(0, 170, 255, 0.5),
+                0 0 30px rgba(0, 170, 255, 0.3),
+                inset 0 0 20px rgba(0, 170, 255, 0.1);
+        }
+
+        .btn-x:active {
+            background: radial-gradient(circle, rgba(0, 170, 255, 0.3) 0%, #1a1a2e 100%);
+            box-shadow: 
+                0 0 25px rgba(0, 170, 255, 0.8),
+                0 0 50px rgba(0, 170, 255, 0.5),
+                inset 0 0 30px rgba(0, 170, 255, 0.3);
+        }
+
+        /* B按钮 - 红色 */
+        .btn-b {
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            border: 3px solid #ff0066;
+            color: #ff0066;
+            text-shadow: 0 0 10px #ff0066;
+            box-shadow: 
+                0 0 15px rgba(255, 0, 102, 0.5),
+                0 0 30px rgba(255, 0, 102, 0.3),
+                inset 0 0 20px rgba(255, 0, 102, 0.1);
+        }
+
+        .btn-b:active {
+            background: radial-gradient(circle, rgba(255, 0, 102, 0.3) 0%, #1a1a2e 100%);
+            box-shadow: 
+                0 0 25px rgba(255, 0, 102, 0.8),
+                0 0 50px rgba(255, 0, 102, 0.5),
+                inset 0 0 30px rgba(255, 0, 102, 0.3);
+        }
+
+        /* 装饰性元素 */
+        .corner-decor {
+            position: fixed;
+            width: 100px;
+            height: 100px;
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            pointer-events: none;
+        }
+
+        .corner-decor.top-left {
+            top: 20px;
+            left: 20px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .corner-decor.top-right {
+            top: 20px;
+            right: 20px;
+            border-left: none;
+            border-bottom: none;
+        }
+
+        .corner-decor.bottom-left {
+            bottom: 20px;
+            left: 20px;
+            border-right: none;
+            border-top: none;
+        }
+
+        .corner-decor.bottom-right {
+            bottom: 20px;
+            right: 20px;
+            border-left: none;
+            border-top: none;
+        }
+
+        /* 标题 */
+        .title {
+            position: fixed;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            font-weight: 900;
+            letter-spacing: 8px;
+            color: #00ffff;
+            text-shadow: 
+                0 0 10px #00ffff,
+                0 0 20px #00ffff,
+                0 0 40px #00ffff;
+            animation: flicker 3s infinite;
+        }
+
+        /* 全屏按钮 */
+        .fullscreen-btn {
+            position: fixed;
+            top: 20px;
+            right: 80px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(10, 10, 15, 0.9);
+            border: 2px solid #00ffff;
+            color: #00ffff;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 2000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 
+                0 0 15px rgba(0, 255, 255, 0.5),
+                0 0 30px rgba(0, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .fullscreen-btn:active {
+            transform: scale(0.9);
+            box-shadow: 
+                0 0 25px rgba(0, 255, 255, 0.8),
+                0 0 50px rgba(0, 255, 255, 0.5);
+        }
+
+        .fullscreen-btn svg {
+            width: 24px;
+            height: 24px;
+            fill: #00ffff;
+        }
+
+        /* 旋转按钮 */
+        .rotate-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(10, 10, 15, 0.9);
+            border: 2px solid #ff00ff;
+            color: #ff00ff;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 2000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 
+                0 0 15px rgba(255, 0, 255, 0.5),
+                0 0 30px rgba(255, 0, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .rotate-btn:active {
+            transform: scale(0.9);
+            box-shadow: 
+                0 0 25px rgba(255, 0, 255, 0.8),
+                0 0 50px rgba(255, 0, 255, 0.5);
+        }
+
+        .rotate-btn svg {
+            width: 28px;
+            height: 28px;
+            fill: #ff00ff;
+            transition: transform 0.3s ease;
+        }
+
+        .rotate-btn:active svg {
+            transform: rotate(90deg);
+        }
+
+        /* 旋转容器 */
+        .app-container {
+            width: 100vw;
+            height: 100vh;
+            transition: transform 0.4s ease, width 0.4s ease, height 0.4s ease;
+            transform-origin: center center;
+        }
+
+        .app-container.rotated {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            width: 100vh;
+            height: 100vw;
+            transform: translate(-50%, -50%) rotate(90deg);
+        }
+
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            92% { opacity: 1; }
+            93% { opacity: 0.8; }
+            94% { opacity: 1; }
+            95% { opacity: 0.9; }
+            96% { opacity: 1; }
+        }
+
+        /* 状态显示 */
+        .status {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            color: #ff00ff;
+            letter-spacing: 3px;
+            text-shadow: 0 0 10px #ff00ff;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        /* 延迟显示 */
+        .latency {
+            color: #00ffff;
+            text-shadow: 0 0 10px #00ffff;
+            font-size: 11px;
+            letter-spacing: 2px;
+        }
+
+        .latency.good {
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+        }
+
+        .latency.medium {
+            color: #ffff00;
+            text-shadow: 0 0 10px #ffff00;
+        }
+
+        .latency.bad {
+            color: #ff0066;
+            text-shadow: 0 0 10px #ff0066;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #00ff00;
+            border-radius: 50%;
+            margin-right: 8px;
+            box-shadow: 0 0 10px #00ff00;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* 响应式 */
+        @media (max-width: 600px) {
+            .controller {
+                padding: 20px;
+            }
+            
+            .joystick-zone {
+                width: 140px;
+                height: 140px;
+            }
+            
+            .joystick-base {
+                width: 90px;
+                height: 90px;
+            }
+            
+            .joystick {
+                width: 55px;
+                height: 55px;
+            }
+            
+            .buttons-zone {
+                width: 160px;
+                height: 160px;
+            }
+            
+            .btn {
+                width: 50px;
+                height: 50px;
+                font-size: 14px;
+            }
+            
+            .title {
+                font-size: 16px;
+                letter-spacing: 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 全屏按钮 -->
+    <button class="fullscreen-btn" id="fullscreenBtn" title="全屏">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" id="fullscreenIcon">
+            <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+        </svg>
+    </button>
+
+    <!-- 旋转按钮 (在容器外，保持固定位置) -->
+    <button class="rotate-btn" id="rotateBtn" title="旋转屏幕">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7.11 8.53L5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.14-.87.49-1.72 1.02-2.47zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.75-.87-1.59-1.01-2.47zm1.01 5.32c1.16.9 2.51 1.44 3.9 1.61V17.9c-.87-.15-1.71-.49-2.46-1.03L7.1 18.32zM13 4.07V1L8.45 5.55 13 10V6.09c2.84.48 5 2.94 5 5.91s-2.16 5.43-5 5.91v2.02c3.95-.49 7-3.85 7-7.93s-3.05-7.44-7-7.93z"/>
+        </svg>
+    </button>
+
+    <div class="app-container" id="appContainer">
+        <div class="grid-bg"></div>
+        <div class="scanlines"></div>
+        
+        <div class="corner-decor top-left"></div>
+        <div class="corner-decor top-right"></div>
+        <div class="corner-decor bottom-left"></div>
+        <div class="corner-decor bottom-right"></div>
+        
+        <div class="title">CYBER CTRL</div>
+        
+        <div class="controller">
+            <!-- 摇杆 -->
+            <div class="joystick-zone" id="joystickZone">
+                <div class="joystick-base"></div>
+                <div class="joystick" id="joystick"></div>
+            </div>
+            
+            <!-- XYAB按钮 -->
+            <div class="buttons-zone">
+                <button class="btn btn-y" id="btnY" style="opacity:0.3">Y</button>
+                <button class="btn btn-a" id="btnA">A<span style="font-size:8px;display:block;margin-top:2px">JUMP</span></button>
+                <button class="btn btn-x" id="btnX" style="opacity:0.3">X</button>
+                <button class="btn btn-b" id="btnB">B<span style="font-size:8px;display:block;margin-top:2px">DASH</span></button>
+            </div>
+        </div>
+        
+        <div class="status">
+            <span class="status-dot"></span>
+            <span class="status-text">SYSTEM ONLINE</span>
+            <span class="latency" id="latencyDisplay">-- ms</span>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 全屏功能 ====================
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const fullscreenIcon = document.getElementById('fullscreenIcon');
+        
+        // 全屏图标
+        const expandIcon = '<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>';
+        const compressIcon = '<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>';
+        
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                // 进入全屏
+                document.documentElement.requestFullscreen().then(() => {
+                    fullscreenIcon.innerHTML = compressIcon;
+                }).catch(err => {
+                    console.log('全屏失败:', err);
+                });
+            } else {
+                // 退出全屏
+                document.exitFullscreen().then(() => {
+                    fullscreenIcon.innerHTML = expandIcon;
+                }).catch(err => {
+                    console.log('退出全屏失败:', err);
+                });
+            }
+        }
+        
+        fullscreenBtn.addEventListener('click', toggleFullscreen);
+        
+        // 监听全屏状态变化
+        document.addEventListener('fullscreenchange', () => {
+            if (document.fullscreenElement) {
+                fullscreenIcon.innerHTML = compressIcon;
+            } else {
+                fullscreenIcon.innerHTML = expandIcon;
+            }
+            // 震动反馈
+            if (navigator.vibrate) {
+                navigator.vibrate(30);
+            }
+        });
+
+        // ==================== 屏幕旋转功能 ====================
+        const rotateBtn = document.getElementById('rotateBtn');
+        const appContainer = document.getElementById('appContainer');
+        let isRotated = false;
+
+        rotateBtn.addEventListener('click', () => {
+            isRotated = !isRotated;
+            appContainer.classList.toggle('rotated', isRotated);
+            
+            // 震动反馈
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+        });
+
+        // 检测屏幕方向，如果是竖屏自动提示旋转
+        function checkOrientation() {
+            if (window.innerHeight > window.innerWidth && !isRotated) {
+                // 竖屏模式，显示旋转提示
+                rotateBtn.style.animation = 'pulse-rotate 1s infinite';
+            } else {
+                rotateBtn.style.animation = 'none';
+            }
+        }
+
+        // 添加旋转按钮脉冲动画
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes pulse-rotate {
+                0%, 100% { box-shadow: 0 0 15px rgba(255, 0, 255, 0.5), 0 0 30px rgba(255, 0, 255, 0.3); }
+                50% { box-shadow: 0 0 25px rgba(255, 0, 255, 0.8), 0 0 50px rgba(255, 0, 255, 0.6), 0 0 70px rgba(255, 0, 255, 0.4); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        window.addEventListener('resize', checkOrientation);
+        checkOrientation();
+
+        // ==================== WebSocket 连接 ====================
+        let ws = null;
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 10;
+        const statusDot = document.querySelector('.status-dot');
+        const statusTextEl = document.querySelector('.status-text');
+        const latencyDisplay = document.getElementById('latencyDisplay');
+        
+        // 延迟测量
+        let pingInterval = null;
+        let pingStartTime = 0;
+        let latencyHistory = [];
+        const maxLatencyHistory = 5;
+        
+        function updateLatencyDisplay(latency) {
+            // 计算平均延迟
+            latencyHistory.push(latency);
+            if (latencyHistory.length > maxLatencyHistory) {
+                latencyHistory.shift();
+            }
+            const avgLatency = Math.round(latencyHistory.reduce((a, b) => a + b, 0) / latencyHistory.length);
+            
+            // 更新显示
+            latencyDisplay.textContent = `${avgLatency} ms`;
+            
+            // 根据延迟设置颜色
+            latencyDisplay.classList.remove('good', 'medium', 'bad');
+            if (avgLatency < 50) {
+                latencyDisplay.classList.add('good');
+            } else if (avgLatency < 100) {
+                latencyDisplay.classList.add('medium');
+            } else {
+                latencyDisplay.classList.add('bad');
+            }
+        }
+        
+        function sendPing() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                pingStartTime = Date.now();
+                ws.send(JSON.stringify({ type: 'ping', timestamp: pingStartTime }));
+            }
+        }
+        
+        function updateStatus(connected, message) {
+            if (connected) {
+                statusDot.style.background = '#00ff00';
+                statusDot.style.boxShadow = '0 0 10px #00ff00';
+                if (statusTextEl) statusTextEl.textContent = message || 'CONNECTED';
+            } else {
+                statusDot.style.background = '#ff0066';
+                statusDot.style.boxShadow = '0 0 10px #ff0066';
+                statusDot.style.animation = 'blink 0.5s infinite';
+                if (statusTextEl) statusTextEl.textContent = message || 'DISCONNECTED';
+                latencyDisplay.textContent = '-- ms';
+                latencyDisplay.classList.remove('good', 'medium', 'bad');
+            }
+        }
+        
+        function connectWebSocket() {
+            // 使用当前页面的主机地址
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            console.log('正在连接服务器:', wsUrl);
+            updateStatus(false, 'CONNECTING...');
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                console.log('WebSocket 连接成功!');
+                reconnectAttempts = 0;
+                updateStatus(true, 'CONNECTED');
+                statusDot.style.animation = '';
+                
+                // 启动延迟测量
+                latencyHistory = [];
+                sendPing();  // 立即发送一次
+                pingInterval = setInterval(sendPing, 2000);  // 每2秒测量一次
+            };
+            
+            ws.onclose = () => {
+                console.log('WebSocket 连接断开');
+                updateStatus(false, 'DISCONNECTED');
+                
+                // 停止延迟测量
+                if (pingInterval) {
+                    clearInterval(pingInterval);
+                    pingInterval = null;
+                }
+                
+                // 自动重连
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    reconnectAttempts++;
+                    const delay = Math.min(1000 * reconnectAttempts, 5000);
+                    console.log(`${delay/1000}秒后尝试重连... (${reconnectAttempts}/${maxReconnectAttempts})`);
+                    updateStatus(false, `RECONNECT ${reconnectAttempts}/${maxReconnectAttempts}`);
+                    setTimeout(connectWebSocket, delay);
+                }
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket 错误:', error);
+            };
+            
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    // 处理 pong 响应
+                    if (data.type === 'pong') {
+                        const latency = Date.now() - data.timestamp;
+                        updateLatencyDisplay(latency);
+                    }
+                } catch (e) {
+                    console.log('收到消息:', event.data);
+                }
+            };
+        }
+        
+        function sendMessage(data) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(data));
+            }
+        }
+        
+        // 启动 WebSocket 连接
+        connectWebSocket();
+        
+        // ==================== 摇杆控制 ====================
+        const joystickZone = document.getElementById('joystickZone');
+        const joystick = document.getElementById('joystick');
+        
+        let joystickTouchId = null;  // 追踪摇杆的触摸ID
+        let isDragging = false;
+        let lastJoystickX = 0;
+        let lastJoystickY = 0;
+        const maxDistance = 50;
+        const sendInterval = 50; // 发送间隔 (ms)
+        let lastSendTime = 0;
+        
+        // 获取摇杆中心位置
+        function getJoystickCenter() {
+            const rect = joystickZone.getBoundingClientRect();
+            return {
+                x: rect.left + rect.width / 2,
+                y: rect.top + rect.height / 2
+            };
+        }
+        
+        // 移动摇杆
+        function moveJoystick(clientX, clientY) {
+            const center = getJoystickCenter();
+            let deltaX = clientX - center.x;
+            let deltaY = clientY - center.y;
+            
+            // 限制在圆形范围内
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            if (distance > maxDistance) {
+                deltaX = (deltaX / distance) * maxDistance;
+                deltaY = (deltaY / distance) * maxDistance;
+            }
+            
+            // 视觉上的摇杆移动
+            // 旋转后需要转换坐标系，让摇杆视觉上跟随手指
+            if (isRotated) {
+                // 容器旋转了90度，需要把屏幕坐标转换为容器坐标
+                const visualX = deltaY;
+                const visualY = -deltaX;
+                joystick.style.transform = `translate(${visualX}px, ${visualY}px)`;
+            } else {
+                joystick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+            }
+            
+            // 计算归一化值 (-1 到 1)
+            let normalizedX = deltaX / maxDistance;
+            let normalizedY = deltaY / maxDistance;
+            
+            // 如果屏幕旋转了，调整控制方向
+            // CSS rotate(90deg) 顺时针旋转，用户顺时针转手机观看
+            if (isRotated) {
+                const tempX = normalizedX;
+                normalizedX = normalizedY;
+                normalizedY = -tempX;
+            }
+            
+            // 节流发送
+            const now = Date.now();
+            if (now - lastSendTime > sendInterval) {
+                lastSendTime = now;
+                lastJoystickX = normalizedX;
+                lastJoystickY = normalizedY;
+                
+                // 发送摇杆数据
+                sendMessage({
+                    type: 'joystick',
+                    x: normalizedX,
+                    y: normalizedY
+                });
+            }
+        }
+        
+        // 重置摇杆
+        function resetJoystick() {
+            joystick.style.transform = 'translate(0, 0)';
+            joystick.style.transition = 'transform 0.2s ease-out';
+            setTimeout(() => {
+                joystick.style.transition = '';
+            }, 200);
+            
+            // 发送摇杆释放
+            sendMessage({ type: 'joystick_release' });
+            lastJoystickX = 0;
+            lastJoystickY = 0;
+            joystickTouchId = null;
+        }
+        
+        // 鼠标事件
+        joystick.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            e.preventDefault();
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                moveJoystick(e.clientX, e.clientY);
+            }
+        });
+        
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                resetJoystick();
+            }
+        });
+        
+        // 触摸事件 - 使用 touchId 实现多点触控
+        joystickZone.addEventListener('touchstart', (e) => {
+            // 只在没有激活的摇杆触摸时响应
+            if (joystickTouchId === null) {
+                const touch = e.changedTouches[0];
+                joystickTouchId = touch.identifier;
+                isDragging = true;
+                moveJoystick(touch.clientX, touch.clientY);
+            }
+            e.preventDefault();
+        }, { passive: false });
+        
+        document.addEventListener('touchmove', (e) => {
+            if (joystickTouchId !== null) {
+                // 找到对应的触摸点
+                for (let i = 0; i < e.touches.length; i++) {
+                    if (e.touches[i].identifier === joystickTouchId) {
+                        moveJoystick(e.touches[i].clientX, e.touches[i].clientY);
+                        break;
+                    }
+                }
+            }
+            e.preventDefault();
+        }, { passive: false });
+        
+        document.addEventListener('touchend', (e) => {
+            // 检查是否是摇杆的触摸点结束
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === joystickTouchId) {
+                    isDragging = false;
+                    resetJoystick();
+                    break;
+                }
+            }
+        });
+        
+        document.addEventListener('touchcancel', (e) => {
+            // 检查是否是摇杆的触摸点取消
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === joystickTouchId) {
+                    isDragging = false;
+                    resetJoystick();
+                    break;
+                }
+            }
+        });
+        
+        // ==================== 按钮事件 ====================
+        const buttons = ['Y', 'A', 'X', 'B'];
+        const buttonTouchIds = {};  // 追踪每个按钮的触摸ID
+        
+         buttons.forEach(btn => {
+            const element = document.getElementById(`btn${btn}`);
+            buttonTouchIds[btn] = null;
+            
+            function onPress() {
+                sendMessage({
+                    type: 'button',
+                    button: btn,
+                    action: 'press'
+                });
+                // 震动反馈 (如果支持)
+                if (navigator.vibrate) {
+                    navigator.vibrate(30);
+                }
+                // 添加按下视觉效果（使用 class 避免覆盖原有 transform）
+                element.classList.add('pressed');
+            }
+            
+            function onRelease() {
+                sendMessage({
+                    type: 'button',
+                    button: btn,
+                    action: 'release'
+                });
+                // 移除按下视觉效果
+                element.classList.remove('pressed');
+                buttonTouchIds[btn] = null;
+            }
+            
+            // 鼠标事件
+            element.addEventListener('mousedown', onPress);
+            element.addEventListener('mouseup', onRelease);
+            element.addEventListener('mouseleave', onRelease);
+            
+            // 触摸事件 - 使用独立的 touchId
+            element.addEventListener('touchstart', (e) => {
+                if (buttonTouchIds[btn] === null) {
+                    buttonTouchIds[btn] = e.changedTouches[0].identifier;
+                    onPress();
+                }
+                e.preventDefault();
+                e.stopPropagation();  // 阻止冒泡
+            }, { passive: false });
+            
+            element.addEventListener('touchend', (e) => {
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === buttonTouchIds[btn]) {
+                        onRelease();
+                        break;
+                    }
+                }
+                e.preventDefault();
+                e.stopPropagation();
+            }, { passive: false });
+            
+            element.addEventListener('touchcancel', (e) => {
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === buttonTouchIds[btn]) {
+                        onRelease();
+                        break;
+                    }
+                }
+                e.preventDefault();
+                e.stopPropagation();
+            }, { passive: false });
+        });
+        
+        // 防止页面滚动
+        document.body.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+        }, { passive: false });
+        
+        // 页面关闭时断开连接
+        window.addEventListener('beforeunload', () => {
+            if (ws) {
+                ws.close();
+            }
+        });
+    </script>
+</body>
+</html>
+

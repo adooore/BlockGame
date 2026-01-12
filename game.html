@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>赛博霓虹 - 能量采集与红线规避</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-cyan: #00f2ff;
+            --neon-pink: #ff00ff;
+            --bg-dark: #050505;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            font-family: 'JetBrains Mono', monospace;
+            touch-action: none;
+        }
+
+        /* Scanlines Effect */
+        body::after {
+            content: " ";
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.05), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.05));
+            background-size: 100% 4px, 3px 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            color: var(--neon-cyan);
+            pointer-events: none;
+            z-index: 20;
+            text-shadow: 0 0 10px var(--neon-cyan);
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .cyber-border {
+            border: 2px solid var(--neon-cyan);
+            box-shadow: 0 0 15px var(--neon-cyan), inset 0 0 10px var(--neon-cyan);
+            background: rgba(0, 0, 0, 0.8);
+        }
+
+        .message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 30px 40px;
+            border-radius: 4px;
+            text-align: center;
+            display: none;
+            z-index: 100;
+            font-family: 'Orbitron', sans-serif;
+            min-width: 400px;
+        }
+
+        .neon-text-pink {
+            color: var(--neon-pink);
+            text-shadow: 0 0 10px var(--neon-pink), 0 0 20px var(--neon-pink);
+        }
+
+        .neon-text-cyan {
+            color: var(--neon-cyan);
+            text-shadow: 0 0 10px var(--neon-cyan), 0 0 20px var(--neon-cyan);
+        }
+
+        @keyframes flicker {
+            0% { opacity: 0.9; }
+            5% { opacity: 0.5; }
+            10% { opacity: 0.9; }
+            100% { opacity: 1; }
+        }
+
+        .flicker {
+            animation: flicker 3s infinite step-end;
+        }
+
+        .btn-cyber {
+            background: transparent;
+            border: 2px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            padding: 10px 30px;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 0 10px var(--neon-cyan);
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .btn-cyber:hover {
+            background: var(--neon-cyan);
+            color: black;
+            box-shadow: 0 0 30px var(--neon-cyan);
+        }
+
+        .skin-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 4px;
+            border: 2px solid rgba(255,255,255,0.3);
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .skin-btn.active {
+            border-color: white;
+            transform: scale(1.2);
+        }
+        
+        .skin-btn.active::after {
+            content: '';
+            position: absolute;
+            top: -4px; left: -4px; right: -4px; bottom: -4px;
+            border: 2px solid var(--neon-cyan);
+            border-radius: 6px;
+            animation: pulse-border 1.5s infinite;
+        }
+
+        @keyframes pulse-border {
+            0% { opacity: 0.5; box-shadow: 0 0 5px var(--neon-cyan); }
+            50% { opacity: 1; box-shadow: 0 0 15px var(--neon-cyan); }
+            100% { opacity: 0.5; box-shadow: 0 0 5px var(--neon-cyan); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-overlay" class="flicker">
+        <div class="text-3xl font-black mb-2 tracking-widest">DATA SCAN: <span id="score">0</span></div>
+        <div class="text-sm opacity-70">RECORD: <span id="high-score">0</span></div>
+        <div class="mt-4 text-[10px] tracking-widest opacity-60">
+            [WASD] MOVE | [SPACE] SCALE-JUMP | [SHIFT] DASH
+        </div>
+    </div>
+
+    <div id="start-screen" class="message cyber-border" style="display: block;">
+        <h1 class="text-4xl font-black mb-6 neon-text-cyan">NEON GRID 2.1</h1>
+        
+        <div class="mb-6 space-y-2 text-left">
+            <p class="text-sm tracking-widest opacity-80 text-center">TACTICAL INTEL:</p>
+            <p class="text-xs text-center"><span class="neon-text-cyan">SPACE</span> to expand (ignore tiles)</p>
+            <p class="text-xs text-center"><span class="neon-text-pink">SHIFT</span> to quick-warp (dash)</p>
+        </div>
+
+        <div class="mb-8">
+            <p class="text-sm tracking-widest opacity-80 mb-3">SELECT AVATAR SKIN</p>
+            <div id="skin-selector" class="flex gap-4 justify-center"></div>
+        </div>
+
+        <button id="start-btn" class="btn-cyber pointer-events-auto">INITIALIZE</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const config = {
+            gridSize: 12,
+            tileGap: 6,
+            playerSizeRatio: 0.5,
+            moveSpeed: 6,
+            dashMultiplier: 3.5,
+            dashDuration: 8,
+            dashCooldown: 30,
+            jumpPower: 14,          // 稍微增强跳跃感
+            gravity: 1.0,           // 配合高度缩放的重力
+            greenScore: 10,
+            redPenalty: -5,
+            eventInterval: 1200,
+            maxEvents: 12,
+            colors: {
+                bg: '#050505',
+                grid: '#1a1a1a',
+                cyan: '#00f2ff',
+                pink: '#ff00ff',
+            },
+            skins: [
+                { name: 'NEON PURPLE', main: '#bc13fe', glow: '#d946ef', core: '#fff' },
+                { name: 'TRON BLUE',   main: '#00f2ff', glow: '#00f2ff', core: '#e0faff' },
+                { name: 'HACKER GREEN',main: '#00ff41', glow: '#39ff14', core: '#cbffcd' },
+                { name: 'CYBER RED',   main: '#ff0055', glow: '#ff0055', core: '#ffcbd7' },
+                { name: 'GOLDEN DATA', main: '#ffd700', glow: '#ffaa00', core: '#fffbea' }
+            ]
+        };
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const highScoreElement = document.getElementById('high-score');
+        const startScreen = document.getElementById('start-screen');
+        const startBtn = document.getElementById('start-btn');
+        const skinSelector = document.getElementById('skin-selector');
+
+        let gameState = 'waiting';
+        let score = 0;
+        let highScore = localStorage.getItem('cyberGridHighScore') || 0;
+        highScoreElement.textContent = highScore;
+
+        let width, height, tileSize;
+        let grid = [];
+        
+        const player = {
+            x: 0, y: 0,
+            z: 0,           
+            vz: 0,          
+            width: 0, height: 0,
+            vx: 0, vy: 0,
+            trail: [],
+            skinIndex: 0,
+            isJumping: false,
+            dashTimer: 0,   
+            dashCooldown: 0 
+        };
+
+        const keys = {};
+
+        // ==================== 远程控制器 ====================
+        let remoteController = {
+            joystick: { x: 0, y: 0 },
+            buttons: { A: false, B: false, X: false, Y: false }
+        };
+        let wsConnected = false;
+        let controllerCount = 0;
+
+        function initWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/game`;
+            
+            console.log('连接游戏服务器:', wsUrl);
+            const ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                console.log('游戏已连接到服务器!');
+                wsConnected = true;
+            };
+            
+            ws.onclose = () => {
+                console.log('与服务器断开连接');
+                wsConnected = false;
+                // 重置远程控制状态
+                remoteController.joystick = { x: 0, y: 0 };
+                remoteController.buttons = { A: false, B: false, X: false, Y: false };
+                // 3秒后重连
+                setTimeout(initWebSocket, 3000);
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket 错误:', error);
+            };
+            
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'connected') {
+                        controllerCount = data.controllers || 0;
+                        console.log(`已连接，当前控制器数: ${controllerCount}`);
+                    }
+                    else if (data.type === 'joystick') {
+                        remoteController.joystick.x = data.x;
+                        remoteController.joystick.y = data.y;
+                    }
+                    else if (data.type === 'joystick_release') {
+                        remoteController.joystick.x = 0;
+                        remoteController.joystick.y = 0;
+                    }
+                    else if (data.type === 'button') {
+                        const btn = data.button;
+                        const pressed = data.action === 'press';
+                        remoteController.buttons[btn] = pressed;
+                        
+                        // 处理按钮动作
+                        if (gameState === 'playing') {
+                            if (btn === 'A' && pressed && !player.isJumping) {
+                                // A键 - 跳跃
+                                player.isJumping = true;
+                                player.vz = config.jumpPower;
+                            }
+                            if (btn === 'B' && pressed && player.dashCooldown <= 0) {
+                                // B键 - 冲刺
+                                if (player.vx !== 0 || player.vy !== 0) {
+                                    player.dashTimer = config.dashDuration;
+                                    player.dashCooldown = config.dashCooldown;
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.log('收到消息:', event.data);
+                }
+            };
+        }
+        
+        // 启动 WebSocket 连接
+        initWebSocket();
+
+        function initSkinSelector() {
+            config.skins.forEach((skin, index) => {
+                const btn = document.createElement('div');
+                btn.className = `skin-btn ${index === player.skinIndex ? 'active' : ''}`;
+                btn.style.backgroundColor = skin.main;
+                btn.style.boxShadow = `0 0 10px ${skin.glow}`;
+                btn.addEventListener('click', () => {
+                    player.skinIndex = index;
+                    document.querySelectorAll('.skin-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    if (gameState === 'waiting') draw();
+                });
+                skinSelector.appendChild(btn);
+            });
+        }
+
+        function initGrid() {
+            grid = [];
+            for (let r = 0; r < config.gridSize; r++) {
+                for (let c = 0; c < config.gridSize; c++) {
+                    grid.push({ row: r, col: c, type: 'none', pulse: 0 });
+                }
+            }
+        }
+
+        function triggerTileEvents() {
+            if (gameState !== 'playing') return;
+            grid.forEach(tile => tile.type = 'none');
+            const shuffled = [...grid].sort(() => 0.5 - Math.random());
+            const count = Math.floor(Math.random() * config.maxEvents) + 5;
+            for (let i = 0; i < count; i++) {
+                shuffled[i].type = (i < count * 0.4) ? 'cyan' : 'pink';
+                shuffled[i].pulse = 0;
+            }
+            setTimeout(triggerTileEvents, config.eventInterval);
+        }
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            const minDim = Math.min(width, height) * 0.85;
+            tileSize = (minDim - (config.gridSize - 1) * config.tileGap) / config.gridSize;
+            if (gameState === 'waiting') {
+                player.width = tileSize * config.playerSizeRatio;
+                player.height = tileSize * config.playerSizeRatio;
+                player.x = width / 2 - player.width / 2;
+                player.y = height / 2 - player.height / 2;
+                player.z = 0;
+            }
+        }
+
+        window.addEventListener('keydown', e => {
+            keys[e.code] = true;
+            if (e.code === 'Space' && !player.isJumping && gameState === 'playing') {
+                player.isJumping = true;
+                player.vz = config.jumpPower;
+            }
+            if (e.code === 'ShiftLeft' && player.dashCooldown <= 0 && gameState === 'playing') {
+                if (player.vx !== 0 || player.vy !== 0) {
+                    player.dashTimer = config.dashDuration;
+                    player.dashCooldown = config.dashCooldown;
+                }
+            }
+        });
+        window.addEventListener('keyup', e => keys[e.code] = false);
+
+        function update() {
+            if (gameState !== 'playing') return;
+
+            // Movement - 键盘输入
+            player.vx = 0; player.vy = 0;
+            if (keys['KeyW'] || keys['ArrowUp']) player.vy = -config.moveSpeed;
+            if (keys['KeyS'] || keys['ArrowDown']) player.vy = config.moveSpeed;
+            if (keys['KeyA'] || keys['ArrowLeft']) player.vx = -config.moveSpeed;
+            if (keys['KeyD'] || keys['ArrowRight']) player.vx = config.moveSpeed;
+            
+            // Movement - 远程控制器输入 (摇杆)
+            const deadzone = 0.3;
+            if (Math.abs(remoteController.joystick.x) > deadzone || Math.abs(remoteController.joystick.y) > deadzone) {
+                // 使用摇杆值作为速度倍数
+                player.vx = remoteController.joystick.x * config.moveSpeed;
+                player.vy = remoteController.joystick.y * config.moveSpeed;
+            }
+
+            // Dash Logic
+            if (player.dashTimer > 0) {
+                player.x += player.vx * config.dashMultiplier;
+                player.y += player.vy * config.dashMultiplier;
+                player.dashTimer--;
+                player.trail.unshift({x: player.x, y: player.y, z: player.z, opacity: 1});
+            } else {
+                player.x += player.vx;
+                player.y += player.vy;
+            }
+            if (player.dashCooldown > 0) player.dashCooldown--;
+
+            // Jump Logic (Scale-based height simulation)
+            if (player.isJumping) {
+                player.z += player.vz;
+                player.vz -= config.gravity;
+                if (player.z <= 0) {
+                    player.z = 0;
+                    player.vz = 0;
+                    player.isJumping = false;
+                }
+            }
+
+            // Trail
+            if (player.vx !== 0 || player.vy !== 0 || player.isJumping) {
+                player.trail.unshift({x: player.x, y: player.y, z: player.z, opacity: 1});
+            }
+            if (player.trail.length > 15) player.trail.pop();
+            else if (player.vx === 0 && player.vy === 0 && !player.isJumping && player.trail.length > 0) player.trail.pop();
+
+            // Bounds
+            const gridTotalDim = config.gridSize * tileSize + (config.gridSize - 1) * config.tileGap;
+            const gridX = (width - gridTotalDim) / 2;
+            const gridY = (height - gridTotalDim) / 2;
+            player.x = Math.max(gridX, Math.min(player.x, gridX + gridTotalDim - player.width));
+            player.y = Math.max(gridY, Math.min(player.y, gridY + gridTotalDim - player.height));
+
+            // Collision (Only if player.z is near 0)
+            if (player.z < 1) { // A tiny buffer for better feel
+                const cx = player.x + player.width/2;
+                const cy = player.y + player.height/2;
+                const col = Math.floor((cx - gridX) / (tileSize + config.tileGap));
+                const row = Math.floor((cy - gridY) / (tileSize + config.tileGap));
+
+                if (row >= 0 && row < config.gridSize && col >= 0 && col < config.gridSize) {
+                    const tile = grid.find(t => t.row === row && t.col === col);
+                    if (tile && tile.type !== 'none') {
+                        if (tile.type === 'cyan') score += config.greenScore;
+                        else score += config.redPenalty;
+                        
+                        tile.type = 'none';
+                        if (score < 0) score = 0;
+                        scoreElement.textContent = score;
+                        if (score > highScore) {
+                            highScore = score;
+                            highScoreElement.textContent = highScore;
+                            localStorage.setItem('cyberGridHighScore', highScore);
+                        }
+                    }
+                }
+            }
+
+            grid.forEach(t => t.pulse += 0.05);
+        }
+
+        function draw() {
+            ctx.fillStyle = config.colors.bg;
+            ctx.fillRect(0, 0, width, height);
+
+            const gridTotalDim = config.gridSize * tileSize + (config.gridSize - 1) * config.tileGap;
+            const gridX = (width - gridTotalDim) / 2;
+            const gridY = (height - gridTotalDim) / 2;
+
+            // Grid rendering
+            ctx.strokeStyle = '#111';
+            ctx.lineWidth = 1;
+            for(let i=0; i<=config.gridSize; i++) {
+                const pos = i * (tileSize + config.tileGap);
+                ctx.beginPath(); ctx.moveTo(gridX + pos - config.tileGap/2, gridY);
+                ctx.lineTo(gridX + pos - config.tileGap/2, gridY + gridTotalDim); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(gridX, gridY + pos - config.tileGap/2);
+                ctx.lineTo(gridX + gridTotalDim, gridY + pos - config.tileGap/2); ctx.stroke();
+            }
+
+            // Tiles
+            grid.forEach(tile => {
+                const x = gridX + tile.col * (tileSize + config.tileGap);
+                const y = gridY + tile.row * (tileSize + config.tileGap);
+                if (tile.type === 'none') {
+                    ctx.strokeStyle = '#222';
+                    ctx.strokeRect(x, y, tileSize, tileSize);
+                } else {
+                    const color = tile.type === 'cyan' ? config.colors.cyan : config.colors.pink;
+                    const glow = 10 + Math.sin(tile.pulse) * 5;
+                    ctx.shadowBlur = glow; ctx.shadowColor = color;
+                    ctx.strokeStyle = color; ctx.lineWidth = 2;
+                    ctx.strokeRect(x, y, tileSize, tileSize);
+                    ctx.globalAlpha = 0.1; ctx.fillStyle = color;
+                    ctx.fillRect(x, y, tileSize, tileSize);
+                    ctx.globalAlpha = 1.0; ctx.shadowBlur = 0;
+                }
+            });
+
+            const currentSkin = config.skins[player.skinIndex];
+
+            // 1. Shadow (Fixed at feet position, grows slightly smaller/fainter as player "rises")
+            if (player.z > 0) {
+                const shadowScale = Math.max(0.2, 1 - player.z / 150);
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.beginPath();
+                ctx.ellipse(
+                    player.x + player.width/2, 
+                    player.y + player.height/2, 
+                    (player.width/2) * shadowScale, 
+                    (player.height/2) * shadowScale, 
+                    0, 0, Math.PI * 2
+                );
+                ctx.fill();
+            }
+
+            // 2. Trails (Using scaling relative to trail state)
+            player.trail.forEach((t, i) => {
+                const trailScale = 1 + (t.z / 120);
+                const tw = player.width * trailScale;
+                const th = player.height * trailScale;
+                const tx = t.x - (tw - player.width) / 2;
+                const ty = t.y - (th - player.height) / 2;
+
+                ctx.globalAlpha = (player.trail.length - i) / (player.trail.length * 3);
+                ctx.fillStyle = currentSkin.main;
+                ctx.fillRect(tx, ty, tw, th);
+            });
+            ctx.globalAlpha = 1.0;
+
+            // 3. Player Body (Pure Scale-up jump)
+            const jumpScale = 1 + (player.z / 80); // More aggressive scale to represent height
+            const drawW = player.width * jumpScale;
+            const drawH = player.height * jumpScale;
+            // Center character on their current tile position
+            const drawX = player.x - (drawW - player.width) / 2;
+            const drawY = player.y - (drawH - player.height) / 2;
+
+            ctx.shadowBlur = 15 + Math.sin(Date.now()/100) * 5 + (player.z/5);
+            ctx.shadowColor = currentSkin.glow;
+            ctx.fillStyle = currentSkin.main;
+            ctx.fillRect(drawX, drawY, drawW, drawH);
+            
+            // Core
+            ctx.fillStyle = currentSkin.core;
+            ctx.fillRect(drawX + drawW*0.25, drawY + drawH*0.25, drawW*0.5, drawH*0.5);
+            ctx.shadowBlur = 0;
+
+            // 4. Dash Cooldown Bar
+            if (player.dashCooldown > 0) {
+                ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                ctx.fillRect(player.x, player.y + player.height + 5, player.width, 3);
+                ctx.fillStyle = config.colors.cyan;
+                ctx.fillRect(player.x, player.y + player.height + 5, player.width * (1 - player.dashCooldown/config.dashCooldown), 3);
+            }
+
+            requestAnimationFrame(() => {
+                update();
+                draw();
+            });
+        }
+
+        startBtn.addEventListener('click', () => {
+            startScreen.style.display = 'none';
+            gameState = 'playing';
+            score = 0;
+            scoreElement.textContent = '0';
+            player.trail = [];
+            triggerTileEvents();
+        });
+
+        window.addEventListener('resize', resize);
+        initSkinSelector();
+        initGrid();
+        resize();
+        draw();
+    </script>
+</body>
+</html>
