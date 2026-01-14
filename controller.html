@@ -6,6 +6,7 @@
     <title>赛博朋克控制器</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Zhi+Mang+Xing&display=swap');
 
         * {
             margin: 0;
@@ -15,19 +16,105 @@
             user-select: none;
         }
 
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            touch-action: none;
+            overscroll-behavior: none;
+        }
+
         body {
-            min-height: 100vh;
             background: #0a0a0f;
             font-family: 'Orbitron', monospace;
-            overflow: hidden;
             display: flex;
             justify-content: center;
             align-items: center;
         }
 
+        /* 主容器 */
+        .landscape-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            touch-action: none;
+            overscroll-behavior: none;
+        }
+
+        /* 竖屏提示 */
+        .rotate-hint {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0a0a0f;
+            z-index: 9999;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #00ffff;
+            font-size: 18px;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .rotate-hint > svg {
+            width: 80px;
+            height: 80px;
+            fill: #00ffff;
+            margin-bottom: 20px;
+            animation: rotateHint 2s ease-in-out infinite;
+        }
+
+        @keyframes rotateHint {
+            0%, 100% { transform: rotate(0deg); }
+            50% { transform: rotate(90deg); }
+        }
+
+        .hint-fullscreen-btn {
+            margin-top: 30px;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-family: 'Orbitron', monospace;
+            color: #00ffff;
+            background: rgba(0, 255, 255, 0.1);
+            border: 2px solid #00ffff;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s;
+        }
+
+        .hint-fullscreen-btn:hover,
+        .hint-fullscreen-btn:active {
+            background: rgba(0, 255, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+
+        .hint-fullscreen-btn svg {
+            width: 24px;
+            height: 24px;
+            fill: #00ffff;
+        }
+
+        @media screen and (orientation: portrait) {
+            .rotate-hint {
+                display: flex;
+            }
+            .landscape-container {
+                display: none;
+            }
+        }
+
         /* 网格背景 */
         .grid-bg {
-            position: fixed;
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
@@ -46,7 +133,7 @@
 
         /* 扫描线效果 */
         .scanlines {
-            position: fixed;
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
@@ -62,19 +149,17 @@
             z-index: 1000;
         }
 
-        /* 控制器容器 */
-        .controller {
-            position: relative;
-            width: 100%;
-            max-width: 700px;
-            height: 100vh;
-            max-height: 400px;
+        /* 移动组件容器 */
+        .joystick-container {
+            position: absolute;
+            left: 20%;
+            top: 50%;
+            transform: translate(-50%, -50%);
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
-            gap: 120px;
-            padding: 20px;
-            z-index: 10;
+            z-index: 5;
+            touch-action: none;
         }
 
         /* 摇杆区域 */
@@ -93,6 +178,50 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            touch-action: none;
+        }
+
+        /* XY轴向标签 */
+        .axis-label {
+            position: absolute;
+            font-size: 10px;
+            color: #00ffff;
+            text-shadow: 0 0 5px #00ffff;
+            font-weight: 700;
+            opacity: 0.7;
+        }
+        .axis-label.axis-x-pos { right: -25px; top: 50%; transform: translateY(-50%); }
+        .axis-label.axis-x-neg { left: -25px; top: 50%; transform: translateY(-50%); }
+        .axis-label.axis-y-pos { top: -20px; left: 50%; transform: translateX(-50%); }
+        .axis-label.axis-y-neg { bottom: -20px; left: 50%; transform: translateX(-50%); }
+
+        /* XY数值显示 - 绝对定位锚定到摇杆 */
+        .axis-values {
+            position: absolute;
+            top: -45px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .axis-value {
+            padding: 5px 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid;
+            border-radius: 4px;
+        }
+        .axis-value.x-value {
+            color: #ff00ff;
+            border-color: #ff00ff;
+            text-shadow: 0 0 5px #ff00ff;
+        }
+        .axis-value.y-value {
+            color: #00ff00;
+            border-color: #00ff00;
+            text-shadow: 0 0 5px #00ff00;
         }
 
         .joystick-zone::before {
@@ -164,7 +293,19 @@
             100% { opacity: 1; }
         }
 
-        /* 按钮区域 */
+        /* 操作组件容器 */
+        .controller {
+            position: absolute;
+            left: 80%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        /* 操作按钮区域 */
         .buttons-zone {
             position: relative;
             width: 200px;
@@ -176,16 +317,16 @@
 
         .btn {
             position: absolute;
-            width: 60px;
-            height: 60px;
+            width: 65px;
+            height: 65px;
             border-radius: 50%;
             background: linear-gradient(145deg, #2a2a4a 0%, #1a1a2e 100%);
             display: flex;
             justify-content: center;
             align-items: center;
-            font-family: 'Orbitron', monospace;
-            font-size: 18px;
-            font-weight: 700;
+            font-family: 'Zhi Mang Xing', cursive, serif;
+            font-size: 38px;
+            font-weight: 400;
             cursor: pointer;
             transition: all 0.1s ease;
             touch-action: manipulation;
@@ -206,13 +347,12 @@
             opacity: 1;
         }
 
-        /* 按下状态 - 使用 scale 但保留原有 transform */
         .btn.pressed {
             filter: brightness(1.2);
         }
 
-        /* Y按钮 - 黄色 */
-        .btn-y {
+        /* 北按钮 - 黄色 */
+        .btn-n {
             top: 0;
             left: 50%;
             transform: translateX(-50%);
@@ -225,7 +365,7 @@
                 inset 0 0 20px rgba(255, 255, 0, 0.1);
         }
 
-        .btn-y:active {
+        .btn-n:active {
             background: radial-gradient(circle, rgba(255, 255, 0, 0.3) 0%, #1a1a2e 100%);
             box-shadow: 
                 0 0 25px rgba(255, 255, 0, 0.8),
@@ -233,8 +373,8 @@
                 inset 0 0 30px rgba(255, 255, 0, 0.3);
         }
 
-        /* A按钮 - 绿色 */
-        .btn-a {
+        /* 南按钮 - 绿色 */
+        .btn-s {
             bottom: 0;
             left: 50%;
             transform: translateX(-50%);
@@ -247,7 +387,7 @@
                 inset 0 0 20px rgba(0, 255, 0, 0.1);
         }
 
-        .btn-a:active {
+        .btn-s:active {
             background: radial-gradient(circle, rgba(0, 255, 0, 0.3) 0%, #1a1a2e 100%);
             box-shadow: 
                 0 0 25px rgba(0, 255, 0, 0.8),
@@ -255,8 +395,8 @@
                 inset 0 0 30px rgba(0, 255, 0, 0.3);
         }
 
-        /* X按钮 - 蓝色 */
-        .btn-x {
+        /* 西按钮 - 蓝色 */
+        .btn-w {
             left: 0;
             top: 50%;
             transform: translateY(-50%);
@@ -269,7 +409,7 @@
                 inset 0 0 20px rgba(0, 170, 255, 0.1);
         }
 
-        .btn-x:active {
+        .btn-w:active {
             background: radial-gradient(circle, rgba(0, 170, 255, 0.3) 0%, #1a1a2e 100%);
             box-shadow: 
                 0 0 25px rgba(0, 170, 255, 0.8),
@@ -277,8 +417,8 @@
                 inset 0 0 30px rgba(0, 170, 255, 0.3);
         }
 
-        /* B按钮 - 红色 */
-        .btn-b {
+        /* 东按钮 - 红色 */
+        .btn-e {
             right: 0;
             top: 50%;
             transform: translateY(-50%);
@@ -291,7 +431,7 @@
                 inset 0 0 20px rgba(255, 0, 102, 0.1);
         }
 
-        .btn-b:active {
+        .btn-e:active {
             background: radial-gradient(circle, rgba(255, 0, 102, 0.3) 0%, #1a1a2e 100%);
             box-shadow: 
                 0 0 25px rgba(255, 0, 102, 0.8),
@@ -301,150 +441,83 @@
 
         /* 装饰性元素 */
         .corner-decor {
-            position: fixed;
-            width: 100px;
-            height: 100px;
+            position: absolute;
+            width: 80px;
+            height: 80px;
             border: 2px solid rgba(0, 255, 255, 0.3);
             pointer-events: none;
         }
 
         .corner-decor.top-left {
-            top: 20px;
-            left: 20px;
+            top: 15px;
+            left: 15px;
             border-right: none;
             border-bottom: none;
         }
 
         .corner-decor.top-right {
-            top: 20px;
-            right: 20px;
+            top: 15px;
+            right: 15px;
             border-left: none;
             border-bottom: none;
         }
 
         .corner-decor.bottom-left {
-            bottom: 20px;
-            left: 20px;
+            bottom: 15px;
+            left: 15px;
             border-right: none;
             border-top: none;
         }
 
         .corner-decor.bottom-right {
-            bottom: 20px;
-            right: 20px;
+            bottom: 15px;
+            right: 15px;
             border-left: none;
             border-top: none;
         }
 
         /* 标题 */
         .title {
-            position: fixed;
-            top: 30px;
+            position: absolute;
+            bottom: 25px;
             left: 50%;
             transform: translateX(-50%);
-            font-size: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            animation: flicker 3s infinite;
+            white-space: nowrap;
+        }
+        
+        .title-main {
+            font-size: 16px;
             font-weight: 900;
-            letter-spacing: 8px;
+            letter-spacing: 6px;
             color: #00ffff;
             text-shadow: 
                 0 0 10px #00ffff,
                 0 0 20px #00ffff,
                 0 0 40px #00ffff;
-            animation: flicker 3s infinite;
         }
-
-        /* 全屏按钮 */
-        .fullscreen-btn {
-            position: fixed;
-            top: 20px;
-            right: 80px;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background: rgba(10, 10, 15, 0.9);
-            border: 2px solid #00ffff;
-            color: #00ffff;
-            font-size: 24px;
-            cursor: pointer;
-            z-index: 2000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 
-                0 0 15px rgba(0, 255, 255, 0.5),
-                0 0 30px rgba(0, 255, 255, 0.3);
-            transition: all 0.3s ease;
+        
+        .title-main.cn {
+            font-family: 'Zhi Mang Xing', cursive, serif;
+            font-size: 38px;
+            letter-spacing: 16px;
         }
-
-        .fullscreen-btn:active {
-            transform: scale(0.9);
-            box-shadow: 
-                0 0 25px rgba(0, 255, 255, 0.8),
-                0 0 50px rgba(0, 255, 255, 0.5);
+        
+        .title-slogan {
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: rgba(0, 255, 255, 0.6);
+            text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
         }
-
-        .fullscreen-btn svg {
-            width: 24px;
-            height: 24px;
-            fill: #00ffff;
-        }
-
-        /* 旋转按钮 */
-        .rotate-btn {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background: rgba(10, 10, 15, 0.9);
-            border: 2px solid #ff00ff;
-            color: #ff00ff;
-            font-size: 24px;
-            cursor: pointer;
-            z-index: 2000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 
-                0 0 15px rgba(255, 0, 255, 0.5),
-                0 0 30px rgba(255, 0, 255, 0.3);
-            transition: all 0.3s ease;
-        }
-
-        .rotate-btn:active {
-            transform: scale(0.9);
-            box-shadow: 
-                0 0 25px rgba(255, 0, 255, 0.8),
-                0 0 50px rgba(255, 0, 255, 0.5);
-        }
-
-        .rotate-btn svg {
-            width: 28px;
-            height: 28px;
-            fill: #ff00ff;
-            transition: transform 0.3s ease;
-        }
-
-        .rotate-btn:active svg {
-            transform: rotate(90deg);
-        }
-
-        /* 旋转容器 */
-        .app-container {
-            width: 100vw;
-            height: 100vh;
-            transition: transform 0.4s ease, width 0.4s ease, height 0.4s ease;
-            transform-origin: center center;
-        }
-
-        .app-container.rotated {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            width: 100vh;
-            height: 100vw;
-            transform: translate(-50%, -50%) rotate(90deg);
+        
+        .title-slogan.cn {
+            font-family: 'Zhi Mang Xing', cursive, serif;
+            font-size: 20px;
+            letter-spacing: 6px;
         }
 
         @keyframes flicker {
@@ -456,26 +529,175 @@
             96% { opacity: 1; }
         }
 
-        /* 状态显示 */
-        .status {
-            position: fixed;
-            bottom: 30px;
+        /* 信息栏（居中） */
+        .info-bar {
+            position: absolute;
+            top: 22px;
             left: 50%;
             transform: translateX(-50%);
-            font-size: 12px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        /* 菜单栏（右侧） */
+        .menu-bar {
+            position: absolute;
+            top: 22px;
+            right: 25px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 2000;
+        }
+        
+        .menu-toggle {
+            width: 32px;
+            height: 32px;
+            background: rgba(0, 20, 40, 0.8);
+            border: 1px solid #00ffff;
+            border-radius: 6px;
+            color: #00ffff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        
+        .menu-toggle:hover {
+            background: rgba(0, 255, 255, 0.2);
+        }
+        
+        .menu-toggle svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+            transition: transform 0.3s;
+        }
+        
+        .menu-toggle.collapsed svg {
+            transform: rotate(180deg);
+        }
+        
+        .menu-content {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        
+        .menu-content.collapsed {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateX(20px);
+        }
+
+        .top-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .top-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: rgba(0, 20, 40, 0.85);
+            border: 1.5px solid #00ffff;
+            color: #00ffff;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 8px rgba(0, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .top-btn:active {
+            transform: scale(0.9);
+            box-shadow: 
+                0 0 20px rgba(0, 255, 255, 0.8),
+                0 0 40px rgba(0, 255, 255, 0.5);
+        }
+
+        .top-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: #00ffff;
+        }
+
+        .top-btn.active {
+            background: rgba(0, 255, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+        }
+
+        /* 拖动手柄 */
+        .drag-handle {
+            display: none;
+            position: absolute;
+            bottom: -15px;
+            width: 30px;
+            height: 30px;
+            background: rgba(255, 0, 255, 0.8);
+            border: 2px solid #ff00ff;
+            border-radius: 50%;
+            cursor: move;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.6);
+            z-index: 3000;
+            touch-action: none;
+        }
+
+        .joystick-container .drag-handle {
+            left: -15px;
+        }
+
+        .controller .drag-handle {
+            right: -15px;
+        }
+
+        .drag-handle svg {
+            width: 18px;
+            height: 18px;
+            fill: white;
+        }
+
+        .drag-handle.visible {
+            display: flex;
+        }
+
+        .drag-handle:active {
+            transform: scale(1.1);
+            box-shadow: 0 0 25px rgba(255, 0, 255, 0.9);
+        }
+
+        /* 调整模式下的容器样式 */
+        .adjusting .joystick-container,
+        .adjusting .controller {
+            outline: 2px dashed rgba(255, 0, 255, 0.5);
+            outline-offset: 10px;
+        }
+
+        /* 状态显示 */
+        .status {
+            font-size: 11px;
             color: #ff00ff;
-            letter-spacing: 3px;
+            letter-spacing: 2px;
             text-shadow: 0 0 10px #ff00ff;
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 12px;
+            white-space: nowrap;
         }
 
         /* 延迟显示 */
         .latency {
             color: #00ffff;
             text-shadow: 0 0 10px #00ffff;
-            font-size: 11px;
+            font-size: 10px;
             letter-spacing: 2px;
         }
 
@@ -500,7 +722,7 @@
             height: 8px;
             background: #00ff00;
             border-radius: 50%;
-            margin-right: 8px;
+            margin-right: 6px;
             box-shadow: 0 0 10px #00ff00;
             animation: blink 1s infinite;
         }
@@ -510,15 +732,12 @@
             50% { opacity: 0.3; }
         }
 
-        /* 响应式 */
-        @media (max-width: 600px) {
-            .controller {
-                padding: 20px;
-            }
-            
+        /* 小屏幕横屏适配 */
+        @media screen and (max-height: 450px) {
             .joystick-zone {
                 width: 140px;
                 height: 140px;
+                left: 60px;
             }
             
             .joystick-base {
@@ -532,39 +751,57 @@
             }
             
             .buttons-zone {
-                width: 160px;
-                height: 160px;
+                width: 180px;
+                height: 180px;
             }
             
             .btn {
-                width: 50px;
-                height: 50px;
-                font-size: 14px;
+                width: 55px;
+                height: 55px;
+                font-size: 28px;
             }
             
-            .title {
-                font-size: 16px;
+            .title-main {
+                font-size: 14px;
                 letter-spacing: 4px;
+            }
+            
+            .title-main.cn {
+                font-size: 32px;
+                letter-spacing: 12px;
+            }
+            
+            .title-slogan {
+                font-size: 9px;
+            }
+            
+            .title-slogan.cn {
+                font-size: 16px;
+            }
+
+            .corner-decor {
+                width: 50px;
+                height: 50px;
             }
         }
     </style>
 </head>
 <body>
-    <!-- 全屏按钮 -->
-    <button class="fullscreen-btn" id="fullscreenBtn" title="全屏">
-        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" id="fullscreenIcon">
-            <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
-        </svg>
-    </button>
-
-    <!-- 旋转按钮 (在容器外，保持固定位置) -->
-    <button class="rotate-btn" id="rotateBtn" title="旋转屏幕">
+    <!-- 竖屏提示 -->
+    <div class="rotate-hint" id="rotateHint">
         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M7.11 8.53L5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.14-.87.49-1.72 1.02-2.47zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.75-.87-1.59-1.01-2.47zm1.01 5.32c1.16.9 2.51 1.44 3.9 1.61V17.9c-.87-.15-1.71-.49-2.46-1.03L7.1 18.32zM13 4.07V1L8.45 5.55 13 10V6.09c2.84.48 5 2.94 5 5.91s-2.16 5.43-5 5.91v2.02c3.95-.49 7-3.85 7-7.93s-3.05-7.44-7-7.93z"/>
+            <path d="M16.48 2.52c3.27 1.55 5.61 4.72 5.97 8.48h1.5C23.44 4.84 18.29 0 12 0l-.66.03 3.81 3.81 1.33-1.32zm-6.25-.77c-.59-.59-1.54-.59-2.12 0L1.75 8.11c-.59.59-.59 1.54 0 2.12l12.02 12.02c.59.59 1.54.59 2.12 0l6.36-6.36c-.59.59-.59 1.54 0 2.12L10.23 1.75zm4.6 19.44L2.81 9.17l6.36-6.36 12.02 12.02-6.36 6.36zm-7.31.29C4.25 19.94 1.91 16.76 1.55 13H.05C.56 19.16 5.71 24 12 24l.66-.03-3.81-3.81-1.33 1.32z"/>
         </svg>
-    </button>
+        <p>请旋转手机至横屏</p>
+        <button class="hint-fullscreen-btn" id="hintFullscreenBtn">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+            </svg>
+            点击进入全屏
+        </button>
+    </div>
 
-    <div class="app-container" id="appContainer">
+    <div class="landscape-container" id="landscapeContainer">
         <div class="grid-bg"></div>
         <div class="scanlines"></div>
         
@@ -573,137 +810,438 @@
         <div class="corner-decor bottom-left"></div>
         <div class="corner-decor bottom-right"></div>
         
-        <div class="title">CYBER CTRL</div>
+        <div class="title">
+            <span class="title-main" id="titleMain">BLOCK CONTROLLER</span>
+            <span class="title-slogan" id="titleSlogan"></span>
+        </div>
         
-        <div class="controller">
-            <!-- 摇杆 -->
-            <div class="joystick-zone" id="joystickZone">
-                <div class="joystick-base"></div>
-                <div class="joystick" id="joystick"></div>
-            </div>
-            
-            <!-- XYAB按钮 -->
-            <div class="buttons-zone">
-                <button class="btn btn-y" id="btnY" style="opacity:0.3">Y</button>
-                <button class="btn btn-a" id="btnA">A<span style="font-size:8px;display:block;margin-top:2px">JUMP</span></button>
-                <button class="btn btn-x" id="btnX" style="opacity:0.3">X</button>
-                <button class="btn btn-b" id="btnB">B<span style="font-size:8px;display:block;margin-top:2px">DASH</span></button>
+        <!-- 信息栏（居中） -->
+        <div class="info-bar" id="infoBar">
+            <div class="status">
+                <span class="status-dot"></span>
+                <span class="status-text" id="statusText">SYSTEM ONLINE</span>
+                <span class="latency" id="latencyDisplay">-- ms</span>
             </div>
         </div>
         
-        <div class="status">
-            <span class="status-dot"></span>
-            <span class="status-text">SYSTEM ONLINE</span>
-            <span class="latency" id="latencyDisplay">-- ms</span>
+        <!-- 菜单栏（右侧） -->
+        <div class="menu-bar">
+            <div class="menu-content" id="menuContent">
+                <div class="top-buttons">
+                    <button class="top-btn" id="langBtn" title="中/EN">
+                        <span id="langIcon" style="font-size:12px;font-weight:bold;">中</span>
+                    </button>
+                    <button class="top-btn" id="adjustBtn" title="调整布局">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/>
+                        </svg>
+                    </button>
+                    <button class="top-btn" id="refreshBtn" title="刷新">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                        </svg>
+                    </button>
+                    <button class="top-btn" id="fullscreenBtn" title="全屏">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" id="fullscreenIcon">
+                            <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <button class="menu-toggle" id="menuToggle" title="折叠菜单">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- 移动组件 -->
+        <div class="joystick-container" id="joystickContainer">
+            <div class="joystick-zone" id="joystickZone">
+                <div class="joystick-base"></div>
+                <div class="joystick" id="joystick"></div>
+                <!-- 轴向标签 -->
+                <span class="axis-label axis-x-pos">+X</span>
+                <span class="axis-label axis-x-neg">-X</span>
+                <span class="axis-label axis-y-pos">-Y</span>
+                <span class="axis-label axis-y-neg">+Y</span>
+                <!-- XY数值显示 - 锚定在摇杆上方 -->
+                <div class="axis-values">
+                    <span class="axis-value x-value">X: <span id="xValue">0.00</span></span>
+                    <span class="axis-value y-value">Y: <span id="yValue">0.00</span></span>
+                </div>
+            </div>
+            <!-- 拖动手柄 -->
+            <div class="drag-handle" id="joystickHandle">
+                <svg viewBox="0 0 24 24"><path d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg>
+            </div>
+        </div>
+
+        <div class="controller" id="buttonsContainer">
+            <!-- 操作组件 -->
+            <div class="buttons-zone">
+                <button class="btn btn-n" id="btn北">北</button>
+                <button class="btn btn-s" id="btn南">南</button>
+                <button class="btn btn-w" id="btn西">西</button>
+                <button class="btn btn-e" id="btn东">东</button>
+            </div>
+            <!-- 拖动手柄 -->
+            <div class="drag-handle" id="buttonsHandle">
+                <svg viewBox="0 0 24 24"><path d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg>
+            </div>
         </div>
     </div>
 
     <script>
-        // ==================== 全屏功能 ====================
+        // ==================== 菜单折叠 ====================
+        const menuToggle = document.getElementById('menuToggle');
+        const menuContent = document.getElementById('menuContent');
+        let menuCollapsed = localStorage.getItem('menuCollapsed') === 'true';
+        
+        function updateMenuState() {
+            if (menuCollapsed) {
+                menuContent.classList.add('collapsed');
+                menuToggle.classList.add('collapsed');
+            } else {
+                menuContent.classList.remove('collapsed');
+                menuToggle.classList.remove('collapsed');
+            }
+        }
+        
+        menuToggle.addEventListener('click', () => {
+            menuCollapsed = !menuCollapsed;
+            localStorage.setItem('menuCollapsed', menuCollapsed);
+            updateMenuState();
+            if (navigator.vibrate) {
+                navigator.vibrate(20);
+            }
+        });
+        
+        // 初始化菜单状态
+        updateMenuState();
+        
+        // ==================== 刷新按钮 ====================
+        const refreshBtn = document.getElementById('refreshBtn');
+        refreshBtn.addEventListener('click', () => {
+            location.reload();
+        });
+
+        // ==================== 语言切换 ====================
+        const langBtn = document.getElementById('langBtn');
+        const langIcon = document.getElementById('langIcon');
+        
+        // 按钮文字映射
+        const buttonLabels = {
+            cn: { '北': '北', '南': '南', '西': '西', '东': '东' },
+            en: { '北': 'N', '南': 'S', '西': 'W', '东': 'E' }
+        };
+        
+        // Logo 文字映射
+        const titleLabels = {
+            cn: { main: '方 寸 枢', slogan: '方寸之间 · 自有枢机' },
+            en: { main: 'BLOCK CONTROLLER', slogan: 'Small Square, Infinite Control' }
+        };
+        
+        // 状态文字映射
+        const statusLabels = {
+            cn: { online: '已连接', offline: '未连接', connecting: '连接中...' },
+            en: { online: 'CONNECTED', offline: 'DISCONNECTED', connecting: 'CONNECTING...' }
+        };
+        
+        const titleMain = document.getElementById('titleMain');
+        const titleSlogan = document.getElementById('titleSlogan');
+        const statusText = document.getElementById('statusText');
+        
+        let currentLang = localStorage.getItem('buttonLang') || 'cn';
+        
+        function updateLanguage() {
+            // 更新按钮
+            const labels = buttonLabels[currentLang];
+            const btns = ['北', '南', '西', '东'];
+            const font = currentLang === 'cn' 
+                ? "'Zhi Mang Xing', cursive, serif" 
+                : "'Orbitron', monospace";
+            const fontSize = currentLang === 'cn' ? '38px' : '22px';
+            
+            btns.forEach(name => {
+                const btn = document.getElementById('btn' + name);
+                btn.textContent = labels[name];
+                btn.style.fontFamily = font;
+                btn.style.fontSize = fontSize;
+            });
+            
+            // 更新 Logo
+            const title = titleLabels[currentLang];
+            titleMain.textContent = title.main;
+            titleSlogan.textContent = title.slogan;
+            
+            if (currentLang === 'cn') {
+                titleMain.classList.add('cn');
+                titleSlogan.classList.add('cn');
+            } else {
+                titleMain.classList.remove('cn');
+                titleSlogan.classList.remove('cn');
+            }
+            
+            // 更新状态文字
+            updateStatusText();
+            
+            if (currentLang === 'cn') {
+                langIcon.textContent = '中';
+                langIcon.style.fontFamily = "'Zhi Mang Xing', cursive, serif";
+                langIcon.style.fontSize = '18px';
+            } else {
+                langIcon.textContent = 'EN';
+                langIcon.style.fontFamily = "'Orbitron', monospace";
+                langIcon.style.fontSize = '11px';
+            }
+        }
+        
+        // 更新状态文字（需要在连接状态变化时也调用）
+        let connectionState = 'offline'; // 'online', 'offline', 'connecting'
+        function updateStatusText() {
+            statusText.textContent = statusLabels[currentLang][connectionState];
+            if (currentLang === 'cn') {
+                statusText.style.fontFamily = "'Zhi Mang Xing', cursive, serif";
+                statusText.style.fontSize = '18px';
+            } else {
+                statusText.style.fontFamily = "'Orbitron', monospace";
+                statusText.style.fontSize = '12px';
+            }
+        }
+        
+        langBtn.addEventListener('click', () => {
+            currentLang = currentLang === 'cn' ? 'en' : 'cn';
+            localStorage.setItem('buttonLang', currentLang);
+            updateLanguage();
+            if (navigator.vibrate) {
+                navigator.vibrate(20);
+            }
+        });
+        
+        // 初始化语言
+        updateLanguage();
+
+        // ==================== 布局调整 ====================
+        const adjustBtn = document.getElementById('adjustBtn');
+        const joystickContainer = document.getElementById('joystickContainer');
+        const buttonsContainer = document.getElementById('buttonsContainer');
+        const joystickHandle = document.getElementById('joystickHandle');
+        const buttonsHandle = document.getElementById('buttonsHandle');
+        const landscapeContainer = document.getElementById('landscapeContainer');
+        
+        let isAdjustMode = false;
+        let currentDragTarget = null;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let elementStartX = 0;
+        let elementStartY = 0;
+        
+        // 加载保存的布局
+        function loadLayout() {
+            const saved = localStorage.getItem('controllerLayout');
+            if (saved) {
+                try {
+                    const layout = JSON.parse(saved);
+                    if (layout.joystick) {
+                        joystickContainer.style.left = layout.joystick.left;
+                        joystickContainer.style.top = layout.joystick.top;
+                    }
+                    if (layout.buttons) {
+                        buttonsContainer.style.left = layout.buttons.left;
+                        buttonsContainer.style.top = layout.buttons.top;
+                        buttonsContainer.style.right = 'auto';
+                    }
+                } catch (e) {
+                    console.log('布局加载失败');
+                }
+            }
+        }
+        
+        // 保存布局
+        function saveLayout() {
+            const layout = {
+                joystick: {
+                    left: joystickContainer.style.left,
+                    top: joystickContainer.style.top
+                },
+                buttons: {
+                    left: buttonsContainer.style.left,
+                    top: buttonsContainer.style.top
+                }
+            };
+            localStorage.setItem('controllerLayout', JSON.stringify(layout));
+        }
+        
+        // 切换调整模式
+        adjustBtn.addEventListener('click', () => {
+            isAdjustMode = !isAdjustMode;
+            adjustBtn.classList.toggle('active', isAdjustMode);
+            joystickHandle.classList.toggle('visible', isAdjustMode);
+            buttonsHandle.classList.toggle('visible', isAdjustMode);
+            landscapeContainer.classList.toggle('adjusting', isAdjustMode);
+            
+            if (!isAdjustMode) {
+                saveLayout();
+            }
+            
+            if (navigator.vibrate) {
+                navigator.vibrate(20);
+            }
+        });
+        
+        // 拖动开始
+        function startDrag(e, target, container) {
+            if (!isAdjustMode) return;
+            e.preventDefault();
+            e.stopPropagation();
+            
+            currentDragTarget = container;
+            const touch = e.touches ? e.touches[0] : e;
+            dragStartX = touch.clientX;
+            dragStartY = touch.clientY;
+            
+            const rect = container.getBoundingClientRect();
+            const parentRect = landscapeContainer.getBoundingClientRect();
+            elementStartX = rect.left - parentRect.left + rect.width / 2;
+            elementStartY = rect.top - parentRect.top + rect.height / 2;
+        }
+        
+        // 拖动中
+        function onDrag(e) {
+            if (!currentDragTarget || !isAdjustMode) return;
+            e.preventDefault();
+            
+            const touch = e.touches ? e.touches[0] : e;
+            const deltaX = touch.clientX - dragStartX;
+            const deltaY = touch.clientY - dragStartY;
+            
+            const newX = elementStartX + deltaX;
+            const newY = elementStartY + deltaY;
+            
+            const parentRect = landscapeContainer.getBoundingClientRect();
+            const percentX = (newX / parentRect.width) * 100;
+            const percentY = (newY / parentRect.height) * 100;
+            
+            currentDragTarget.style.left = `${percentX}%`;
+            currentDragTarget.style.top = `${percentY}%`;
+            currentDragTarget.style.right = 'auto';
+            currentDragTarget.style.transform = 'translate(-50%, -50%)';
+        }
+        
+        // 拖动结束
+        function endDrag() {
+            if (currentDragTarget) {
+                saveLayout();
+            }
+            currentDragTarget = null;
+        }
+        
+        // 绑定事件
+        joystickHandle.addEventListener('mousedown', (e) => startDrag(e, joystickHandle, joystickContainer));
+        joystickHandle.addEventListener('touchstart', (e) => startDrag(e, joystickHandle, joystickContainer), { passive: false });
+        
+        buttonsHandle.addEventListener('mousedown', (e) => startDrag(e, buttonsHandle, buttonsContainer));
+        buttonsHandle.addEventListener('touchstart', (e) => startDrag(e, buttonsHandle, buttonsContainer), { passive: false });
+        
+        document.addEventListener('mousemove', onDrag);
+        document.addEventListener('touchmove', onDrag, { passive: false });
+        
+        document.addEventListener('mouseup', endDrag);
+        document.addEventListener('touchend', endDrag);
+        
+        // 页面加载时恢复布局
+        loadLayout();
+
+        // ==================== 全屏 + 横屏锁定 ====================
         const fullscreenBtn = document.getElementById('fullscreenBtn');
         const fullscreenIcon = document.getElementById('fullscreenIcon');
         
-        // 全屏图标
         const expandIcon = '<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>';
         const compressIcon = '<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>';
         
-        function toggleFullscreen() {
+        // 锁定横屏
+        async function lockLandscape() {
+            try {
+                if (screen.orientation && screen.orientation.lock) {
+                    await screen.orientation.lock('landscape');
+                    console.log('横屏锁定成功');
+                }
+            } catch (err) {
+                console.log('横屏锁定失败（可能不支持）:', err.message);
+            }
+        }
+        
+        // 解锁屏幕方向
+        function unlockOrientation() {
+            try {
+                if (screen.orientation && screen.orientation.unlock) {
+                    screen.orientation.unlock();
+                }
+            } catch (err) {
+                console.log('解锁方向失败:', err.message);
+            }
+        }
+        
+        async function toggleFullscreen() {
             if (!document.fullscreenElement) {
-                // 进入全屏
-                document.documentElement.requestFullscreen().then(() => {
+                try {
+                    await document.documentElement.requestFullscreen();
                     fullscreenIcon.innerHTML = compressIcon;
-                }).catch(err => {
+                    // 全屏后锁定横屏
+                    await lockLandscape();
+                } catch (err) {
                     console.log('全屏失败:', err);
-                });
+                }
             } else {
-                // 退出全屏
-                document.exitFullscreen().then(() => {
+                try {
+                    unlockOrientation();
+                    await document.exitFullscreen();
                     fullscreenIcon.innerHTML = expandIcon;
-                }).catch(err => {
+                } catch (err) {
                     console.log('退出全屏失败:', err);
-                });
+                }
             }
         }
         
         fullscreenBtn.addEventListener('click', toggleFullscreen);
         
-        // 监听全屏状态变化
+        // 提示页面的全屏按钮
+        const hintFullscreenBtn = document.getElementById('hintFullscreenBtn');
+        hintFullscreenBtn.addEventListener('click', toggleFullscreen);
+        
         document.addEventListener('fullscreenchange', () => {
             if (document.fullscreenElement) {
                 fullscreenIcon.innerHTML = compressIcon;
             } else {
                 fullscreenIcon.innerHTML = expandIcon;
+                unlockOrientation();
             }
-            // 震动反馈
             if (navigator.vibrate) {
                 navigator.vibrate(30);
             }
         });
-
-        // ==================== 屏幕旋转功能 ====================
-        const rotateBtn = document.getElementById('rotateBtn');
-        const appContainer = document.getElementById('appContainer');
-        let isRotated = false;
-
-        rotateBtn.addEventListener('click', () => {
-            isRotated = !isRotated;
-            appContainer.classList.toggle('rotated', isRotated);
-            
-            // 震动反馈
-            if (navigator.vibrate) {
-                navigator.vibrate(50);
-            }
-        });
-
-        // 检测屏幕方向，如果是竖屏自动提示旋转
-        function checkOrientation() {
-            if (window.innerHeight > window.innerWidth && !isRotated) {
-                // 竖屏模式，显示旋转提示
-                rotateBtn.style.animation = 'pulse-rotate 1s infinite';
-            } else {
-                rotateBtn.style.animation = 'none';
-            }
-        }
-
-        // 添加旋转按钮脉冲动画
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes pulse-rotate {
-                0%, 100% { box-shadow: 0 0 15px rgba(255, 0, 255, 0.5), 0 0 30px rgba(255, 0, 255, 0.3); }
-                50% { box-shadow: 0 0 25px rgba(255, 0, 255, 0.8), 0 0 50px rgba(255, 0, 255, 0.6), 0 0 70px rgba(255, 0, 255, 0.4); }
-            }
-        `;
-        document.head.appendChild(style);
-
-        window.addEventListener('resize', checkOrientation);
-        checkOrientation();
 
         // ==================== WebSocket 连接 ====================
         let ws = null;
         let reconnectAttempts = 0;
         const maxReconnectAttempts = 10;
         const statusDot = document.querySelector('.status-dot');
-        const statusTextEl = document.querySelector('.status-text');
         const latencyDisplay = document.getElementById('latencyDisplay');
         
-        // 延迟测量
         let pingInterval = null;
-        let pingStartTime = 0;
         let latencyHistory = [];
         const maxLatencyHistory = 5;
         
         function updateLatencyDisplay(latency) {
-            // 计算平均延迟
             latencyHistory.push(latency);
             if (latencyHistory.length > maxLatencyHistory) {
                 latencyHistory.shift();
             }
             const avgLatency = Math.round(latencyHistory.reduce((a, b) => a + b, 0) / latencyHistory.length);
             
-            // 更新显示
             latencyDisplay.textContent = `${avgLatency} ms`;
             
-            // 根据延迟设置颜色
             latencyDisplay.classList.remove('good', 'medium', 'bad');
             if (avgLatency < 50) {
                 latencyDisplay.classList.add('good');
@@ -716,64 +1254,64 @@
         
         function sendPing() {
             if (ws && ws.readyState === WebSocket.OPEN) {
-                pingStartTime = Date.now();
+                const pingStartTime = Date.now();
                 ws.send(JSON.stringify({ type: 'ping', timestamp: pingStartTime }));
             }
         }
         
-        function updateStatus(connected, message) {
-            if (connected) {
+        function updateStatus(state) {
+            connectionState = state; // 'online', 'offline', 'connecting'
+            if (state === 'online') {
                 statusDot.style.background = '#00ff00';
                 statusDot.style.boxShadow = '0 0 10px #00ff00';
-                if (statusTextEl) statusTextEl.textContent = message || 'CONNECTED';
+                statusDot.style.animation = '';
+            } else if (state === 'connecting') {
+                statusDot.style.background = '#ffaa00';
+                statusDot.style.boxShadow = '0 0 10px #ffaa00';
+                statusDot.style.animation = 'blink 1s infinite';
             } else {
                 statusDot.style.background = '#ff0066';
                 statusDot.style.boxShadow = '0 0 10px #ff0066';
                 statusDot.style.animation = 'blink 0.5s infinite';
-                if (statusTextEl) statusTextEl.textContent = message || 'DISCONNECTED';
                 latencyDisplay.textContent = '-- ms';
                 latencyDisplay.classList.remove('good', 'medium', 'bad');
             }
+            updateStatusText();
         }
         
         function connectWebSocket() {
-            // 使用当前页面的主机地址
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = `${protocol}//${window.location.host}/ws`;
             
             console.log('正在连接服务器:', wsUrl);
-            updateStatus(false, 'CONNECTING...');
+            updateStatus('connecting');
             
             ws = new WebSocket(wsUrl);
             
             ws.onopen = () => {
                 console.log('WebSocket 连接成功!');
                 reconnectAttempts = 0;
-                updateStatus(true, 'CONNECTED');
-                statusDot.style.animation = '';
+                updateStatus('online');
                 
-                // 启动延迟测量
                 latencyHistory = [];
-                sendPing();  // 立即发送一次
-                pingInterval = setInterval(sendPing, 2000);  // 每2秒测量一次
+                sendPing();
+                pingInterval = setInterval(sendPing, 2000);
             };
             
             ws.onclose = () => {
                 console.log('WebSocket 连接断开');
-                updateStatus(false, 'DISCONNECTED');
+                updateStatus('offline');
                 
-                // 停止延迟测量
                 if (pingInterval) {
                     clearInterval(pingInterval);
                     pingInterval = null;
                 }
                 
-                // 自动重连
                 if (reconnectAttempts < maxReconnectAttempts) {
                     reconnectAttempts++;
                     const delay = Math.min(1000 * reconnectAttempts, 5000);
                     console.log(`${delay/1000}秒后尝试重连... (${reconnectAttempts}/${maxReconnectAttempts})`);
-                    updateStatus(false, `RECONNECT ${reconnectAttempts}/${maxReconnectAttempts}`);
+                    updateStatus('connecting');
                     setTimeout(connectWebSocket, delay);
                 }
             };
@@ -785,8 +1323,6 @@
             ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    
-                    // 处理 pong 响应
                     if (data.type === 'pong') {
                         const latency = Date.now() - data.timestamp;
                         updateLatencyDisplay(latency);
@@ -803,19 +1339,18 @@
             }
         }
         
-        // 启动 WebSocket 连接
         connectWebSocket();
-        
+
         // ==================== 摇杆控制 ====================
         const joystickZone = document.getElementById('joystickZone');
         const joystick = document.getElementById('joystick');
+        const xValueDisplay = document.getElementById('xValue');
+        const yValueDisplay = document.getElementById('yValue');
         
-        let joystickTouchId = null;  // 追踪摇杆的触摸ID
+        let joystickTouchId = null;
         let isDragging = false;
-        let lastJoystickX = 0;
-        let lastJoystickY = 0;
         const maxDistance = 50;
-        const sendInterval = 50; // 发送间隔 (ms)
+        const sendInterval = 16;
         let lastSendTime = 0;
         
         // 获取摇杆中心位置
@@ -827,50 +1362,33 @@
             };
         }
         
-        // 移动摇杆
-        function moveJoystick(clientX, clientY) {
+        function moveJoystick(screenX, screenY) {
             const center = getJoystickCenter();
-            let deltaX = clientX - center.x;
-            let deltaY = clientY - center.y;
             
-            // 限制在圆形范围内
+            let deltaX = screenX - center.x;
+            let deltaY = screenY - center.y;
+            
             const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
             if (distance > maxDistance) {
-                deltaX = (deltaX / distance) * maxDistance;
-                deltaY = (deltaY / distance) * maxDistance;
+                const scale = maxDistance / distance;
+                deltaX *= scale;
+                deltaY *= scale;
             }
             
-            // 视觉上的摇杆移动
-            // 旋转后需要转换坐标系，让摇杆视觉上跟随手指
-            if (isRotated) {
-                // 容器旋转了90度，需要把屏幕坐标转换为容器坐标
-                const visualX = deltaY;
-                const visualY = -deltaX;
-                joystick.style.transform = `translate(${visualX}px, ${visualY}px)`;
-            } else {
-                joystick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-            }
+            // 直接使用原始坐标
+            joystick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
             
-            // 计算归一化值 (-1 到 1)
-            let normalizedX = deltaX / maxDistance;
-            let normalizedY = deltaY / maxDistance;
+            // 归一化值（原始）
+            const normalizedX = deltaX / maxDistance;
+            const normalizedY = deltaY / maxDistance;
             
-            // 如果屏幕旋转了，调整控制方向
-            // CSS rotate(90deg) 顺时针旋转，用户顺时针转手机观看
-            if (isRotated) {
-                const tempX = normalizedX;
-                normalizedX = normalizedY;
-                normalizedY = -tempX;
-            }
+            xValueDisplay.textContent = normalizedX.toFixed(2);
+            yValueDisplay.textContent = normalizedY.toFixed(2);
             
-            // 节流发送
+            // 直接发送原始值，无任何转换
             const now = Date.now();
             if (now - lastSendTime > sendInterval) {
                 lastSendTime = now;
-                lastJoystickX = normalizedX;
-                lastJoystickY = normalizedY;
-                
-                // 发送摇杆数据
                 sendMessage({
                     type: 'joystick',
                     x: normalizedX,
@@ -879,24 +1397,25 @@
             }
         }
         
-        // 重置摇杆
         function resetJoystick() {
+            joystick.style.transition = 'transform 0.15s ease-out';
             joystick.style.transform = 'translate(0, 0)';
-            joystick.style.transition = 'transform 0.2s ease-out';
             setTimeout(() => {
                 joystick.style.transition = '';
-            }, 200);
+            }, 150);
             
-            // 发送摇杆释放
+            xValueDisplay.textContent = '0.00';
+            yValueDisplay.textContent = '0.00';
+            
             sendMessage({ type: 'joystick_release' });
-            lastJoystickX = 0;
-            lastJoystickY = 0;
             joystickTouchId = null;
+            isDragging = false;
         }
         
         // 鼠标事件
-        joystick.addEventListener('mousedown', (e) => {
+        joystickZone.addEventListener('mousedown', (e) => {
             isDragging = true;
+            moveJoystick(e.clientX, e.clientY);
             e.preventDefault();
         });
         
@@ -908,26 +1427,27 @@
         
         document.addEventListener('mouseup', () => {
             if (isDragging) {
-                isDragging = false;
                 resetJoystick();
             }
         });
         
-        // 触摸事件 - 使用 touchId 实现多点触控
+        // 触摸事件
         joystickZone.addEventListener('touchstart', (e) => {
-            // 只在没有激活的摇杆触摸时响应
             if (joystickTouchId === null) {
                 const touch = e.changedTouches[0];
                 joystickTouchId = touch.identifier;
                 isDragging = true;
                 moveJoystick(touch.clientX, touch.clientY);
+                
+                if (navigator.vibrate) {
+                    navigator.vibrate(10);
+                }
             }
             e.preventDefault();
         }, { passive: false });
         
         document.addEventListener('touchmove', (e) => {
             if (joystickTouchId !== null) {
-                // 找到对应的触摸点
                 for (let i = 0; i < e.touches.length; i++) {
                     if (e.touches[i].identifier === joystickTouchId) {
                         moveJoystick(e.touches[i].clientX, e.touches[i].clientY);
@@ -939,7 +1459,6 @@
         }, { passive: false });
         
         document.addEventListener('touchend', (e) => {
-            // 检查是否是摇杆的触摸点结束
             for (let i = 0; i < e.changedTouches.length; i++) {
                 if (e.changedTouches[i].identifier === joystickTouchId) {
                     isDragging = false;
@@ -950,7 +1469,6 @@
         });
         
         document.addEventListener('touchcancel', (e) => {
-            // 检查是否是摇杆的触摸点取消
             for (let i = 0; i < e.changedTouches.length; i++) {
                 if (e.changedTouches[i].identifier === joystickTouchId) {
                     isDragging = false;
@@ -961,10 +1479,10 @@
         });
         
         // ==================== 按钮事件 ====================
-        const buttons = ['Y', 'A', 'X', 'B'];
-        const buttonTouchIds = {};  // 追踪每个按钮的触摸ID
+        const buttons = ['北', '南', '西', '东'];
+        const buttonTouchIds = {};
         
-         buttons.forEach(btn => {
+        buttons.forEach(btn => {
             const element = document.getElementById(`btn${btn}`);
             buttonTouchIds[btn] = null;
             
@@ -974,11 +1492,9 @@
                     button: btn,
                     action: 'press'
                 });
-                // 震动反馈 (如果支持)
                 if (navigator.vibrate) {
                     navigator.vibrate(30);
                 }
-                // 添加按下视觉效果（使用 class 避免覆盖原有 transform）
                 element.classList.add('pressed');
             }
             
@@ -988,24 +1504,21 @@
                     button: btn,
                     action: 'release'
                 });
-                // 移除按下视觉效果
                 element.classList.remove('pressed');
                 buttonTouchIds[btn] = null;
             }
             
-            // 鼠标事件
             element.addEventListener('mousedown', onPress);
             element.addEventListener('mouseup', onRelease);
             element.addEventListener('mouseleave', onRelease);
             
-            // 触摸事件 - 使用独立的 touchId
             element.addEventListener('touchstart', (e) => {
                 if (buttonTouchIds[btn] === null) {
                     buttonTouchIds[btn] = e.changedTouches[0].identifier;
                     onPress();
                 }
                 e.preventDefault();
-                e.stopPropagation();  // 阻止冒泡
+                e.stopPropagation();
             }, { passive: false });
             
             element.addEventListener('touchend', (e) => {
@@ -1045,4 +1558,3 @@
     </script>
 </body>
 </html>
-

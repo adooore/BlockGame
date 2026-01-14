@@ -190,6 +190,11 @@ async def game_handler(request):
     return web.FileResponse('./game.html')
 
 
+async def test_handler(request):
+    """提供测试页面"""
+    return web.FileResponse('./test.html')
+
+
 async def static_handler(request):
     """静态文件处理"""
     filename = request.match_info.get('filename', 'index.html')
@@ -203,6 +208,7 @@ def create_app():
     app.router.add_get('/ws', websocket_handler)           # 控制器 WebSocket
     app.router.add_get('/ws/game', game_websocket_handler) # 游戏 WebSocket
     app.router.add_get('/game.html', game_handler)
+    app.router.add_get('/test', test_handler)              # 测试页面
     app.router.add_get('/{filename}', static_handler)
     return app
 
