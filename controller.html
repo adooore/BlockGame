@@ -588,7 +588,7 @@
             gap: 12px;
             transition: opacity 0.3s ease, transform 0.3s ease;
         }
-        
+
         .menu-content.collapsed {
             opacity: 0;
             pointer-events: none;
@@ -727,6 +727,16 @@
             animation: blink 1s infinite;
         }
 
+        .player-id {
+            font-family: 'Orbitron', monospace;
+            font-size: 14px;
+            font-weight: bold;
+            color: #00ffff;
+            text-shadow: 0 0 10px #00ffff;
+            margin-right: 8px;
+            letter-spacing: 1px;
+        }
+
         @keyframes blink {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.3; }
@@ -794,11 +804,11 @@
         </svg>
         <p>请旋转手机至横屏</p>
         <button class="hint-fullscreen-btn" id="hintFullscreenBtn">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
-            </svg>
+        </svg>
             点击进入全屏
-        </button>
+    </button>
     </div>
 
     <div class="landscape-container" id="landscapeContainer">
@@ -819,6 +829,7 @@
         <div class="info-bar" id="infoBar">
             <div class="status">
                 <span class="status-dot"></span>
+                <span class="player-id" id="playerId"></span>
                 <span class="status-text" id="statusText">SYSTEM ONLINE</span>
                 <span class="latency" id="latencyDisplay">-- ms</span>
             </div>
@@ -875,8 +886,8 @@
             <div class="drag-handle" id="joystickHandle">
                 <svg viewBox="0 0 24 24"><path d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg>
             </div>
-        </div>
-
+            </div>
+            
         <div class="controller" id="buttonsContainer">
             <!-- 操作组件 -->
             <div class="buttons-zone">
@@ -888,7 +899,7 @@
             <!-- 拖动手柄 -->
             <div class="drag-handle" id="buttonsHandle">
                 <svg viewBox="0 0 24 24"><path d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg>
-            </div>
+        </div>
         </div>
     </div>
 
@@ -1323,7 +1334,13 @@
             ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.type === 'pong') {
+                    if (data.type === 'connected') {
+                        // 收到服务器分配的控制器 ID
+                        const controllerId = data.controller_id;
+                        const playerIdEl = document.getElementById('playerId');
+                        playerIdEl.textContent = `P${controllerId}`;
+                        console.log(`分配玩家编号: P${controllerId}`);
+                    } else if (data.type === 'pong') {
                         const latency = Date.now() - data.timestamp;
                         updateLatencyDisplay(latency);
                     }
@@ -1340,7 +1357,7 @@
         }
         
         connectWebSocket();
-
+        
         // ==================== 摇杆控制 ====================
         const joystickZone = document.getElementById('joystickZone');
         const joystick = document.getElementById('joystick');
@@ -1376,7 +1393,7 @@
             }
             
             // 直接使用原始坐标
-            joystick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+                joystick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
             
             // 归一化值（原始）
             const normalizedX = deltaX / maxDistance;
@@ -1482,7 +1499,7 @@
         const buttons = ['北', '南', '西', '东'];
         const buttonTouchIds = {};
         
-        buttons.forEach(btn => {
+         buttons.forEach(btn => {
             const element = document.getElementById(`btn${btn}`);
             buttonTouchIds[btn] = null;
             

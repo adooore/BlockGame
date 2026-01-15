@@ -18,14 +18,12 @@ from aiohttp import web
 import aiohttp
 
 # 客户端分类
-controller_clients = set()  # 控制器客户端
+controller_clients = {}     # 控制器客户端 {controller_id: ws}
 game_clients = set()        # 游戏客户端
+MAX_CONTROLLERS = 4         # 最大控制器数量
 
-# 当前控制状态 (用于新游戏客户端同步)
-current_state = {
-    'joystick': {'x': 0, 'y': 0},
-    'buttons': {'A': False, 'B': False, 'X': False, 'Y': False}
-}
+# 每个控制器的状态 {controller_id: {...}}
+controller_states = {}
 
 
 def get_local_ip():
@@ -49,21 +47,61 @@ async def broadcast_to_games(message):
         )
 
 
+def allocate_controller_id():
+    """分配控制器 ID（优先复用空闲的较小 ID）"""
+    # 从 1 开始找第一个空闲的 ID
+    for i in range(1, MAX_CONTROLLERS + 1):
+        if i not in controller_clients:
+            return i
+    # 如果都满了，返回 None
+    return None
+
+
+def get_controller_list():
+    """获取当前控制器列表"""
+    return [{'id': cid, 'connected': True} for cid in controller_clients.keys()]
+
+
 async def websocket_handler(request):
     """WebSocket 连接处理 - 控制器"""
     ws = web.WebSocketResponse()
     await ws.prepare(request)
     
-    controller_clients.add(ws)
-    client_ip = request.remote
-    print(f"\n[控制器] 新连接: {client_ip}")
-    print(f"[状态] 控制器: {len(controller_clients)}, 游戏: {len(game_clients)}")
+    # 分配控制器 ID
+    controller_id = allocate_controller_id()
     
-    # 发送连接成功消息
+    # 检查是否已满
+    if controller_id is None:
+        await ws.send_json({
+            'type': 'error',
+            'message': f'控制器数量已达上限 ({MAX_CONTROLLERS})'
+        })
+        await ws.close()
+        return ws
+    
+    controller_clients[controller_id] = ws
+    controller_states[controller_id] = {
+        'joystick': {'x': 0, 'y': 0},
+        'buttons': {'A': False, 'B': False, 'X': False, 'Y': False}
+    }
+    
+    client_ip = request.remote
+    print(f"\n[控制器 P{controller_id}] 新连接: {client_ip}")
+    print(f"[状态] 控制器: {len(controller_clients)}/{MAX_CONTROLLERS}, 游戏: {len(game_clients)}")
+    
+    # 发送连接成功消息（包含控制器 ID）
     await ws.send_json({
         'type': 'connected',
         'message': '控制器已连接！',
-        'role': 'controller'
+        'role': 'controller',
+        'controller_id': controller_id
+    })
+    
+    # 通知所有游戏有新控制器加入
+    await broadcast_to_games({
+        'type': 'controller_joined',
+        'controller_id': controller_id,
+        'controllers': get_controller_list()
     })
     
     try:
@@ -76,36 +114,39 @@ async def websocket_handler(request):
                     if msg_type == 'button':
                         button = data.get('button')
                         action = data.get('action')
-                        # 更新状态
-                        current_state['buttons'][button] = (action == 'press')
-                        # 转发到游戏
+                        # 更新该控制器的状态
+                        controller_states[controller_id]['buttons'][button] = (action == 'press')
+                        # 转发到游戏（带控制器 ID）
                         await broadcast_to_games({
                             'type': 'button',
+                            'controller_id': controller_id,
                             'button': button,
                             'action': action
                         })
-                        print(f"[按钮] {button} {action}")
+                        print(f"[P{controller_id} 按钮] {button} {action}")
                         
                     elif msg_type == 'joystick':
                         x = data.get('x', 0)
                         y = data.get('y', 0)
-                        # 更新状态
-                        current_state['joystick'] = {'x': x, 'y': y}
-                        # 转发到游戏
+                        # 更新该控制器的状态
+                        controller_states[controller_id]['joystick'] = {'x': x, 'y': y}
+                        # 转发到游戏（带控制器 ID）
                         await broadcast_to_games({
                             'type': 'joystick',
+                            'controller_id': controller_id,
                             'x': x,
                             'y': y
                         })
                         
                     elif msg_type == 'joystick_release':
-                        # 更新状态
-                        current_state['joystick'] = {'x': 0, 'y': 0}
-                        # 转发到游戏
+                        # 更新该控制器的状态
+                        controller_states[controller_id]['joystick'] = {'x': 0, 'y': 0}
+                        # 转发到游戏（带控制器 ID）
                         await broadcast_to_games({
-                            'type': 'joystick_release'
+                            'type': 'joystick_release',
+                            'controller_id': controller_id
                         })
-                        print("[摇杆] 释放")
+                        print(f"[P{controller_id} 摇杆] 释放")
                     
                     elif msg_type == 'ping':
                         # 响应 ping
@@ -122,14 +163,30 @@ async def websocket_handler(request):
                 print(f"[错误] WebSocket错误: {ws.exception()}")
                 
     finally:
-        controller_clients.discard(ws)
-        # 控制器断开时，通知游戏停止所有输入
-        await broadcast_to_games({'type': 'joystick_release'})
+        # 清理该控制器
+        del controller_clients[controller_id]
+        del controller_states[controller_id]
+        
+        # 通知游戏该控制器断开，释放所有输入
+        await broadcast_to_games({
+            'type': 'controller_left',
+            'controller_id': controller_id,
+            'controllers': get_controller_list()
+        })
+        await broadcast_to_games({
+            'type': 'joystick_release',
+            'controller_id': controller_id
+        })
         for btn in ['A', 'B', 'X', 'Y']:
-            current_state['buttons'][btn] = False
-            await broadcast_to_games({'type': 'button', 'button': btn, 'action': 'release'})
-        print(f"\n[控制器] 断开: {client_ip}")
-        print(f"[状态] 控制器: {len(controller_clients)}, 游戏: {len(game_clients)}")
+            await broadcast_to_games({
+                'type': 'button',
+                'controller_id': controller_id,
+                'button': btn,
+                'action': 'release'
+            })
+        
+        print(f"\n[控制器 P{controller_id}] 断开: {client_ip}")
+        print(f"[状态] 控制器: {len(controller_clients)}/{MAX_CONTROLLERS}, 游戏: {len(game_clients)}")
     
     return ws
 
@@ -144,12 +201,14 @@ async def game_websocket_handler(request):
     print(f"\n[游戏] 新连接: {client_ip}")
     print(f"[状态] 控制器: {len(controller_clients)}, 游戏: {len(game_clients)}")
     
-    # 发送连接成功消息和当前控制器数量
+    # 发送连接成功消息和当前控制器列表
     await ws.send_json({
         'type': 'connected',
         'message': '游戏已连接！',
         'role': 'game',
-        'controllers': len(controller_clients)
+        'controllers': get_controller_list(),
+        'server_ip': get_local_ip(),
+        'server_port': 8080
     })
     
     try:

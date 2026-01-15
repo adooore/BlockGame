@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>赛博霓虹 - 能量采集与红线规避</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -137,6 +138,135 @@
             50% { opacity: 1; box-shadow: 0 0 15px var(--neon-cyan); }
             100% { opacity: 0.5; box-shadow: 0 0 5px var(--neon-cyan); }
         }
+
+        /* 调试日志面板 */
+        .debug-log {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            width: 280px;
+            max-height: 200px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: #888;
+            overflow-y: auto;
+            z-index: 50;
+        }
+
+        .debug-log-title {
+            color: #00ff00;
+            font-weight: bold;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 4px;
+        }
+
+        .debug-log-item {
+            padding: 3px 0;
+            border-bottom: 1px solid #222;
+        }
+
+        .debug-log-item:last-child {
+            border-bottom: none;
+        }
+
+        .log-wave {
+            color: #00f2ff;
+        }
+
+        .log-cyan {
+            color: #00f2ff;
+        }
+
+        .log-pink {
+            color: #ff00ff;
+        }
+
+        .log-ratio {
+            color: #ffaa00;
+        }
+
+        /* 二维码面板 */
+        .qr-panel {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .qr-toggle {
+            width: 44px;
+            height: 44px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid var(--neon-cyan);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--neon-cyan);
+            box-shadow: 0 0 10px var(--neon-cyan);
+            transition: all 0.3s;
+        }
+
+        .qr-toggle:hover {
+            background: var(--neon-cyan);
+            color: black;
+            box-shadow: 0 0 20px var(--neon-cyan);
+        }
+
+        .qr-content {
+            display: none;
+            margin-top: 10px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid var(--neon-cyan);
+            border-radius: 8px;
+            box-shadow: 0 0 20px var(--neon-cyan);
+            text-align: center;
+        }
+
+        .qr-content.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .qr-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 12px;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 10px var(--neon-cyan);
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+        }
+
+        #qr-canvas {
+            border-radius: 4px;
+            background: white;
+            padding: 8px;
+        }
+
+        .qr-url {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: var(--neon-pink);
+            text-shadow: 0 0 5px var(--neon-pink);
+            margin-top: 10px;
+            word-break: break-all;
+            max-width: 150px;
+        }
     </style>
 </head>
 <body>
@@ -146,6 +276,32 @@
         <div class="text-sm opacity-70">RECORD: <span id="high-score">0</span></div>
         <div class="mt-4 text-[10px] tracking-widest opacity-60">
             [WASD] MOVE | [SPACE] SCALE-JUMP | [SHIFT] DASH
+        </div>
+        <div id="controller-status" class="mt-4 text-xs tracking-widest">
+            <span id="p1-status" class="opacity-30">● P1</span>
+            <span id="p2-status" class="ml-4 opacity-30">● P2</span>
+        </div>
+        <!-- 调试信息 -->
+        <div id="debug-info" class="mt-4 text-xs tracking-widest" style="font-family: 'JetBrains Mono', monospace;">
+            <div>WAVE: <span id="wave-num" class="neon-text-cyan">0</span></div>
+            <div class="mt-1">
+                <span style="color: #00f2ff; text-shadow: 0 0 5px #00f2ff;">■</span> CYAN: <span id="cyan-count">0</span>
+                <span class="ml-3" style="color: #ff00ff; text-shadow: 0 0 5px #ff00ff;">■</span> PINK: <span id="pink-count">0</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 二维码面板 -->
+    <div id="qr-panel" class="qr-panel">
+        <div class="qr-toggle" id="qr-toggle" title="扫码连接控制器">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zm8-2v8h8V3h-8zm6 6h-4V5h4v4zM3 21h8v-8H3v8zm2-6h4v4H5v-4zm13 2h-2v2h2v2h2v-4h2v-2h-4v2zm0-6h2v2h-2v-2zm-6 6h2v4h-2v-4zm0-6h2v2h-2v-2z"/>
+            </svg>
+        </div>
+        <div class="qr-content" id="qr-content">
+            <div class="qr-title">扫码连接控制器</div>
+            <canvas id="qr-canvas"></canvas>
+            <div class="qr-url" id="qr-url"></div>
         </div>
     </div>
 
@@ -166,6 +322,38 @@
         <button id="start-btn" class="btn-cyber pointer-events-auto">INITIALIZE</button>
     </div>
 
+    <!-- Game Over 界面 -->
+    <div id="gameover-screen" class="message cyber-border" style="display: none;">
+        <h1 class="text-4xl font-black mb-4 neon-text-pink">SYSTEM CRASH</h1>
+        <p class="text-sm tracking-widest opacity-80 mb-2">FINAL DATA SCAN</p>
+        <p class="text-5xl font-black neon-text-cyan mb-6" id="final-score">0</p>
+        <p class="text-xs opacity-60 mb-8">RECORD: <span id="final-high-score">0</span></p>
+        <div class="flex gap-4 justify-center">
+            <button id="restart-btn" class="btn-cyber pointer-events-auto">REBOOT SYSTEM</button>
+            <button id="revive-btn" class="btn-cyber pointer-events-auto" style="border-color: #00ff00; color: #00ff00; box-shadow: 0 0 10px #00ff00;">[DEBUG] REVIVE</button>
+        </div>
+    </div>
+
+    <!-- 通关界面 -->
+    <div id="victory-screen" class="message cyber-border" style="display: none;">
+        <h1 class="text-4xl font-black mb-4" style="color: #ffd700; text-shadow: 0 0 20px #ffd700, 0 0 40px #ff8c00;">MISSION COMPLETE</h1>
+        <p class="text-sm tracking-widest opacity-80 mb-2">ALL WAVES CLEARED</p>
+        <p class="text-5xl font-black neon-text-cyan mb-2" id="victory-score">0</p>
+        <p class="text-xs opacity-60 mb-4">FINAL SCORE</p>
+        <p class="text-xs opacity-60 mb-8">NEW RECORD: <span id="victory-high-score">0</span></p>
+        <button id="replay-btn" class="btn-cyber pointer-events-auto" style="border-color: #ffd700; color: #ffd700; box-shadow: 0 0 10px #ffd700;">PLAY AGAIN</button>
+    </div>
+
+    <!-- 调试日志面板 -->
+    <div class="debug-log" id="debugLog">
+        <div class="debug-log-title">
+            [DEBUG LOG]
+            <button id="deadlock-btn" style="margin-left: 10px; padding: 2px 8px; font-size: 10px; background: #333; border: 1px solid #ff6600; color: #ff6600; cursor: pointer;">死局测试: OFF</button>
+            <button id="reproduce-btn" style="margin-left: 5px; padding: 2px 8px; font-size: 10px; background: #333; border: 1px solid #ff0000; color: #ff0000; cursor: pointer;">还原死局</button>
+        </div>
+        <div id="logContent"></div>
+    </div>
+
     <canvas id="gameCanvas"></canvas>
 
     <script>
@@ -181,8 +369,14 @@
             gravity: 1.0,           // 配合高度缩放的重力
             greenScore: 10,
             redPenalty: -5,
-            eventInterval: 1200,
-            maxEvents: 12,
+            // 难度递增配置
+            maxWaves: 12,               // 通关波数
+            initialCyan: 8,             // 初始青色块数量
+            cyanDecrement: 1,           // 每波减少的青色数量
+            minCyan: 3,                 // 最少青色块数量
+            initialPink: 5,             // 初始粉色块数量
+            pinkIncrement: 2,           // 每波增加的粉色数量
+            maxPink: 25,                // 粉色块上限，达到后不再增加
             colors: {
                 bg: '#050505',
                 grid: '#1a1a1a',
@@ -205,15 +399,28 @@
         const startScreen = document.getElementById('start-screen');
         const startBtn = document.getElementById('start-btn');
         const skinSelector = document.getElementById('skin-selector');
+        const gameoverScreen = document.getElementById('gameover-screen');
+        const restartBtn = document.getElementById('restart-btn');
+        const reviveBtn = document.getElementById('revive-btn');
+        const finalScoreElement = document.getElementById('final-score');
+        const finalHighScoreElement = document.getElementById('final-high-score');
+        const victoryScreen = document.getElementById('victory-screen');
+        const replayBtn = document.getElementById('replay-btn');
+        const victoryScoreElement = document.getElementById('victory-score');
+        const victoryHighScoreElement = document.getElementById('victory-high-score');
 
-        let gameState = 'waiting';
+        let gameState = 'waiting';  // 'waiting', 'playing', 'gameover', 'victory'
         let score = 0;
         let highScore = localStorage.getItem('cyberGridHighScore') || 0;
+        
+        // 难度递增状态
+        let waveNumber = 0;             // 当前波次
         highScoreElement.textContent = highScore;
 
         let width, height, tileSize;
         let grid = [];
         
+        // 玩家1 (P1 控制，键盘也可以控制)
         const player = {
             x: 0, y: 0,
             z: 0,           
@@ -226,16 +433,69 @@
             dashTimer: 0,   
             dashCooldown: 0 
         };
+        
+        // 玩家2 (P2 控制)
+        const player2 = {
+            x: 0, y: 0,
+            z: 0,
+            vz: 0,
+            width: 0, height: 0,
+            vx: 0, vy: 0,
+            trail: [],
+            skinIndex: 1,  // 默认使用不同皮肤
+            isJumping: false,
+            dashTimer: 0,
+            dashCooldown: 0,
+            active: false  // P2 连接后才激活
+        };
 
         const keys = {};
 
         // ==================== 远程控制器 ====================
-        let remoteController = {
-            joystick: { x: 0, y: 0 },
-            buttons: { A: false, B: false, X: false, Y: false }
-        };
+        // 支持多控制器，每个控制器有独立的输入状态
+        let remoteControllers = {};  // {controller_id: {joystick: {x, y}, buttons: {...}}}
         let wsConnected = false;
-        let controllerCount = 0;
+        let serverInfo = { ip: null, port: 8080 };  // 服务器信息
+        
+        // 获取指定控制器的状态（如果不存在则创建）
+        function getController(controllerId) {
+            if (!remoteControllers[controllerId]) {
+                remoteControllers[controllerId] = {
+                    joystick: { x: 0, y: 0 },
+                    buttons: { A: false, B: false, X: false, Y: false }
+                };
+            }
+            return remoteControllers[controllerId];
+        }
+        
+        // 获取主控制器（P1）的状态，向后兼容
+        function getPrimaryController() {
+            // 优先返回 P1，否则返回第一个可用的控制器
+            if (remoteControllers[1]) return remoteControllers[1];
+            const ids = Object.keys(remoteControllers);
+            if (ids.length > 0) return remoteControllers[ids[0]];
+            return { joystick: { x: 0, y: 0 }, buttons: { A: false, B: false, X: false, Y: false } };
+        }
+        
+        // 更新控制器状态 UI
+        function updateControllerUI() {
+            const p1Status = document.getElementById('p1-status');
+            const p2Status = document.getElementById('p2-status');
+            
+            const hasP1 = remoteControllers[1] !== undefined;
+            const hasP2 = remoteControllers[2] !== undefined;
+            
+            p1Status.style.opacity = hasP1 ? '1' : '0.3';
+            p1Status.style.color = hasP1 ? '#00f2ff' : '';
+            p1Status.style.textShadow = hasP1 ? '0 0 10px #00f2ff' : 'none';
+            
+            p2Status.style.opacity = hasP2 ? '1' : '0.3';
+            p2Status.style.color = hasP2 ? '#ff00ff' : '';
+            p2Status.style.textShadow = hasP2 ? '0 0 10px #ff00ff' : 'none';
+            
+            // 激活/停用 player2
+            player2.active = hasP2;
+        }
 
         function initWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -252,9 +512,8 @@
             ws.onclose = () => {
                 console.log('与服务器断开连接');
                 wsConnected = false;
-                // 重置远程控制状态
-                remoteController.joystick = { x: 0, y: 0 };
-                remoteController.buttons = { A: false, B: false, X: false, Y: false };
+                // 重置所有控制器状态
+                remoteControllers = {};
                 // 3秒后重连
                 setTimeout(initWebSocket, 3000);
             };
@@ -266,36 +525,74 @@
             ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
+                    const controllerId = data.controller_id;
                     
                     if (data.type === 'connected') {
-                        controllerCount = data.controllers || 0;
-                        console.log(`已连接，当前控制器数: ${controllerCount}`);
+                        // 保存服务器信息
+                        if (data.server_ip) {
+                            serverInfo.ip = data.server_ip;
+                            serverInfo.port = data.server_port || 8080;
+                            // 更新二维码
+                            generateQRCode();
+                        }
+                        // 初始化已连接的控制器
+                        const controllers = data.controllers || [];
+                        controllers.forEach(c => getController(c.id));
+                        console.log(`已连接，当前控制器: ${controllers.map(c => 'P' + c.id).join(', ') || '无'}`);
+                        updateControllerUI();
+                    }
+                    else if (data.type === 'controller_joined') {
+                        getController(controllerId);
+                        console.log(`P${controllerId} 加入`);
+                        updateControllerUI();
+                    }
+                    else if (data.type === 'controller_left') {
+                        delete remoteControllers[controllerId];
+                        console.log(`P${controllerId} 离开`);
+                        updateControllerUI();
                     }
                     else if (data.type === 'joystick') {
-                        remoteController.joystick.x = data.x;
-                        remoteController.joystick.y = data.y;
+                        const ctrl = getController(controllerId);
+                        ctrl.joystick.x = data.x;
+                        ctrl.joystick.y = data.y;
                     }
                     else if (data.type === 'joystick_release') {
-                        remoteController.joystick.x = 0;
-                        remoteController.joystick.y = 0;
+                        const ctrl = getController(controllerId);
+                        ctrl.joystick.x = 0;
+                        ctrl.joystick.y = 0;
                     }
                     else if (data.type === 'button') {
+                        const ctrl = getController(controllerId);
                         const btn = data.button;
                         const pressed = data.action === 'press';
-                        remoteController.buttons[btn] = pressed;
+                        ctrl.buttons[btn] = pressed;
                         
                         // 处理按钮动作
                         if (gameState === 'playing') {
-                            if (btn === 'A' && pressed && !player.isJumping) {
-                                // A键 - 跳跃
-                                player.isJumping = true;
-                                player.vz = config.jumpPower;
+                            // P1 控制 player
+                            if (controllerId === 1) {
+                                if (btn === 'A' && pressed && !player.isJumping) {
+                                    player.isJumping = true;
+                                    player.vz = config.jumpPower;
+                                }
+                                if (btn === 'B' && pressed && player.dashCooldown <= 0) {
+                                    if (player.vx !== 0 || player.vy !== 0) {
+                                        player.dashTimer = config.dashDuration;
+                                        player.dashCooldown = config.dashCooldown;
+                                    }
+                                }
                             }
-                            if (btn === 'B' && pressed && player.dashCooldown <= 0) {
-                                // B键 - 冲刺
-                                if (player.vx !== 0 || player.vy !== 0) {
-                                    player.dashTimer = config.dashDuration;
-                                    player.dashCooldown = config.dashCooldown;
+                            // P2 控制 player2
+                            else if (controllerId === 2 && player2.active) {
+                                if (btn === 'A' && pressed && !player2.isJumping) {
+                                    player2.isJumping = true;
+                                    player2.vz = config.jumpPower;
+                                }
+                                if (btn === 'B' && pressed && player2.dashCooldown <= 0) {
+                                    if (player2.vx !== 0 || player2.vy !== 0) {
+                                        player2.dashTimer = config.dashDuration;
+                                        player2.dashCooldown = config.dashCooldown;
+                                    }
                                 }
                             }
                         }
@@ -334,16 +631,160 @@
             }
         }
 
-        function triggerTileEvents() {
-            if (gameState !== 'playing') return;
-            grid.forEach(tile => tile.type = 'none');
-            const shuffled = [...grid].sort(() => 0.5 - Math.random());
-            const count = Math.floor(Math.random() * config.maxEvents) + 5;
-            for (let i = 0; i < count; i++) {
-                shuffled[i].type = (i < count * 0.4) ? 'cyan' : 'pink';
-                shuffled[i].pulse = 0;
+        // ==================== 难度递增刷新系统 ====================
+        // 规则：
+        // 1. 当青色块数量 < 当前总方块数 * 30% 时触发刷新
+        // 2. 每次刷新增加方块数量，减少青色比例
+        // 3. 方块数量上限为地图格子数的 50%
+        // 4. 达到上限后只减少青色比例，不增加方块
+        // ===========================================================
+        
+        // 获取玩家占用的格子（用于过滤）
+        function getPlayerOccupiedTiles() {
+            const gridTotalDim = config.gridSize * tileSize + (config.gridSize - 1) * config.tileGap;
+            const gridX = (width - gridTotalDim) / 2;
+            const gridY = (height - gridTotalDim) / 2;
+            
+            const occupied = [];
+            
+            // 玩家1占用的格子
+            const p1Col = Math.floor((player.x + player.width/2 - gridX) / (tileSize + config.tileGap));
+            const p1Row = Math.floor((player.y + player.height/2 - gridY) / (tileSize + config.tileGap));
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    occupied.push({row: p1Row + dr, col: p1Col + dc});
+                }
             }
-            setTimeout(triggerTileEvents, config.eventInterval);
+            
+            // 玩家2占用的格子
+            if (player2.active) {
+                const p2Col = Math.floor((player2.x + player2.width/2 - gridX) / (tileSize + config.tileGap));
+                const p2Row = Math.floor((player2.y + player2.height/2 - gridY) / (tileSize + config.tileGap));
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        occupied.push({row: p2Row + dr, col: p2Col + dc});
+                    }
+                }
+            }
+            
+            return occupied;
+        }
+        
+        // 检查是否需要刷新
+        function checkAndRefresh() {
+            if (gameState !== 'playing') return;
+            
+            // 统计当前青色块数量
+            const cyanCount = grid.filter(t => t.type === 'cyan').length;
+            
+            // 刷新条件：青色块全部吃光
+            if (cyanCount === 0) {
+                // 检查是否通关
+                if (waveNumber >= config.maxWaves) {
+                    victory();
+                } else {
+                    triggerNewWave();
+                }
+            }
+        }
+        
+        // 触发新一波方块
+        function triggerNewWave() {
+            waveNumber++;
+            
+            // 计算本波青色数量（逐渐减少，有下限）
+            const cyanCount = Math.max(
+                config.initialCyan - (waveNumber - 1) * config.cyanDecrement,
+                config.minCyan
+            );
+            
+            // 计算本波粉色数量（逐渐增加，有上限）
+            const pinkCount = Math.min(
+                config.initialPink + (waveNumber - 1) * config.pinkIncrement,
+                config.maxPink
+            );
+            
+            // 清空所有格子
+            grid.forEach(tile => tile.type = 'none');
+            
+            // 获取玩家占用的格子
+            const occupied = getPlayerOccupiedTiles();
+            
+            // 过滤可用格子（排除玩家位置）
+            const availableTiles = grid.filter(tile => {
+                return !occupied.some(o => o.row === tile.row && o.col === tile.col);
+            });
+            
+            // 随机打乱
+            const shuffled = availableTiles.sort(() => 0.5 - Math.random());
+            
+            // 放置青色块
+            const actualCyan = Math.min(cyanCount, shuffled.length);
+            const cyanTiles = [];
+            for (let i = 0; i < actualCyan; i++) {
+                shuffled[i].type = 'cyan';
+                shuffled[i].pulse = 0;
+                cyanTiles.push(shuffled[i]);
+            }
+            
+            // 简单安全区：青色块的上下左右不能放粉色
+            const safeZone = new Set();
+            const directions = [[-1,0], [1,0], [0,-1], [0,1]]; // 上下左右
+            cyanTiles.forEach(tile => {
+                directions.forEach(([dr, dc]) => {
+                    const nr = tile.row + dr;
+                    const nc = tile.col + dc;
+                    if (nr >= 0 && nr < config.gridSize && nc >= 0 && nc < config.gridSize) {
+                        safeZone.add(`${nr},${nc}`);
+                    }
+                });
+            });
+            
+            // 放置粉色块（跳过安全区）
+            let pinkPlaced = 0;
+            for (let i = actualCyan; i < shuffled.length && pinkPlaced < pinkCount; i++) {
+                const tile = shuffled[i];
+                if (!safeZone.has(`${tile.row},${tile.col}`)) {
+                    tile.type = 'pink';
+                    tile.pulse = 0;
+                    pinkPlaced++;
+                }
+            }
+            const actualPink = pinkPlaced;
+            
+            const totalPlaced = actualCyan + actualPink;
+            console.log(`[Wave ${waveNumber}] 青色: ${actualCyan}, 粉色: ${actualPink}, 总计: ${totalPlaced}`);
+            
+            // 记录到调试日志
+            logWaveInfo(waveNumber, totalPlaced, actualCyan, actualPink);
+            
+            // [DEBUG] 死局测试：在右上角生成一个被包围的青色块
+            if (window.DEBUG_DEADLOCK) {
+                // 右上角位置 (row=1, col=10)
+                const deadlockRow = 1;
+                const deadlockCol = config.gridSize - 2; // 10
+                
+                // 放置被困的青色块
+                const trapped = grid[deadlockRow * config.gridSize + deadlockCol];
+                trapped.type = 'cyan';
+                
+                // 用粉色块包围它（上下左右）
+                const surroundDirs = [[-1,0], [1,0], [0,-1], [0,1]];
+                surroundDirs.forEach(([dr, dc]) => {
+                    const nr = deadlockRow + dr;
+                    const nc = deadlockCol + dc;
+                    if (nr >= 0 && nr < config.gridSize && nc >= 0 && nc < config.gridSize) {
+                        grid[nr * config.gridSize + nc].type = 'pink';
+                    }
+                });
+                
+                console.log('[DEBUG] 已在右上角生成死局块');
+            }
+        }
+        
+        // 初始化游戏难度
+        function initDifficulty() {
+            waveNumber = 0;
         }
 
         function resize() {
@@ -354,11 +795,19 @@
             const minDim = Math.min(width, height) * 0.85;
             tileSize = (minDim - (config.gridSize - 1) * config.tileGap) / config.gridSize;
             if (gameState === 'waiting') {
+                // Player 1 初始化
                 player.width = tileSize * config.playerSizeRatio;
                 player.height = tileSize * config.playerSizeRatio;
-                player.x = width / 2 - player.width / 2;
+                player.x = width / 2 - player.width / 2 - tileSize;  // 稍微偏左
                 player.y = height / 2 - player.height / 2;
                 player.z = 0;
+                
+                // Player 2 初始化
+                player2.width = tileSize * config.playerSizeRatio;
+                player2.height = tileSize * config.playerSizeRatio;
+                player2.x = width / 2 - player2.width / 2 + tileSize;  // 稍微偏右
+                player2.y = height / 2 - player2.height / 2;
+                player2.z = 0;
             }
         }
 
@@ -380,6 +829,12 @@
         function update() {
             if (gameState !== 'playing') return;
 
+            const deadzone = 0.3;
+            const gridTotalDim = config.gridSize * tileSize + (config.gridSize - 1) * config.tileGap;
+            const gridX = (width - gridTotalDim) / 2;
+            const gridY = (height - gridTotalDim) / 2;
+
+            // ==================== Player 1 更新 ====================
             // Movement - 键盘输入
             player.vx = 0; player.vy = 0;
             if (keys['KeyW'] || keys['ArrowUp']) player.vy = -config.moveSpeed;
@@ -387,12 +842,11 @@
             if (keys['KeyA'] || keys['ArrowLeft']) player.vx = -config.moveSpeed;
             if (keys['KeyD'] || keys['ArrowRight']) player.vx = config.moveSpeed;
             
-            // Movement - 远程控制器输入 (摇杆)
-            const deadzone = 0.3;
-            if (Math.abs(remoteController.joystick.x) > deadzone || Math.abs(remoteController.joystick.y) > deadzone) {
-                // 使用摇杆值作为速度倍数
-                player.vx = remoteController.joystick.x * config.moveSpeed;
-                player.vy = remoteController.joystick.y * config.moveSpeed;
+            // P1 控制器摇杆输入
+            const p1Ctrl = remoteControllers[1];
+            if (p1Ctrl && (Math.abs(p1Ctrl.joystick.x) > deadzone || Math.abs(p1Ctrl.joystick.y) > deadzone)) {
+                player.vx = p1Ctrl.joystick.x * config.moveSpeed;
+                player.vy = p1Ctrl.joystick.y * config.moveSpeed;
             }
 
             // Dash Logic
@@ -407,7 +861,7 @@
             }
             if (player.dashCooldown > 0) player.dashCooldown--;
 
-            // Jump Logic (Scale-based height simulation)
+            // Jump Logic
             if (player.isJumping) {
                 player.z += player.vz;
                 player.vz -= config.gravity;
@@ -426,14 +880,57 @@
             else if (player.vx === 0 && player.vy === 0 && !player.isJumping && player.trail.length > 0) player.trail.pop();
 
             // Bounds
-            const gridTotalDim = config.gridSize * tileSize + (config.gridSize - 1) * config.tileGap;
-            const gridX = (width - gridTotalDim) / 2;
-            const gridY = (height - gridTotalDim) / 2;
             player.x = Math.max(gridX, Math.min(player.x, gridX + gridTotalDim - player.width));
             player.y = Math.max(gridY, Math.min(player.y, gridY + gridTotalDim - player.height));
 
-            // Collision (Only if player.z is near 0)
-            if (player.z < 1) { // A tiny buffer for better feel
+            // ==================== Player 2 更新 ====================
+            if (player2.active) {
+                player2.vx = 0; player2.vy = 0;
+                
+                // P2 控制器摇杆输入
+                const p2Ctrl = remoteControllers[2];
+                if (p2Ctrl && (Math.abs(p2Ctrl.joystick.x) > deadzone || Math.abs(p2Ctrl.joystick.y) > deadzone)) {
+                    player2.vx = p2Ctrl.joystick.x * config.moveSpeed;
+                    player2.vy = p2Ctrl.joystick.y * config.moveSpeed;
+                }
+
+                // Dash Logic
+                if (player2.dashTimer > 0) {
+                    player2.x += player2.vx * config.dashMultiplier;
+                    player2.y += player2.vy * config.dashMultiplier;
+                    player2.dashTimer--;
+                    player2.trail.unshift({x: player2.x, y: player2.y, z: player2.z, opacity: 1});
+                } else {
+                    player2.x += player2.vx;
+                    player2.y += player2.vy;
+                }
+                if (player2.dashCooldown > 0) player2.dashCooldown--;
+
+                // Jump Logic
+                if (player2.isJumping) {
+                    player2.z += player2.vz;
+                    player2.vz -= config.gravity;
+                    if (player2.z <= 0) {
+                        player2.z = 0;
+                        player2.vz = 0;
+                        player2.isJumping = false;
+                    }
+                }
+
+                // Trail
+                if (player2.vx !== 0 || player2.vy !== 0 || player2.isJumping) {
+                    player2.trail.unshift({x: player2.x, y: player2.y, z: player2.z, opacity: 1});
+                }
+                if (player2.trail.length > 15) player2.trail.pop();
+                else if (player2.vx === 0 && player2.vy === 0 && !player2.isJumping && player2.trail.length > 0) player2.trail.pop();
+
+                // Bounds
+                player2.x = Math.max(gridX, Math.min(player2.x, gridX + gridTotalDim - player2.width));
+                player2.y = Math.max(gridY, Math.min(player2.y, gridY + gridTotalDim - player2.height));
+            }
+
+            // Collision - Player 1 (Only if player.z is near 0)
+            if (player.z < 1) {
                 const cx = player.x + player.width/2;
                 const cy = player.y + player.height/2;
                 const col = Math.floor((cx - gridX) / (tileSize + config.tileGap));
@@ -442,22 +939,92 @@
                 if (row >= 0 && row < config.gridSize && col >= 0 && col < config.gridSize) {
                     const tile = grid.find(t => t.row === row && t.col === col);
                     if (tile && tile.type !== 'none') {
-                        if (tile.type === 'cyan') score += config.greenScore;
-                        else score += config.redPenalty;
-                        
-                        tile.type = 'none';
-                        if (score < 0) score = 0;
-                        scoreElement.textContent = score;
-                        if (score > highScore) {
-                            highScore = score;
-                            highScoreElement.textContent = highScore;
-                            localStorage.setItem('cyberGridHighScore', highScore);
+                        if (tile.type === 'cyan') {
+                            score += config.greenScore;
+                            tile.type = 'none';
+                            scoreElement.textContent = score;
+                            if (score > highScore) {
+                                highScore = score;
+                                highScoreElement.textContent = highScore;
+                                localStorage.setItem('cyberGridHighScore', highScore);
+                            }
+                        } else if (tile.type === 'pink') {
+                            // 碰到红色，游戏结束！
+                            gameOver();
+                            return;
+                        }
+                    }
+                }
+            }
+            
+            // Collision - Player 2 (Only if player2.z is near 0)
+            if (player2.active && player2.z < 1) {
+                const cx2 = player2.x + player2.width/2;
+                const cy2 = player2.y + player2.height/2;
+                const col2 = Math.floor((cx2 - gridX) / (tileSize + config.tileGap));
+                const row2 = Math.floor((cy2 - gridY) / (tileSize + config.tileGap));
+
+                if (row2 >= 0 && row2 < config.gridSize && col2 >= 0 && col2 < config.gridSize) {
+                    const tile2 = grid.find(t => t.row === row2 && t.col === col2);
+                    if (tile2 && tile2.type !== 'none') {
+                        if (tile2.type === 'cyan') {
+                            score += config.greenScore;
+                            tile2.type = 'none';
+                            scoreElement.textContent = score;
+                            if (score > highScore) {
+                                highScore = score;
+                                highScoreElement.textContent = highScore;
+                                localStorage.setItem('cyberGridHighScore', highScore);
+                            }
+                        } else if (tile2.type === 'pink') {
+                            // P2 碰到红色，游戏结束！
+                            gameOver();
+                            return;
                         }
                     }
                 }
             }
 
             grid.forEach(t => t.pulse += 0.05);
+            
+            // 更新调试信息
+            updateDebugInfo();
+            
+            // 检查是否需要刷新新一波
+            checkAndRefresh();
+        }
+        
+        // 更新调试信息显示
+        function updateDebugInfo() {
+            const cyanCount = grid.filter(t => t.type === 'cyan').length;
+            const pinkCount = grid.filter(t => t.type === 'pink').length;
+            
+            document.getElementById('wave-num').textContent = waveNumber;
+            document.getElementById('cyan-count').textContent = cyanCount;
+            document.getElementById('pink-count').textContent = pinkCount;
+        }
+        
+        // 调试日志
+        const logContent = document.getElementById('logContent');
+        const maxLogItems = 20;
+        
+        function addLog(message, type = 'info') {
+            const item = document.createElement('div');
+            item.className = 'debug-log-item';
+            item.innerHTML = message;
+            logContent.insertBefore(item, logContent.firstChild);
+            
+            // 限制日志数量
+            while (logContent.children.length > maxLogItems) {
+                logContent.removeChild(logContent.lastChild);
+            }
+        }
+        
+        function logWaveInfo(waveNum, totalBlocks, cyanCount, pinkCount) {
+            const message = `<span class="log-wave">Wave ${waveNum}</span>: ` +
+                `<span class="log-cyan">■${cyanCount}</span> / ` +
+                `<span class="log-pink">■${pinkCount}</span>`;
+            addLog(message);
         }
 
         function draw() {
@@ -547,12 +1114,71 @@
             ctx.fillRect(drawX + drawW*0.25, drawY + drawH*0.25, drawW*0.5, drawH*0.5);
             ctx.shadowBlur = 0;
 
-            // 4. Dash Cooldown Bar
+            // 4. Dash Cooldown Bar - Player 1
             if (player.dashCooldown > 0) {
                 ctx.fillStyle = 'rgba(255,255,255,0.2)';
                 ctx.fillRect(player.x, player.y + player.height + 5, player.width, 3);
                 ctx.fillStyle = config.colors.cyan;
                 ctx.fillRect(player.x, player.y + player.height + 5, player.width * (1 - player.dashCooldown/config.dashCooldown), 3);
+            }
+
+            // ==================== 绘制 Player 2 ====================
+            if (player2.active) {
+                const skin2 = config.skins[player2.skinIndex];
+
+                // Shadow
+                if (player2.z > 0) {
+                    const shadowScale2 = Math.max(0.2, 1 - player2.z / 150);
+                    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                    ctx.beginPath();
+                    ctx.ellipse(
+                        player2.x + player2.width/2, 
+                        player2.y + player2.height/2, 
+                        (player2.width/2) * shadowScale2, 
+                        (player2.height/2) * shadowScale2, 
+                        0, 0, Math.PI * 2
+                    );
+                    ctx.fill();
+                }
+
+                // Trails
+                player2.trail.forEach((t, i) => {
+                    const trailScale2 = 1 + (t.z / 120);
+                    const tw2 = player2.width * trailScale2;
+                    const th2 = player2.height * trailScale2;
+                    const tx2 = t.x - (tw2 - player2.width) / 2;
+                    const ty2 = t.y - (th2 - player2.height) / 2;
+
+                    ctx.globalAlpha = (player2.trail.length - i) / (player2.trail.length * 3);
+                    ctx.fillStyle = skin2.main;
+                    ctx.fillRect(tx2, ty2, tw2, th2);
+                });
+                ctx.globalAlpha = 1.0;
+
+                // Body
+                const jumpScale2 = 1 + (player2.z / 80);
+                const drawW2 = player2.width * jumpScale2;
+                const drawH2 = player2.height * jumpScale2;
+                const drawX2 = player2.x - (drawW2 - player2.width) / 2;
+                const drawY2 = player2.y - (drawH2 - player2.height) / 2;
+
+                ctx.shadowBlur = 15 + Math.sin(Date.now()/100) * 5 + (player2.z/5);
+                ctx.shadowColor = skin2.glow;
+                ctx.fillStyle = skin2.main;
+                ctx.fillRect(drawX2, drawY2, drawW2, drawH2);
+                
+                // Core
+                ctx.fillStyle = skin2.core;
+                ctx.fillRect(drawX2 + drawW2*0.25, drawY2 + drawH2*0.25, drawW2*0.5, drawH2*0.5);
+                ctx.shadowBlur = 0;
+
+                // Dash Cooldown Bar - Player 2
+                if (player2.dashCooldown > 0) {
+                    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                    ctx.fillRect(player2.x, player2.y + player2.height + 5, player2.width, 3);
+                    ctx.fillStyle = config.colors.pink;
+                    ctx.fillRect(player2.x, player2.y + player2.height + 5, player2.width * (1 - player2.dashCooldown/config.dashCooldown), 3);
+                }
             }
 
             requestAnimationFrame(() => {
@@ -561,13 +1187,312 @@
             });
         }
 
+        // 检测死局：玩家是否能到达至少一个青色块
+        function checkDeadlock() {
+            const size = config.gridSize;
+            
+            // 计算 gridX, gridY
+            const gridTotalDim = size * tileSize + (size - 1) * config.tileGap;
+            const gridX = (width - gridTotalDim) / 2;
+            const gridY = (height - gridTotalDim) / 2;
+            
+            const visited = new Uint8Array(size * size);
+            const queue = [];
+            const dirs = [[-1,0], [1,0], [0,-1], [0,1]];
+            
+            // 玩家1位置
+            const p1Col = Math.floor((player.x + player.width/2 - gridX) / (tileSize + config.tileGap));
+            const p1Row = Math.floor((player.y + player.height/2 - gridY) / (tileSize + config.tileGap));
+            
+            console.log(`[checkDeadlock] 玩家位置: row=${p1Row}, col=${p1Col}`);
+            
+            // 统计青色块
+            let cyanCount = 0;
+            for (let i = 0; i < size * size; i++) {
+                if (grid[i].type === 'cyan') cyanCount++;
+            }
+            console.log(`[checkDeadlock] 青色块总数: ${cyanCount}`);
+            
+            if (cyanCount === 0) {
+                console.log(`[checkDeadlock] 没有青色块，不是死局`);
+                return false;
+            }
+            
+            // 检查玩家周围4格 - 只把空格加入队列，不直接判断青色块
+            console.log(`[checkDeadlock] 检查玩家周围:`);
+            for (const [dr, dc] of dirs) {
+                const nr = p1Row + dr;
+                const nc = p1Col + dc;
+                if (nr >= 0 && nr < size && nc >= 0 && nc < size) {
+                    const tile = grid[nr * size + nc];
+                    console.log(`  (${nr},${nc}) = ${tile.type}`);
+                    // 只把空格加入队列，青色块不直接判断（要通过空格才能到达）
+                    if (tile.type === 'none') {
+                        visited[nr * size + nc] = 1;
+                        queue.push([nr, nc]);
+                    }
+                }
+            }
+            
+            console.log(`[checkDeadlock] 初始队列: ${queue.length} 个空格`);
+            
+            // 玩家2周围 - 同样只把空格加入队列
+            if (player2.active) {
+                const p2Col = Math.floor((player2.x + player2.width/2 - gridX) / (tileSize + config.tileGap));
+                const p2Row = Math.floor((player2.y + player2.height/2 - gridY) / (tileSize + config.tileGap));
+                for (const [dr, dc] of dirs) {
+                    const nr = p2Row + dr;
+                    const nc = p2Col + dc;
+                    if (nr >= 0 && nr < size && nc >= 0 && nc < size) {
+                        const idx = nr * size + nc;
+                        if (!visited[idx]) {
+                            const tile = grid[idx];
+                            if (tile.type === 'none') {
+                                visited[idx] = 1;
+                                queue.push([nr, nc]);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // BFS
+            let bfsIdx = 0;
+            while (bfsIdx < queue.length) {
+                const [row, col] = queue[bfsIdx++];
+                for (const [dr, dc] of dirs) {
+                    const nr = row + dr;
+                    const nc = col + dc;
+                    if (nr < 0 || nr >= size || nc < 0 || nc >= size) continue;
+                    const idx = nr * size + nc;
+                    if (visited[idx]) continue;
+                    const tile = grid[idx];
+                    if (tile.type === 'cyan') {
+                        console.log(`[checkDeadlock] BFS 找到青色块 (${nr},${nc})，不是死局`);
+                        return false;
+                    }
+                    if (tile.type === 'none') {
+                        visited[idx] = 1;
+                        queue.push([nr, nc]);
+                    }
+                }
+            }
+            
+            console.log(`[checkDeadlock] BFS 遍历 ${queue.length} 格，未找到青色块 = 死局`);
+            return true;
+        }
+        
+        // 防止死局检测循环调用
+        let deadlockCheckInProgress = false;
+        
+        // 游戏结束函数
+        function gameOver() {
+            // 防止循环调用
+            if (deadlockCheckInProgress) {
+                console.log(`[Deadlock] 跳过重复检测`);
+                return;
+            }
+            
+            // 先检测是否是死局
+            deadlockCheckInProgress = true;
+            const isDeadlock = checkDeadlock();
+            deadlockCheckInProgress = false;
+            
+            if (isDeadlock) {
+                console.log(`[Deadlock] 检测到死局，自动刷新下一波`);
+                addLog(`<span style="color: #ffaa00;">⚠️ 死局检测：自动刷新</span>`);
+                
+                // 重置玩家位置
+                player.trail = [];
+                player.x = width / 2 - player.width / 2 - tileSize;
+                player.y = height / 2 - player.height / 2;
+                player.z = 0;
+                player.vz = 0;
+                
+                if (player2.active) {
+                    player2.trail = [];
+                    player2.x = width / 2 - player2.width / 2 + tileSize;
+                    player2.y = height / 2 - player2.height / 2;
+                    player2.z = 0;
+                    player2.vz = 0;
+                }
+                
+                // 检查是否通关
+                if (waveNumber >= config.maxWaves) {
+                    victory();
+                } else {
+                    triggerNewWave();
+                }
+                return;
+            }
+            
+            gameState = 'gameover';
+            
+            // 更新最高分
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('cyberGridHighScore', highScore);
+            }
+            
+            // 显示结束界面
+            finalScoreElement.textContent = score;
+            finalHighScoreElement.textContent = highScore;
+            gameoverScreen.style.display = 'block';
+            
+            console.log(`[Game Over] 最终波次: ${waveNumber}, 得分: ${score}`);
+        }
+        
+        // 通关函数
+        function victory() {
+            gameState = 'victory';
+            
+            // 更新最高分
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('cyberGridHighScore', highScore);
+            }
+            
+            // 显示通关界面
+            victoryScoreElement.textContent = score;
+            victoryHighScoreElement.textContent = highScore;
+            highScoreElement.textContent = highScore;
+            victoryScreen.style.display = 'block';
+            
+            console.log(`[Victory!] 通关！最终得分: ${score}`);
+            addLog(`<span style="color: #ffd700;">🎉 VICTORY! Score: ${score}</span>`);
+        }
+        
+        // 重置游戏状态
+        function resetGame() {
+            score = 0;
+            scoreElement.textContent = '0';
+            
+            // 重置难度
+            initDifficulty();
+            
+            // 重置所有格子
+            grid.forEach(tile => tile.type = 'none');
+            
+            // 重置 Player 1
+            player.trail = [];
+            player.x = width / 2 - player.width / 2 - tileSize;
+            player.y = height / 2 - player.height / 2;
+            player.z = 0;
+            player.vz = 0;
+            player.isJumping = false;
+            player.dashTimer = 0;
+            player.dashCooldown = 0;
+            
+            // 重置 Player 2
+            player2.trail = [];
+            player2.x = width / 2 - player2.width / 2 + tileSize;
+            player2.y = height / 2 - player2.height / 2;
+            player2.z = 0;
+            player2.vz = 0;
+            player2.isJumping = false;
+            player2.dashTimer = 0;
+            player2.dashCooldown = 0;
+        }
+        
         startBtn.addEventListener('click', () => {
             startScreen.style.display = 'none';
             gameState = 'playing';
-            score = 0;
-            scoreElement.textContent = '0';
+            resetGame();
+            // 自动触发第一波（通过 checkAndRefresh）
+        });
+        
+        restartBtn.addEventListener('click', () => {
+            gameoverScreen.style.display = 'none';
+            gameState = 'playing';
+            resetGame();
+            // 自动触发第一波（通过 checkAndRefresh）
+        });
+        
+        // 通关后重玩按钮
+        replayBtn.addEventListener('click', () => {
+            victoryScreen.style.display = 'none';
+            gameState = 'playing';
+            resetGame();
+        });
+        
+        // [DEBUG] 复活按钮 - 保留分数和波次，只重置玩家位置
+        // 死局测试按钮
+        window.DEBUG_DEADLOCK = false;
+        const deadlockBtn = document.getElementById('deadlock-btn');
+        deadlockBtn.addEventListener('click', () => {
+            window.DEBUG_DEADLOCK = !window.DEBUG_DEADLOCK;
+            if (window.DEBUG_DEADLOCK) {
+                deadlockBtn.textContent = '死局测试: ON';
+                deadlockBtn.style.borderColor = '#00ff00';
+                deadlockBtn.style.color = '#00ff00';
+            } else {
+                deadlockBtn.textContent = '死局测试: OFF';
+                deadlockBtn.style.borderColor = '#ff6600';
+                deadlockBtn.style.color = '#ff6600';
+            }
+        });
+        
+        // 还原死局场景按钮
+        const reproduceBtn = document.getElementById('reproduce-btn');
+        reproduceBtn.addEventListener('click', () => {
+            // 清空地图
+            grid.forEach(tile => tile.type = 'none');
+            
+            const size = config.gridSize;
+            
+            // 右上角被包围的青色块 (row=1, col=10)
+            grid[1 * size + 10].type = 'cyan';
+            
+            // 四方向包围（上下左右）
+            grid[0 * size + 10].type = 'pink'; // 上
+            grid[2 * size + 10].type = 'pink'; // 下
+            grid[1 * size + 9].type = 'pink';  // 左
+            grid[1 * size + 11].type = 'pink'; // 右
+            
+            // 重置玩家位置到中间
+            const gridTotalDim = size * tileSize + (size - 1) * config.tileGap;
+            const gridX = (width - gridTotalDim) / 2;
+            const gridY = (height - gridTotalDim) / 2;
+            
+            player.x = gridX + 5 * (tileSize + config.tileGap) + tileSize * 0.25;
+            player.y = gridY + 5 * (tileSize + config.tileGap) + tileSize * 0.25;
             player.trail = [];
-            triggerTileEvents();
+            
+            console.log('[DEBUG] 已还原死局场景');
+            console.log('[DEBUG] 青色块: (1,10)，四方向被粉色包围');
+            
+            // 立即测试死局检测
+            console.log('[DEBUG] === 测试死局检测 ===');
+            const isDeadlock = checkDeadlock();
+            console.log(`[DEBUG] 检测结果: ${isDeadlock ? '是死局 ✓' : '不是死局 ✗ (BUG!)'}`);
+            
+            addLog(`<span style="color: #ff0000;">还原完成，检测: ${isDeadlock ? '死局✓' : '非死局✗'}</span>`);
+        });
+        
+        reviveBtn.addEventListener('click', () => {
+            gameoverScreen.style.display = 'none';
+            gameState = 'playing';
+            
+            // 只重置玩家位置，不重置分数、波次和地图
+            player.trail = [];
+            player.x = width / 2 - player.width / 2 - tileSize;
+            player.y = height / 2 - player.height / 2;
+            player.z = 0;
+            player.vz = 0;
+            player.isJumping = false;
+            player.dashTimer = 0;
+            player.dashCooldown = 0;
+            
+            player2.trail = [];
+            player2.x = width / 2 - player2.width / 2 + tileSize;
+            player2.y = height / 2 - player2.height / 2;
+            player2.z = 0;
+            player2.vz = 0;
+            player2.isJumping = false;
+            player2.dashTimer = 0;
+            player2.dashCooldown = 0;
+            
+            console.log(`[DEBUG] 复活！波次: ${waveNumber}, 分数: ${score}`);
         });
 
         window.addEventListener('resize', resize);
@@ -575,6 +1500,66 @@
         initGrid();
         resize();
         draw();
+        
+        // ==================== 二维码功能 ====================
+        const qrToggle = document.getElementById('qr-toggle');
+        const qrContent = document.getElementById('qr-content');
+        const qrCanvas = document.getElementById('qr-canvas');
+        const qrUrlDisplay = document.getElementById('qr-url');
+        
+        // 获取控制器 URL（使用服务器提供的局域网 IP）
+        function getControllerUrl() {
+            const protocol = window.location.protocol;
+            // 优先使用服务器发送的局域网 IP
+            const host = serverInfo.ip || window.location.hostname;
+            const port = serverInfo.port || window.location.port || '8080';
+            return `${protocol}//${host}:${port}`;
+        }
+        
+        // 生成二维码
+        function generateQRCode() {
+            const url = getControllerUrl();
+            qrUrlDisplay.textContent = url;
+            
+            // 使用 qrcode-generator 库
+            const qr = qrcode(0, 'M');
+            qr.addData(url);
+            qr.make();
+            
+            // 绘制到 canvas
+            const moduleCount = qr.getModuleCount();
+            const cellSize = Math.floor(150 / moduleCount);
+            const size = moduleCount * cellSize;
+            
+            qrCanvas.width = size;
+            qrCanvas.height = size;
+            const ctx = qrCanvas.getContext('2d');
+            
+            // 白色背景
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, size, size);
+            
+            // 绘制二维码模块
+            ctx.fillStyle = '#000000';
+            for (let row = 0; row < moduleCount; row++) {
+                for (let col = 0; col < moduleCount; col++) {
+                    if (qr.isDark(row, col)) {
+                        ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+                    }
+                }
+            }
+        }
+        
+        // 切换二维码显示
+        qrToggle.addEventListener('click', () => {
+            qrContent.classList.toggle('show');
+            if (qrContent.classList.contains('show')) {
+                generateQRCode();
+            }
+        });
+        
+        // 初始化生成
+        generateQRCode();
     </script>
 </body>
 </html>
