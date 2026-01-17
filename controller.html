@@ -1233,6 +1233,14 @@
             }
         });
 
+        // ==================== 控制器状态（轮询模式） ====================
+        const controllerState = {
+            joystick: { x: 0, y: 0 },
+            buttons: { N: false, S: false, E: false, W: false }
+        };
+        let pollInterval = null;
+        const POLL_RATE = 60;  // 60Hz 轮询频率
+
         // ==================== WebSocket 连接 ====================
         let ws = null;
         let reconnectAttempts = 0;
@@ -1307,6 +1315,10 @@
                 latencyHistory = [];
                 sendPing();
                 pingInterval = setInterval(sendPing, 2000);
+                
+                // 启动轮询
+                if (pollInterval) clearInterval(pollInterval);
+                pollInterval = setInterval(sendControllerState, 1000 / POLL_RATE);
             };
             
             ws.onclose = () => {
@@ -1316,6 +1328,12 @@
                 if (pingInterval) {
                     clearInterval(pingInterval);
                     pingInterval = null;
+                }
+                
+                // 停止轮询
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
                 }
                 
                 if (reconnectAttempts < maxReconnectAttempts) {
@@ -1356,6 +1374,15 @@
             }
         }
         
+        // 发送完整控制器状态（轮询）
+        function sendControllerState() {
+            sendMessage({
+                type: 'state',
+                joystick: controllerState.joystick,
+                buttons: controllerState.buttons
+            });
+        }
+        
         connectWebSocket();
         
         // ==================== 摇杆控制 ====================
@@ -1367,8 +1394,6 @@
         let joystickTouchId = null;
         let isDragging = false;
         const maxDistance = 50;
-        const sendInterval = 16;
-        let lastSendTime = 0;
         
         // 获取摇杆中心位置
         function getJoystickCenter() {
@@ -1392,27 +1417,19 @@
                 deltaY *= scale;
             }
             
-            // 直接使用原始坐标
                 joystick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
             
-            // 归一化值（原始）
+            // 归一化值
             const normalizedX = deltaX / maxDistance;
             const normalizedY = deltaY / maxDistance;
             
             xValueDisplay.textContent = normalizedX.toFixed(2);
             yValueDisplay.textContent = normalizedY.toFixed(2);
             
-            // 直接发送原始值，无任何转换
-            const now = Date.now();
-            if (now - lastSendTime > sendInterval) {
-                lastSendTime = now;
-                sendMessage({
-                    type: 'joystick',
-                    x: normalizedX,
-                    y: normalizedY
-                });
+            // 更新状态（轮询时会自动发送）
+            controllerState.joystick.x = parseFloat(normalizedX.toFixed(3));
+            controllerState.joystick.y = parseFloat(normalizedY.toFixed(3));
             }
-        }
         
         function resetJoystick() {
             joystick.style.transition = 'transform 0.15s ease-out';
@@ -1424,7 +1441,10 @@
             xValueDisplay.textContent = '0.00';
             yValueDisplay.textContent = '0.00';
             
-            sendMessage({ type: 'joystick_release' });
+            // 更新状态（轮询时会自动发送）
+            controllerState.joystick.x = 0;
+            controllerState.joystick.y = 0;
+            
             joystickTouchId = null;
             isDragging = false;
         }
@@ -1496,19 +1516,22 @@
         });
         
         // ==================== 按钮事件 ====================
-        const buttons = ['北', '南', '西', '东'];
+        // 按钮配置：显示文字 → 标准方向ID（N/S/E/W）
+        const buttonConfig = [
+            { display: '北', id: 'N' },
+            { display: '南', id: 'S' },
+            { display: '西', id: 'W' },
+            { display: '东', id: 'E' }
+        ];
         const buttonTouchIds = {};
         
-         buttons.forEach(btn => {
-            const element = document.getElementById(`btn${btn}`);
-            buttonTouchIds[btn] = null;
+        buttonConfig.forEach(({ display, id }) => {
+            const element = document.getElementById(`btn${display}`);
+            buttonTouchIds[display] = null;
             
             function onPress() {
-                sendMessage({
-                    type: 'button',
-                    button: btn,
-                    action: 'press'
-                });
+                // 更新状态（轮询时会自动发送）
+                controllerState.buttons[id] = true;
                 if (navigator.vibrate) {
                     navigator.vibrate(30);
                 }
@@ -1516,13 +1539,10 @@
             }
             
             function onRelease() {
-                sendMessage({
-                    type: 'button',
-                    button: btn,
-                    action: 'release'
-                });
+                // 更新状态（轮询时会自动发送）
+                controllerState.buttons[id] = false;
                 element.classList.remove('pressed');
-                buttonTouchIds[btn] = null;
+                buttonTouchIds[display] = null;
             }
             
             element.addEventListener('mousedown', onPress);
@@ -1530,8 +1550,8 @@
             element.addEventListener('mouseleave', onRelease);
             
             element.addEventListener('touchstart', (e) => {
-                if (buttonTouchIds[btn] === null) {
-                    buttonTouchIds[btn] = e.changedTouches[0].identifier;
+                if (buttonTouchIds[display] === null) {
+                    buttonTouchIds[display] = e.changedTouches[0].identifier;
                     onPress();
                 }
                 e.preventDefault();
@@ -1540,7 +1560,7 @@
             
             element.addEventListener('touchend', (e) => {
                 for (let i = 0; i < e.changedTouches.length; i++) {
-                    if (e.changedTouches[i].identifier === buttonTouchIds[btn]) {
+                    if (e.changedTouches[i].identifier === buttonTouchIds[display]) {
                         onRelease();
                         break;
                     }
@@ -1551,7 +1571,7 @@
             
             element.addEventListener('touchcancel', (e) => {
                 for (let i = 0; i < e.changedTouches.length; i++) {
-                    if (e.changedTouches[i].identifier === buttonTouchIds[btn]) {
+                    if (e.changedTouches[i].identifier === buttonTouchIds[display]) {
                         onRelease();
                         break;
                     }

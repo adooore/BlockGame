@@ -7,7 +7,7 @@
 使用方法:
 1. 安装依赖: pip install -r requirements.txt
 2. 运行服务器: python server.py
-3. 电脑浏览器访问: http://localhost:8080/game.html
+3. 电脑浏览器访问: http://localhost:8080/gameEatAndAvoid.html
 4. 手机浏览器访问: http://电脑IP:8080
 """
 
@@ -82,7 +82,7 @@ async def websocket_handler(request):
     controller_clients[controller_id] = ws
     controller_states[controller_id] = {
         'joystick': {'x': 0, 'y': 0},
-        'buttons': {'A': False, 'B': False, 'X': False, 'Y': False}
+        'buttons': {'N': False, 'S': False, 'E': False, 'W': False}
     }
     
     client_ip = request.remote
@@ -111,12 +111,28 @@ async def websocket_handler(request):
                     data = json.loads(msg.data)
                     msg_type = data.get('type')
                     
-                    if msg_type == 'button':
+                    if msg_type == 'state':
+                        # 轮询模式：完整状态包
+                        joystick = data.get('joystick', {'x': 0, 'y': 0})
+                        buttons = data.get('buttons', {'N': False, 'S': False, 'E': False, 'W': False})
+                        # 更新该控制器的状态
+                        controller_states[controller_id] = {
+                            'joystick': joystick,
+                            'buttons': buttons
+                        }
+                        # 转发完整状态到游戏
+                        await broadcast_to_games({
+                            'type': 'state',
+                            'controller_id': controller_id,
+                            'joystick': joystick,
+                            'buttons': buttons
+                        })
+                    
+                    elif msg_type == 'button':
+                        # 兼容事件驱动模式
                         button = data.get('button')
                         action = data.get('action')
-                        # 更新该控制器的状态
                         controller_states[controller_id]['buttons'][button] = (action == 'press')
-                        # 转发到游戏（带控制器 ID）
                         await broadcast_to_games({
                             'type': 'button',
                             'controller_id': controller_id,
@@ -126,11 +142,10 @@ async def websocket_handler(request):
                         print(f"[P{controller_id} 按钮] {button} {action}")
                         
                     elif msg_type == 'joystick':
+                        # 兼容事件驱动模式
                         x = data.get('x', 0)
                         y = data.get('y', 0)
-                        # 更新该控制器的状态
                         controller_states[controller_id]['joystick'] = {'x': x, 'y': y}
-                        # 转发到游戏（带控制器 ID）
                         await broadcast_to_games({
                             'type': 'joystick',
                             'controller_id': controller_id,
@@ -139,9 +154,8 @@ async def websocket_handler(request):
                         })
                         
                     elif msg_type == 'joystick_release':
-                        # 更新该控制器的状态
+                        # 兼容事件驱动模式
                         controller_states[controller_id]['joystick'] = {'x': 0, 'y': 0}
-                        # 转发到游戏（带控制器 ID）
                         await broadcast_to_games({
                             'type': 'joystick_release',
                             'controller_id': controller_id
@@ -173,17 +187,13 @@ async def websocket_handler(request):
             'controller_id': controller_id,
             'controllers': get_controller_list()
         })
+        # 发送一个清零的状态包（轮询模式兼容）
         await broadcast_to_games({
-            'type': 'joystick_release',
-            'controller_id': controller_id
+            'type': 'state',
+            'controller_id': controller_id,
+            'joystick': {'x': 0, 'y': 0},
+            'buttons': {'N': False, 'S': False, 'E': False, 'W': False}
         })
-        for btn in ['A', 'B', 'X', 'Y']:
-            await broadcast_to_games({
-                'type': 'button',
-                'controller_id': controller_id,
-                'button': btn,
-                'action': 'release'
-            })
         
         print(f"\n[控制器 P{controller_id}] 断开: {client_ip}")
         print(f"[状态] 控制器: {len(controller_clients)}/{MAX_CONTROLLERS}, 游戏: {len(game_clients)}")
@@ -240,13 +250,18 @@ async def game_websocket_handler(request):
 
 
 async def index_handler(request):
+    """提供主页"""
+    return web.FileResponse('./index.html')
+
+
+async def controller_handler(request):
     """提供控制器页面"""
     return web.FileResponse('./controller.html')
 
 
 async def game_handler(request):
     """提供游戏页面"""
-    return web.FileResponse('./game.html')
+    return web.FileResponse('./gameEatAndAvoid.html')
 
 
 async def test_handler(request):
@@ -260,14 +275,30 @@ async def static_handler(request):
     return web.FileResponse(f'./{filename}')
 
 
+async def js_handler(request):
+    """JS 模块处理"""
+    filename = request.match_info.get('filename')
+    filepath = f'./js/{filename}'
+    return web.FileResponse(filepath)
+
+
+async def source_handler(request):
+    """资源文件处理（音效、图片等）"""
+    filename = request.match_info.get('filename')
+    filepath = f'./source/{filename}'
+    return web.FileResponse(filepath)
+
+
 def create_app():
     """创建 Web 应用"""
     app = web.Application()
     app.router.add_get('/', index_handler)
     app.router.add_get('/ws', websocket_handler)           # 控制器 WebSocket
     app.router.add_get('/ws/game', game_websocket_handler) # 游戏 WebSocket
-    app.router.add_get('/game.html', game_handler)
+    app.router.add_get('/gameEatAndAvoid.html', game_handler)
     app.router.add_get('/test', test_handler)              # 测试页面
+    app.router.add_get('/js/{filename}', js_handler)       # JS 模块
+    app.router.add_get('/source/{filename}', source_handler)  # 资源文件（音效等）
     app.router.add_get('/{filename}', static_handler)
     return app
 
@@ -281,10 +312,11 @@ def print_banner(ip, port):
     print(" ██║       ╚██╔╝  ██╔══██╗██╔══╝  ██╔══██╗")
     print(" ╚██████╗   ██║   ██████╔╝███████╗██║  ██║")
     print("  ╚═════╝   ╚═╝   ╚═════╝ ╚══════╝╚═╝  ╚═╝")
-    print("        赛 博 朋 克 控 制 器 服 务 器")
+    print("         方 寸 枢 机 游 戏 服 务 器")
     print("=" * 60)
-    print(f"\n  🎮 游戏页面: http://localhost:{port}/game.html")
-    print(f"  📱 控制器:   http://{ip}:{port}")
+    print(f"\n  🏠 主页:     http://localhost:{port}")
+    print(f"  🎮 游戏:     http://localhost:{port}/gameEatAndAvoid.html")
+    print(f"  📱 控制器:   http://{ip}:{port}/controller.html")
     print(f"\n  手机和电脑需要在同一局域网!")
     print("=" * 60)
     print("\n[架构] 控制器 → 服务器 → 游戏")

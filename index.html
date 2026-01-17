@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BLOCK GAME 方寸枢机 - 官方主页</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;500;900&family=Orbitron:wght@400;700&display=swap');
+
+        :root {
+            --primary: #00f2ff;
+            --secondary: #7000ff;
+            --accent: #ff007a;
+            --bg-dark: #0a0a0c;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: white;
+            font-family: 'Noto Sans SC', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .font-game {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* 动态方块背景 */
+        .bg-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 242, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 242, 255, 0.05) 1px, transparent 1px);
+            background-size: 50px 50px;
+            z-index: -2;
+        }
+
+        .floating-blocks {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .block {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            animation: float linear infinite;
+            animation-fill-mode: backwards;  /* 延迟期间应用动画初始状态 */
+        }
+
+        @keyframes float {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
+        }
+
+        /* 按钮样式 */
+        .btn-glitch {
+            position: relative;
+            background: transparent;
+            border: 1px solid var(--primary);
+            padding: 1rem 3rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .btn-glitch:hover,
+        .btn-glitch.player-hover {
+            background: var(--primary);
+            color: black;
+            box-shadow: 0 0 30px var(--primary);
+        }
+        
+        .btn-glitch.player-hover {
+            animation: btnPulse 0.5s ease-in-out infinite alternate;
+        }
+        
+        @keyframes btnPulse {
+            from { box-shadow: 0 0 20px var(--primary); }
+            to { box-shadow: 0 0 40px var(--primary), 0 0 60px var(--primary); }
+        }
+
+        .btn-secondary {
+            border-color: var(--secondary);
+        }
+        .btn-secondary:hover {
+            background: var(--secondary);
+            box-shadow: 0 0 30px var(--secondary);
+        }
+
+        /* 菜单切换动画 */
+        .menu-container {
+            transition: all 0.5s ease;
+        }
+        .hidden-menu {
+            display: none;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        .visible-menu {
+            display: flex;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* 扫码弹窗 */
+        #qr-modal {
+            background: rgba(10, 10, 12, 0.95);
+            backdrop-filter: blur(10px);
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        #qr-modal.active {
+            display: flex;
+            opacity: 1;
+        }
+        
+        /* 换衣区样式 */
+        .color-swatch {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        
+        .color-swatch:hover {
+            transform: scale(1.1);
+        }
+        
+        .color-swatch.taken {
+            opacity: 0.3;
+        }
+        
+        .color-swatch.taken::after {
+            content: '×';
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 0 0 3px black;
+        }
+        
+        #wardrobe-zone.player-nearby {
+            animation: wardrobePulse 0.5s ease-in-out infinite alternate;
+        }
+        
+        @keyframes wardrobePulse {
+            from { box-shadow: 0 0 20px rgba(255, 255, 255, 0.1); }
+            to { box-shadow: 0 0 30px rgba(0, 242, 255, 0.4); }
+        }
+
+        .qr-scanner-line {
+            width: 100%;
+            height: 2px;
+            background: var(--primary);
+            box-shadow: 0 0 10px var(--primary);
+            position: absolute;
+            animation: scan 2s infinite ease-in-out;
+        }
+
+        @keyframes scan {
+            0% { top: 0%; }
+            50% { top: 100%; }
+            100% { top: 0%; }
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(5px);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="bg-grid"></div>
+    <div id="blocks-container" class="floating-blocks"></div>
+    
+    <!-- 控制器预览角色 Canvas -->
+    <canvas id="preview-canvas" class="fixed inset-0 pointer-events-none z-0"></canvas>
+
+    <!-- 主界面内容 -->
+    <main class="h-screen flex flex-col items-center justify-center relative px-4">
+        
+        <!-- 装饰性元素 -->
+        <div class="absolute top-10 left-10 flex flex-col gap-2 opacity-50">
+            <div class="h-1 w-20 bg-cyan-400"></div>
+            <div class="h-1 w-10 bg-purple-500"></div>
+        </div>
+
+        <!-- 标题区域 -->
+        <div class="text-center mb-16 relative">
+            <h2 class="text-xl tracking-[0.5em] text-cyan-400 font-light mb-2 opacity-80 uppercase">Minimalist Geometric Action</h2>
+            <h1 class="text-6xl md:text-8xl font-game font-bold tracking-tighter mb-4">
+                BLOCK <span class="text-cyan-400">GAME</span>
+            </h1>
+            <h2 class="text-4xl md:text-5xl font-black tracking-[0.2em] text-white/90">
+                方寸<span class="text-purple-500">枢机</span>
+            </h2>
+            <div class="mt-8 text-xs font-mono text-white/40 text-center">
+                <span>VER 1.0.0-BETA</span>
+            </div>
+        </div>
+
+        <!-- 菜单区域：初始主菜单 -->
+        <div id="main-menu" class="menu-container flex flex-col gap-6 w-full max-w-xs visible-menu">
+            <button class="btn-glitch group" onclick="showModeSelection()">
+                <span class="flex items-center justify-center gap-2">
+                    <i data-lucide="play" class="w-5 h-5 fill-current"></i>
+                    开始游戏
+                </span>
+            </button>
+            
+            <button class="btn-glitch group !border-purple-500 hover:!bg-purple-500" onclick="toggleQR()">
+                <span class="flex items-center justify-center gap-2">
+                    <i data-lucide="smartphone-nfc" class="w-5 h-5"></i>
+                    连接控制器
+                </span>
+            </button>
+
+            <div class="flex gap-4">
+                <button class="flex-1 glass-panel py-3 hover:bg-white/10 transition flex items-center justify-center gap-2 text-sm uppercase tracking-widest">
+                    <i data-lucide="settings" class="w-4 h-4"></i> 设置
+                </button>
+                <button class="flex-1 glass-panel py-3 hover:bg-white/10 transition flex items-center justify-center gap-2 text-sm uppercase tracking-widest">
+                    <i data-lucide="help-circle" class="w-4 h-4"></i> 教程
+                </button>
+            </div>
+        </div>
+
+        <!-- 菜单区域：模式选择菜单 -->
+        <div id="mode-menu" class="menu-container flex flex-col gap-6 w-full max-w-xs hidden-menu">
+            <button class="btn-glitch group !border-cyan-400" onclick="selectMode('CO-OP')">
+                <span class="flex flex-col items-center justify-center py-1">
+                    <span class="text-lg">合作模式</span>
+                    <span class="text-[10px] opacity-50 font-game tracking-widest">CO-OPERATIVE</span>
+                </span>
+            </button>
+
+            <button class="btn-glitch group !border-purple-500 hover:!bg-purple-500" onclick="selectMode('VERSUS')">
+                <span class="flex flex-col items-center justify-center py-1">
+                    <span class="text-lg">对战模式</span>
+                    <span class="text-[10px] opacity-50 font-game tracking-widest">VERSUS MODE</span>
+                </span>
+            </button>
+
+            <button class="flex items-center justify-center gap-2 text-white/40 hover:text-white transition text-sm uppercase tracking-tighter" onclick="backToMain()">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i> 返回主菜单
+            </button>
+        </div>
+
+        <!-- 底部装饰 -->
+        <div class="absolute bottom-10 w-full px-10 flex justify-end items-end">
+            <div class="flex gap-6">
+                <i data-lucide="github" class="w-5 h-5 text-white/30 hover:text-white cursor-pointer"></i>
+                <i data-lucide="twitter" class="w-5 h-5 text-white/30 hover:text-white cursor-pointer"></i>
+            </div>
+        </div>
+        
+        <!-- 换衣区 -->
+        <div id="wardrobe-zone" class="fixed bottom-6 left-6 z-40">
+            <div class="glass-panel p-4 rounded-xl">
+                <div class="text-[10px] text-white/50 uppercase tracking-widest mb-3 text-center">换装区</div>
+                <div id="color-options" class="grid grid-cols-4 gap-2">
+                    <div class="color-swatch" data-color="1" style="background: #00f2ff; box-shadow: 0 0 10px #00f2ff;"></div>
+                    <div class="color-swatch" data-color="2" style="background: #a855f7; box-shadow: 0 0 10px #d946ef;"></div>
+                    <div class="color-swatch" data-color="3" style="background: #4ade80; box-shadow: 0 0 10px #39ff14;"></div>
+                    <div class="color-swatch" data-color="4" style="background: #facc15; box-shadow: 0 0 10px #ffaa00;"></div>
+                    <div class="color-swatch" data-color="5" style="background: #ff4757; box-shadow: 0 0 10px #ff4757;"></div>
+                    <div class="color-swatch" data-color="6" style="background: #ff7f50; box-shadow: 0 0 10px #ff7f50;"></div>
+                    <div class="color-swatch" data-color="7" style="background: #ff6b9d; box-shadow: 0 0 10px #ff6b9d;"></div>
+                    <div class="color-swatch" data-color="8" style="background: #ffffff; box-shadow: 0 0 10px #ffffff;"></div>
+                </div>
+                <div class="text-[8px] text-white/30 mt-2 text-center flex items-center justify-center gap-1">
+                    进入区域按
+                    <span class="inline-flex items-center justify-center w-4 h-4 rounded-full border border-blue-400 text-blue-400 text-[10px]" style="font-family: 'Zhi Mang Xing', cursive;">西</span>
+                    换色
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 扫码弹窗 -->
+    <div id="qr-modal" class="fixed inset-0 z-50 items-center justify-center p-6">
+        <div class="glass-panel p-8 rounded-2xl max-w-sm w-full relative">
+            <button onclick="toggleQR()" class="absolute top-4 right-4 text-white/50 hover:text-white">
+                <i data-lucide="x"></i>
+            </button>
+            
+            <div class="text-center mb-6">
+                <h3 class="text-2xl font-bold mb-2 text-white">唤醒「<span class="text-cyan-400">方寸枢</span>」</h3>
+                <p class="text-sm text-white/50 leading-relaxed">
+                    扫描二维码，将手机化为掌中枢机
+                </p>
+            </div>
+
+            <div class="relative w-64 h-64 mx-auto mb-6 bg-white p-4 rounded-xl shadow-[0_0_50px_rgba(0,242,255,0.3)]">
+                <div class="w-full h-full bg-white flex items-center justify-center relative overflow-hidden rounded-lg">
+                    <div class="qr-scanner-line"></div>
+                    <canvas id="qr-canvas"></canvas>
+                </div>
+            </div>
+            <p id="qr-url" class="text-xs text-cyan-400 text-center mb-4 font-mono break-all px-4"></p>
+
+            <div class="space-y-4">
+                <div class="flex items-start gap-3 text-xs text-white/60">
+                    <div class="w-5 h-5 rounded-full bg-cyan-400/20 text-cyan-400 flex-shrink-0 flex items-center justify-center font-bold">1</div>
+                    <p>确保手机与电脑处于同一局域网内</p>
+                </div>
+                <div class="flex items-start gap-3 text-xs text-white/60">
+                    <div class="w-5 h-5 rounded-full bg-cyan-400/20 text-cyan-400 flex-shrink-0 flex items-center justify-center font-bold">2</div>
+                    <p>扫描成功后，网页会自动跳转至控制界面</p>
+                </div>
+            </div>
+
+            <!-- 控制器连接状态 -->
+            <div class="mt-6 pt-6 border-t border-white/10">
+                <p class="text-[10px] text-white/40 uppercase tracking-widest mb-3 text-center">已连接设备</p>
+                <div id="controller-slots" class="flex justify-center gap-4">
+                    <div id="p1-slot" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 opacity-30">
+                        <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+                        <span class="text-sm font-bold text-cyan-400">P1</span>
+                    </div>
+                    <div id="p2-slot" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 opacity-30">
+                        <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                        <span class="text-sm font-bold text-purple-500">P2</span>
+                    </div>
+                    <div id="p3-slot" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 opacity-30">
+                        <span class="w-2 h-2 rounded-full bg-green-400"></span>
+                        <span class="text-sm font-bold text-green-400">P3</span>
+                    </div>
+                    <div id="p4-slot" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 opacity-30">
+                        <span class="w-2 h-2 rounded-full bg-yellow-400"></span>
+                        <span class="text-sm font-bold text-yellow-400">P4</span>
+                    </div>
+                </div>
+                <p id="connection-hint" class="text-[10px] text-white/30 uppercase tracking-widest mt-4 text-center">Awaiting Device Handshake...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 共享模块（放在内联脚本之前）-->
+    <script src="js/player.js"></script>
+    <script src="js/wsClient.js"></script>
+    <script src="js/gameData.js"></script>
+    <script src="js/controlHint.js"></script>
+    
+    <script>
+        // 初始化图标
+        lucide.createIcons();
+
+        // ==================== 背景音乐 ====================
+        const bgm = new Audio('source/main_bgm.wav');
+        bgm.loop = true;
+        bgm.volume = 0.5;
+        
+        console.log('[BGM] 音频对象已创建');
+        
+        // 监听加载状态
+        bgm.addEventListener('canplaythrough', () => {
+            console.log('[BGM] 音频已加载完成，可以播放');
+        });
+        bgm.addEventListener('error', (e) => {
+            console.error('[BGM] 音频加载失败:', e);
+            console.error('[BGM] 错误代码:', bgm.error);
+        });
+        
+        // 浏览器要求用户交互后才能播放音频
+        function tryPlayBGM() {
+            console.log('[BGM] 尝试播放...');
+            bgm.play().then(() => {
+                console.log('[BGM] ✓ 播放成功！');
+            }).catch((err) => {
+                console.log('[BGM] ✗ 播放失败:', err.message);
+            });
+        }
+        
+        // 尝试自动播放
+        tryPlayBGM();
+        
+        // 用户首次点击时播放
+        document.addEventListener('click', function initBGM() {
+            console.log('[BGM] 检测到用户点击，尝试播放...');
+            tryPlayBGM();
+        }, { once: true });
+
+        // ==================== 真实二维码生成 ====================
+        let serverInfo = { ip: null, port: 8080 };
+        
+        // 获取控制器 URL
+        function getControllerUrl() {
+            const protocol = window.location.protocol;
+            const host = serverInfo.ip || window.location.hostname;
+            const port = serverInfo.port || window.location.port || '8080';
+            return `${protocol}//${host}:${port}/controller.html`;
+        }
+        
+        // 生成二维码
+        function generateQRCode() {
+            const url = getControllerUrl();
+            const qrCanvas = document.getElementById('qr-canvas');
+            const qrUrlDisplay = document.getElementById('qr-url');
+            
+            qrUrlDisplay.textContent = url;
+            
+            const qr = qrcode(0, 'M');
+            qr.addData(url);
+            qr.make();
+            
+            const moduleCount = qr.getModuleCount();
+            const cellSize = Math.floor(200 / moduleCount);
+            const size = moduleCount * cellSize;
+            
+            qrCanvas.width = size;
+            qrCanvas.height = size;
+            const ctx = qrCanvas.getContext('2d');
+            
+            // 白色背景
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, size, size);
+            
+            // 绘制二维码模块
+            ctx.fillStyle = '#000000';
+            for (let row = 0; row < moduleCount; row++) {
+                for (let col = 0; col < moduleCount; col++) {
+                    if (qr.isDark(row, col)) {
+                        ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+                    }
+                }
+            }
+        }
+        
+        // 控制器状态
+        let connectedControllers = {};
+        
+        // 使用共享模块的颜色配置
+        const slotColors = PLAYER_COLORS;
+        
+        // ==================== 预览角色系统（使用共享模块）====================
+        const previewCanvas = document.getElementById('preview-canvas');
+        const previewCtx = previewCanvas.getContext('2d');
+        
+        // 角色数据和输入状态
+        const players = {};
+        const controllerInputs = {};  // 每个控制器的输入状态
+        
+        // 初始位置配置
+        const SPAWN_POSITIONS = {
+            1: { x: 0.2, y: 0.5 },
+            2: { x: 0.8, y: 0.5 },
+            3: { x: 0.3, y: 0.7 },
+            4: { x: 0.7, y: 0.7 }
+        };
+        
+        function initPlayer(id) {
+            const pos = SPAWN_POSITIONS[id] || { x: 0.5, y: 0.5 };
+            players[id] = createPlayer(
+                id,
+                window.innerWidth * pos.x - 20,
+                window.innerHeight * pos.y - 20,
+                { size: 40, moveSpeed: 5 }
+            );
+            controllerInputs[id] = {
+                joystick: { x: 0, y: 0 },
+                buttons: { N: false, S: false, E: false, W: false }
+            };
+            // 设置默认颜色
+            playerColors[id] = parseInt(id);
+            updateWardrobeUI();
+        }
+        
+        function removePlayer(id) {
+            delete players[id];
+            delete controllerInputs[id];
+            delete playerColors[id];
+            updateWardrobeUI();
+        }
+        
+        function resizePreviewCanvas() {
+            previewCanvas.width = window.innerWidth;
+            previewCanvas.height = window.innerHeight;
+        }
+        
+        // 每个玩家触碰的按钮 { playerId: button }
+        const playerHoveredButtons = {};
+        
+        // 检测角色与按钮的碰撞
+        function checkButtonCollision(player) {
+            const buttons = document.querySelectorAll('.btn-glitch:not([style*="display: none"])');
+            const px = player.x + player.width / 2;
+            const py = player.y + player.height / 2;
+            
+            for (const btn of buttons) {
+                // 跳过不可见的按钮（在隐藏菜单中）
+                const menu = btn.closest('.menu-container');
+                if (menu && menu.classList.contains('hidden-menu')) continue;
+                
+                const rect = btn.getBoundingClientRect();
+                if (px >= rect.left && px <= rect.right && py >= rect.top && py <= rect.bottom) {
+                    return btn;
+                }
+            }
+            return null;
+        }
+        
+        // 更新按钮高亮状态
+        function updateButtonHighlight() {
+            // 清除所有高亮
+            document.querySelectorAll('.btn-glitch.player-hover').forEach(btn => {
+                btn.classList.remove('player-hover');
+            });
+            
+            // 检测所有玩家，每个玩家记住自己触碰的按钮
+            Object.entries(players).forEach(([id, p]) => {
+                const btn = checkButtonCollision(p);
+                playerHoveredButtons[id] = btn;
+                if (btn) {
+                    btn.classList.add('player-hover');
+                }
+            });
+        }
+        
+        // 确认按钮点击（指定玩家）
+        function confirmButtonClick(playerId) {
+            // 先检查是否在换装区
+            if (tryChangeColor(playerId)) {
+                return;
+            }
+            
+            const btn = playerHoveredButtons[playerId];
+            if (btn) {
+                btn.click();
+            }
+        }
+        
+        // ==================== 换装系统 ====================
+        const ALL_COLORS = [
+            { id: 1, main: '#00f2ff', glow: '#00f2ff', core: '#e0faff', name: '青' },
+            { id: 2, main: '#a855f7', glow: '#d946ef', core: '#f0e0ff', name: '紫' },
+            { id: 3, main: '#4ade80', glow: '#39ff14', core: '#e0ffe0', name: '绿' },
+            { id: 4, main: '#facc15', glow: '#ffaa00', core: '#fffbe0', name: '黄' },
+            { id: 5, main: '#ff4757', glow: '#ff4757', core: '#ffe0e0', name: '红' },
+            { id: 6, main: '#ff7f50', glow: '#ff7f50', core: '#ffe8e0', name: '橙' },
+            { id: 7, main: '#ff6b9d', glow: '#ff6b9d', core: '#ffe0f0', name: '粉' },
+            { id: 8, main: '#ffffff', glow: '#ffffff', core: '#f8f8f8', name: '白' }
+        ];
+        
+        // 玩家当前颜色 { playerId: colorId }
+        const playerColors = {};
+        
+        // 检测玩家是否在换装区
+        function isInWardrobeZone(player) {
+            const zone = document.getElementById('wardrobe-zone');
+            const rect = zone.getBoundingClientRect();
+            const px = player.x + player.width / 2;
+            const py = player.y + player.height / 2;
+            
+            // 扩大检测范围
+            const padding = 20;
+            return px >= rect.left - padding && px <= rect.right + padding &&
+                   py >= rect.top - padding && py <= rect.bottom + padding;
+        }
+        
+        // 获取已被使用的颜色
+        function getUsedColors() {
+            return Object.values(playerColors);
+        }
+        
+        // 尝试换色
+        function tryChangeColor(playerId) {
+            const player = players[playerId];
+            if (!player || !isInWardrobeZone(player)) {
+                return false;
+            }
+            
+            const usedColors = getUsedColors();
+            const currentColorId = playerColors[playerId] || parseInt(playerId);
+            
+            // 找下一个可用颜色
+            let nextColorId = currentColorId;
+            for (let i = 0; i < ALL_COLORS.length; i++) {
+                nextColorId = (nextColorId % ALL_COLORS.length) + 1;
+                // 跳过被其他玩家使用的颜色
+                if (!usedColors.includes(nextColorId) || nextColorId === currentColorId) {
+                    break;
+                }
+            }
+            
+            // 如果找到了不同的颜色
+            if (nextColorId !== currentColorId && !usedColors.includes(nextColorId)) {
+                playerColors[playerId] = nextColorId;
+                const newColor = ALL_COLORS.find(c => c.id === nextColorId);
+                if (newColor && player.colors) {
+                    player.colors = { main: newColor.main, glow: newColor.glow, core: newColor.core };
+                }
+                updateWardrobeUI();
+                return true;
+            }
+            
+            return true; // 在换装区但没有可换的颜色
+        }
+        
+        // 更新换装区 UI
+        function updateWardrobeUI() {
+            const swatches = document.querySelectorAll('.color-swatch');
+            const usedColors = getUsedColors();
+            
+            swatches.forEach(swatch => {
+                const colorId = parseInt(swatch.dataset.color);
+                if (usedColors.includes(colorId)) {
+                    swatch.classList.add('taken');
+                } else {
+                    swatch.classList.remove('taken');
+                }
+            });
+        }
+        
+        // 更新换装区高亮状态
+        function updateWardrobeHighlight() {
+            const zone = document.getElementById('wardrobe-zone');
+            let anyPlayerNearby = false;
+            
+            Object.values(players).forEach(p => {
+                if (isInWardrobeZone(p)) {
+                    anyPlayerNearby = true;
+                }
+            });
+            
+            if (anyPlayerNearby) {
+                zone.classList.add('player-nearby');
+            } else {
+                zone.classList.remove('player-nearby');
+            }
+        }
+        
+        function previewGameLoop() {
+            // 更新所有玩家
+            Object.keys(players).forEach(id => {
+                const input = controllerInputs[id];
+                if (input) {
+                    handlePlayerInput(players[id], input, {
+                        onConfirm: () => confirmButtonClick(id),  // W 键确认
+                        onCancel: handleBack                       // N 键返回
+                    });
+                }
+                updatePlayer(players[id], {
+                    minX: 0,
+                    maxX: window.innerWidth,
+                    minY: 0,
+                    maxY: window.innerHeight
+                });
+            });
+            
+            // 检测按钮碰撞
+            updateButtonHighlight();
+            
+            // 检测换装区
+            updateWardrobeHighlight();
+            
+            // 绘制
+            previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+            Object.values(players).forEach(p => {
+                drawPlayerSimple(previewCtx, p, true);
+            });
+            
+            requestAnimationFrame(previewGameLoop);
+        }
+        
+        // 启动游戏循环
+        resizePreviewCanvas();
+        window.addEventListener('resize', resizePreviewCanvas);
+        previewGameLoop();
+        
+        function updateControllerUI() {
+            for (let i = 1; i <= 4; i++) {
+                const slot = document.getElementById(`p${i}-slot`);
+                const colorObj = slotColors[i];
+                const color = colorObj ? colorObj.main : '#fff';
+                if (connectedControllers[i]) {
+                    slot.style.opacity = '1';
+                    slot.style.borderColor = color;
+                    slot.style.boxShadow = `0 0 15px ${color}`;
+                } else {
+                    slot.style.opacity = '0.3';
+                    slot.style.borderColor = 'rgba(255,255,255,0.1)';
+                    slot.style.boxShadow = 'none';
+                }
+            }
+            
+            // 更新提示文字
+            const hint = document.getElementById('connection-hint');
+            const count = Object.keys(connectedControllers).length;
+            if (count === 0) {
+                hint.textContent = 'Awaiting Device Handshake...';
+            } else {
+                hint.textContent = `${count} DEVICE${count > 1 ? 'S' : ''} CONNECTED`;
+                hint.style.color = 'rgba(0, 242, 255, 0.6)';
+            }
+        }
+        
+        // 连接 WebSocket 获取服务器 IP
+        function initWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/game`;
+            
+            const ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                console.log('已连接到服务器');
+            };
+            
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'connected') {
+                        // 获取服务器 IP
+                        if (data.server_ip) {
+                            serverInfo.ip = data.server_ip;
+                            serverInfo.port = data.server_port || 8080;
+                            generateQRCode();
+                            console.log('服务器 IP:', serverInfo.ip);
+                        }
+                        // 初始化已连接的控制器
+                        if (data.controllers) {
+                            connectedControllers = {};
+                            data.controllers.forEach(c => {
+                                connectedControllers[c.id] = true;
+                                initPlayer(c.id);  // 创建角色
+                            });
+                            updateControllerUI();
+                        }
+                    }
+                    else if (data.type === 'controller_joined') {
+                        connectedControllers[data.controller_id] = true;
+                        initPlayer(data.controller_id);  // 创建角色
+                        updateControllerUI();
+                        console.log(`P${data.controller_id} 已连接`);
+                    }
+                    else if (data.type === 'controller_left') {
+                        delete connectedControllers[data.controller_id];
+                        removePlayer(data.controller_id);  // 移除角色
+                        updateControllerUI();
+                        console.log(`P${data.controller_id} 已断开`);
+                    }
+                    else if (data.type === 'state') {
+                        // 轮询模式：完整状态包
+                        const id = data.controller_id;
+                        if (controllerInputs[id]) {
+                            controllerInputs[id].joystick = data.joystick;
+                            controllerInputs[id].buttons = data.buttons;
+                        }
+                    }
+                    else if (data.type === 'joystick') {
+                        // 兼容事件驱动模式
+                        const id = data.controller_id;
+                        if (controllerInputs[id]) {
+                            controllerInputs[id].joystick.x = data.x;
+                            controllerInputs[id].joystick.y = data.y;
+                        }
+                    }
+                    else if (data.type === 'joystick_release') {
+                        // 兼容事件驱动模式
+                        const id = data.controller_id;
+                        if (controllerInputs[id]) {
+                            controllerInputs[id].joystick.x = 0;
+                            controllerInputs[id].joystick.y = 0;
+                        }
+                    }
+                    else if (data.type === 'button') {
+                        // 兼容事件驱动模式
+                        const id = data.controller_id;
+                        if (controllerInputs[id]) {
+                            controllerInputs[id].buttons[data.button] = (data.action === 'press');
+                        }
+                    }
+                } catch (e) {}
+            };
+            
+            ws.onclose = () => {
+                console.log('连接断开，3秒后重连...');
+                connectedControllers = {};
+                updateControllerUI();
+                setTimeout(initWebSocket, 3000);
+            };
+            
+            ws.onerror = () => {
+                console.log('WebSocket 连接失败，使用本地地址');
+            };
+        }
+        
+        // 初始化
+        generateQRCode();
+        initWebSocket();
+
+        // 创建背景悬浮方块
+        function createBlocks() {
+            const container = document.getElementById('blocks-container');
+            const count = 15;
+            
+            for (let i = 0; i < count; i++) {
+                const block = document.createElement('div');
+                block.className = 'block';
+                
+                const size = Math.random() * 40 + 20;
+                const left = Math.random() * 100;
+                const duration = Math.random() * 10 + 10;
+                
+                // 一半的方块使用负延迟，让它们初始就在画面上
+                // 负延迟 = 动画已经进行了一段时间
+                const delay = i < count / 2 
+                    ? -(Math.random() * duration)  // 负延迟：已在画面中
+                    : Math.random() * 5;            // 正延迟：稍后从底部出现
+                
+                block.style.width = `${size}px`;
+                block.style.height = `${size}px`;
+                block.style.left = `${left}%`;
+                block.style.animationDelay = `${delay}s`;
+                block.style.animationDuration = `${duration}s`;
+                
+                if (Math.random() > 0.5) {
+                    block.style.background = 'transparent';
+                    block.style.borderColor = Math.random() > 0.5 ? 'var(--primary)' : 'var(--secondary)';
+                    block.style.boxShadow = `0 0 10px ${block.style.borderColor}`;
+                }
+
+                container.appendChild(block);
+            }
+        }
+
+        // 菜单切换逻辑
+        function showModeSelection() {
+            const mainMenu = document.getElementById('main-menu');
+            const modeMenu = document.getElementById('mode-menu');
+            
+            mainMenu.classList.remove('visible-menu');
+            mainMenu.classList.add('hidden-menu');
+            
+            setTimeout(() => {
+                modeMenu.classList.remove('hidden-menu');
+                modeMenu.classList.add('visible-menu');
+                updateControlHints();
+            }, 300);
+        }
+
+        function backToMain() {
+            const mainMenu = document.getElementById('main-menu');
+            const modeMenu = document.getElementById('mode-menu');
+            
+            modeMenu.classList.remove('visible-menu');
+            modeMenu.classList.add('hidden-menu');
+            
+            setTimeout(() => {
+                mainMenu.classList.remove('hidden-menu');
+                mainMenu.classList.add('visible-menu');
+                updateControlHints();
+            }, 300);
+        }
+
+        function selectMode(mode) {
+            console.log("Selected Mode:", mode);
+            
+            // 保存玩家颜色到 sessionStorage，供关卡页面读取
+            const savedColors = {};
+            Object.keys(players).forEach(playerId => {
+                const player = players[playerId];
+                const colorId = playerColors[playerId] || parseInt(playerId);
+                const colorData = ALL_COLORS.find(c => c.id === colorId);
+                if (colorData) {
+                    savedColors[playerId] = {
+                        main: colorData.main,
+                        glow: colorData.glow,
+                        core: colorData.core
+                    };
+                }
+            });
+            sessionStorage.setItem('playerColors', JSON.stringify(savedColors));
+            console.log('保存玩家颜色:', savedColors);
+            
+            document.body.style.transition = 'all 1s ease';
+            document.body.style.transform = 'scale(2)';
+            document.body.style.filter = 'brightness(0) blur(20px)';
+            
+            setTimeout(() => {
+                const message = mode === 'CO-OP' ? '正在进入合作模式...' : '正在进入对战模式...';
+                const overlay = document.createElement('div');
+                overlay.className = 'fixed inset-0 z-[100] flex items-center justify-center bg-black text-cyan-400 text-2xl font-bold tracking-widest';
+                overlay.innerText = message;
+                document.body.appendChild(overlay);
+                
+                setTimeout(() => {
+                    if (mode === 'CO-OP') {
+                        // 跳转到合作模式第一关
+                        window.location.href = 'gameEatAndAvoid.html?mode=coop&level=1';
+                    } else if (mode === 'VERSUS') {
+                        // 对战模式（暂未开发）
+                        alert('对战模式正在开发中...');
+                        location.reload();
+                    }
+                }, 800);
+            }, 800);
+        }
+
+        function toggleQR() {
+            const modal = document.getElementById('qr-modal');
+            if (modal.classList.contains('active')) {
+                modal.classList.remove('active');
+                setTimeout(() => {
+                    modal.style.display = 'none';
+                    updateControlHints();
+                }, 300);
+            } else {
+                modal.style.display = 'flex';
+                setTimeout(() => {
+                    modal.classList.add('active');
+                    updateControlHints();
+                }, 10);
+            }
+        }
+        
+        // N 键返回处理
+        function handleBack() {
+            const qrModal = document.getElementById('qr-modal');
+            const modeMenu = document.getElementById('mode-menu');
+            
+            // 优先关闭二维码弹窗
+            if (qrModal.classList.contains('active')) {
+                toggleQR();
+                return;
+            }
+            
+            // 如果在模式选择菜单，返回主菜单
+            if (modeMenu.classList.contains('visible-menu')) {
+                backToMain();
+                return;
+            }
+        }
+        
+        // ==================== 底部控制提示 ====================
+        // 更新控制提示（根据当前界面状态）
+        function updateControlHints() {
+            const qrModal = document.getElementById('qr-modal');
+            const modeMenu = document.getElementById('mode-menu');
+            
+            if (qrModal.classList.contains('active')) {
+                // 二维码弹窗
+                ControlHint.update({
+                    N: '关闭',
+                    S: '跳跃',
+                    E: '冲刺',
+                    W: null
+                });
+            } else if (modeMenu.classList.contains('visible-menu')) {
+                // 模式选择菜单
+                ControlHint.update({
+                    N: '返回',
+                    S: '跳跃',
+                    E: '冲刺',
+                    W: '选择'
+                });
+            } else {
+                // 主菜单
+                ControlHint.update({
+                    N: null,
+                    S: '跳跃',
+                    E: '冲刺',
+                    W: '选择'
+                });
+            }
+        }
+
+        window.onload = function() {
+            createBlocks();
+            // 初始化控制提示
+            ControlHint.init({
+                N: null,
+                S: '跳跃',
+                E: '冲刺',
+                W: '选择'
+            });
+        };
+    </script>
+</body>
+</html>

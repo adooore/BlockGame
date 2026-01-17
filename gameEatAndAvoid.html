@@ -109,36 +109,6 @@
             box-shadow: 0 0 30px var(--neon-cyan);
         }
 
-        .skin-btn {
-            width: 40px;
-            height: 40px;
-            border-radius: 4px;
-            border: 2px solid rgba(255,255,255,0.3);
-            cursor: pointer;
-            transition: all 0.3s;
-            position: relative;
-        }
-        
-        .skin-btn.active {
-            border-color: white;
-            transform: scale(1.2);
-        }
-        
-        .skin-btn.active::after {
-            content: '';
-            position: absolute;
-            top: -4px; left: -4px; right: -4px; bottom: -4px;
-            border: 2px solid var(--neon-cyan);
-            border-radius: 6px;
-            animation: pulse-border 1.5s infinite;
-        }
-
-        @keyframes pulse-border {
-            0% { opacity: 0.5; box-shadow: 0 0 5px var(--neon-cyan); }
-            50% { opacity: 1; box-shadow: 0 0 15px var(--neon-cyan); }
-            100% { opacity: 0.5; box-shadow: 0 0 5px var(--neon-cyan); }
-        }
-
         /* 调试日志面板 */
         .debug-log {
             position: fixed;
@@ -305,22 +275,6 @@
         </div>
     </div>
 
-    <div id="start-screen" class="message cyber-border" style="display: block;">
-        <h1 class="text-4xl font-black mb-6 neon-text-cyan">NEON GRID 2.1</h1>
-        
-        <div class="mb-6 space-y-2 text-left">
-            <p class="text-sm tracking-widest opacity-80 text-center">TACTICAL INTEL:</p>
-            <p class="text-xs text-center"><span class="neon-text-cyan">SPACE</span> to expand (ignore tiles)</p>
-            <p class="text-xs text-center"><span class="neon-text-pink">SHIFT</span> to quick-warp (dash)</p>
-        </div>
-
-        <div class="mb-8">
-            <p class="text-sm tracking-widest opacity-80 mb-3">SELECT AVATAR SKIN</p>
-            <div id="skin-selector" class="flex gap-4 justify-center"></div>
-        </div>
-
-        <button id="start-btn" class="btn-cyber pointer-events-auto">INITIALIZE</button>
-    </div>
 
     <!-- Game Over 界面 -->
     <div id="gameover-screen" class="message cyber-border" style="display: none;">
@@ -382,23 +336,25 @@
                 grid: '#1a1a1a',
                 cyan: '#00f2ff',
                 pink: '#ff00ff',
-            },
-            skins: [
-                { name: 'NEON PURPLE', main: '#bc13fe', glow: '#d946ef', core: '#fff' },
-                { name: 'TRON BLUE',   main: '#00f2ff', glow: '#00f2ff', core: '#e0faff' },
-                { name: 'HACKER GREEN',main: '#00ff41', glow: '#39ff14', core: '#cbffcd' },
-                { name: 'CYBER RED',   main: '#ff0055', glow: '#ff0055', core: '#ffcbd7' },
-                { name: 'GOLDEN DATA', main: '#ffd700', glow: '#ffaa00', core: '#fffbea' }
-            ]
+            }
         };
+        
+        // 所有可用颜色（与主页保持一致）
+        const ALL_COLORS = [
+            { id: 1, main: '#00f2ff', glow: '#00f2ff', core: '#e0faff', name: '青' },
+            { id: 2, main: '#a855f7', glow: '#d946ef', core: '#f0e0ff', name: '紫' },
+            { id: 3, main: '#4ade80', glow: '#39ff14', core: '#e0ffe0', name: '绿' },
+            { id: 4, main: '#facc15', glow: '#ffaa00', core: '#fffbe0', name: '黄' },
+            { id: 5, main: '#ff4757', glow: '#ff4757', core: '#ffe0e0', name: '红' },
+            { id: 6, main: '#ff7f50', glow: '#ff7f50', core: '#ffe8e0', name: '橙' },
+            { id: 7, main: '#ff6b9d', glow: '#ff6b9d', core: '#ffe0f0', name: '粉' },
+            { id: 8, main: '#ffffff', glow: '#ffffff', core: '#f8f8f8', name: '白' }
+        ];
 
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const scoreElement = document.getElementById('score');
         const highScoreElement = document.getElementById('high-score');
-        const startScreen = document.getElementById('start-screen');
-        const startBtn = document.getElementById('start-btn');
-        const skinSelector = document.getElementById('skin-selector');
         const gameoverScreen = document.getElementById('gameover-screen');
         const restartBtn = document.getElementById('restart-btn');
         const reviveBtn = document.getElementById('revive-btn');
@@ -409,7 +365,7 @@
         const victoryScoreElement = document.getElementById('victory-score');
         const victoryHighScoreElement = document.getElementById('victory-high-score');
 
-        let gameState = 'waiting';  // 'waiting', 'playing', 'gameover', 'victory'
+        let gameState = 'playing';  // 'playing', 'gameover', 'victory'
         let score = 0;
         let highScore = localStorage.getItem('cyberGridHighScore') || 0;
         
@@ -428,10 +384,11 @@
             width: 0, height: 0,
             vx: 0, vy: 0,
             trail: [],
-            skinIndex: 0,
+            colors: ALL_COLORS[0],  // 默认青色，后续从 sessionStorage 读取
             isJumping: false,
             dashTimer: 0,   
-            dashCooldown: 0 
+            dashCooldown: 0,
+            ghostMarker: null  // 动作残影 { x, y, type, opacity, timer }
         };
         
         // 玩家2 (P2 控制)
@@ -442,11 +399,12 @@
             width: 0, height: 0,
             vx: 0, vy: 0,
             trail: [],
-            skinIndex: 1,  // 默认使用不同皮肤
+            colors: ALL_COLORS[1],  // 默认紫色，后续从 sessionStorage 读取
             isJumping: false,
             dashTimer: 0,
             dashCooldown: 0,
-            active: false  // P2 连接后才激活
+            active: false,  // P2 连接后才激活
+            ghostMarker: null  // 动作残影
         };
 
         const keys = {};
@@ -551,17 +509,53 @@
                         console.log(`P${controllerId} 离开`);
                         updateControllerUI();
                     }
+                    else if (data.type === 'state') {
+                        // 轮询模式：完整状态包
+                        const ctrl = getController(controllerId);
+                        const prevButtons = { ...ctrl.buttons };  // 记录上一帧按钮状态
+                        ctrl.joystick = data.joystick;
+                        ctrl.buttons = data.buttons;
+                        
+                        // 检测按钮变化（用于触发一次性动作）
+                        if (gameState === 'playing') {
+                            const checkButtonPress = (btn, target) => {
+                                const justPressed = data.buttons[btn] && !prevButtons[btn];
+                                if (btn === 'S' && justPressed && !target.isJumping) {
+                                    target.isJumping = true;
+                                    target.vz = config.jumpPower;
+                                    target.ghostMarker = { x: target.x, y: target.y, type: 'jump', opacity: 1, timer: 60 };
+                                }
+                                if (btn === 'E' && justPressed && target.dashCooldown <= 0) {
+                                    if (target.vx !== 0 || target.vy !== 0) {
+                                        target.dashTimer = config.dashDuration;
+                                        target.dashCooldown = config.dashCooldown;
+                                        target.ghostMarker = { x: target.x, y: target.y, type: 'dash', opacity: 1, timer: 60 };
+                                    }
+                                }
+                            };
+                            if (controllerId === 1) {
+                                checkButtonPress('S', player);
+                                checkButtonPress('E', player);
+                            } else if (controllerId === 2 && player2.active) {
+                                checkButtonPress('S', player2);
+                                checkButtonPress('E', player2);
+                            }
+                        }
+                    }
                     else if (data.type === 'joystick') {
+                        // 兼容事件驱动模式
                         const ctrl = getController(controllerId);
                         ctrl.joystick.x = data.x;
                         ctrl.joystick.y = data.y;
                     }
                     else if (data.type === 'joystick_release') {
+                        // 兼容事件驱动模式
                         const ctrl = getController(controllerId);
                         ctrl.joystick.x = 0;
                         ctrl.joystick.y = 0;
                     }
                     else if (data.type === 'button') {
+                        // 兼容事件驱动模式
                         const ctrl = getController(controllerId);
                         const btn = data.button;
                         const pressed = data.action === 'press';
@@ -571,27 +565,31 @@
                         if (gameState === 'playing') {
                             // P1 控制 player
                             if (controllerId === 1) {
-                                if (btn === 'A' && pressed && !player.isJumping) {
+                                if (btn === 'S' && pressed && !player.isJumping) {
                                     player.isJumping = true;
                                     player.vz = config.jumpPower;
+                                    player.ghostMarker = { x: player.x, y: player.y, type: 'jump', opacity: 1, timer: 60 };
                                 }
-                                if (btn === 'B' && pressed && player.dashCooldown <= 0) {
+                                if (btn === 'E' && pressed && player.dashCooldown <= 0) {
                                     if (player.vx !== 0 || player.vy !== 0) {
                                         player.dashTimer = config.dashDuration;
                                         player.dashCooldown = config.dashCooldown;
+                                        player.ghostMarker = { x: player.x, y: player.y, type: 'dash', opacity: 1, timer: 60 };
                                     }
                                 }
                             }
                             // P2 控制 player2
                             else if (controllerId === 2 && player2.active) {
-                                if (btn === 'A' && pressed && !player2.isJumping) {
+                                if (btn === 'S' && pressed && !player2.isJumping) {
                                     player2.isJumping = true;
                                     player2.vz = config.jumpPower;
+                                    player2.ghostMarker = { x: player2.x, y: player2.y, type: 'jump', opacity: 1, timer: 60 };
                                 }
-                                if (btn === 'B' && pressed && player2.dashCooldown <= 0) {
+                                if (btn === 'E' && pressed && player2.dashCooldown <= 0) {
                                     if (player2.vx !== 0 || player2.vy !== 0) {
                                         player2.dashTimer = config.dashDuration;
                                         player2.dashCooldown = config.dashCooldown;
+                                        player2.ghostMarker = { x: player2.x, y: player2.y, type: 'dash', opacity: 1, timer: 60 };
                                     }
                                 }
                             }
@@ -606,20 +604,26 @@
         // 启动 WebSocket 连接
         initWebSocket();
 
-        function initSkinSelector() {
-            config.skins.forEach((skin, index) => {
-                const btn = document.createElement('div');
-                btn.className = `skin-btn ${index === player.skinIndex ? 'active' : ''}`;
-                btn.style.backgroundColor = skin.main;
-                btn.style.boxShadow = `0 0 10px ${skin.glow}`;
-                btn.addEventListener('click', () => {
-                    player.skinIndex = index;
-                    document.querySelectorAll('.skin-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    if (gameState === 'waiting') draw();
-                });
-                skinSelector.appendChild(btn);
-            });
+        // 从 sessionStorage 读取主页保存的玩家颜色
+        function loadPlayerColors() {
+            try {
+                const saved = sessionStorage.getItem('playerColors');
+                if (saved) {
+                    const colors = JSON.parse(saved);
+                    console.log('读取到玩家颜色:', colors);
+                    
+                    // 应用 P1 颜色
+                    if (colors['1']) {
+                        player.colors = colors['1'];
+                    }
+                    // 应用 P2 颜色
+                    if (colors['2']) {
+                        player2.colors = colors['2'];
+                    }
+                }
+            } catch (e) {
+                console.error('读取玩家颜色失败:', e);
+            }
         }
 
         function initGrid() {
@@ -794,21 +798,12 @@
             canvas.height = height;
             const minDim = Math.min(width, height) * 0.85;
             tileSize = (minDim - (config.gridSize - 1) * config.tileGap) / config.gridSize;
-            if (gameState === 'waiting') {
-                // Player 1 初始化
-                player.width = tileSize * config.playerSizeRatio;
-                player.height = tileSize * config.playerSizeRatio;
-                player.x = width / 2 - player.width / 2 - tileSize;  // 稍微偏左
-                player.y = height / 2 - player.height / 2;
-                player.z = 0;
-                
-                // Player 2 初始化
-                player2.width = tileSize * config.playerSizeRatio;
-                player2.height = tileSize * config.playerSizeRatio;
-                player2.x = width / 2 - player2.width / 2 + tileSize;  // 稍微偏右
-                player2.y = height / 2 - player2.height / 2;
-                player2.z = 0;
-            }
+            
+            // 初始化玩家尺寸（首次或窗口变化时更新）
+            player.width = tileSize * config.playerSizeRatio;
+            player.height = tileSize * config.playerSizeRatio;
+            player2.width = tileSize * config.playerSizeRatio;
+            player2.height = tileSize * config.playerSizeRatio;
         }
 
         window.addEventListener('keydown', e => {
@@ -816,11 +811,13 @@
             if (e.code === 'Space' && !player.isJumping && gameState === 'playing') {
                 player.isJumping = true;
                 player.vz = config.jumpPower;
+                player.ghostMarker = { x: player.x, y: player.y, type: 'jump', opacity: 1, timer: 60 };
             }
             if (e.code === 'ShiftLeft' && player.dashCooldown <= 0 && gameState === 'playing') {
                 if (player.vx !== 0 || player.vy !== 0) {
                     player.dashTimer = config.dashDuration;
                     player.dashCooldown = config.dashCooldown;
+                    player.ghostMarker = { x: player.x, y: player.y, type: 'dash', opacity: 1, timer: 60 };
                 }
             }
         });
@@ -883,6 +880,13 @@
             player.x = Math.max(gridX, Math.min(player.x, gridX + gridTotalDim - player.width));
             player.y = Math.max(gridY, Math.min(player.y, gridY + gridTotalDim - player.height));
 
+            // Ghost Marker 更新
+            if (player.ghostMarker) {
+                player.ghostMarker.timer--;
+                player.ghostMarker.opacity = player.ghostMarker.timer / 60;
+                if (player.ghostMarker.timer <= 0) player.ghostMarker = null;
+            }
+
             // ==================== Player 2 更新 ====================
             if (player2.active) {
                 player2.vx = 0; player2.vy = 0;
@@ -927,6 +931,13 @@
                 // Bounds
                 player2.x = Math.max(gridX, Math.min(player2.x, gridX + gridTotalDim - player2.width));
                 player2.y = Math.max(gridY, Math.min(player2.y, gridY + gridTotalDim - player2.height));
+
+                // Ghost Marker 更新
+                if (player2.ghostMarker) {
+                    player2.ghostMarker.timer--;
+                    player2.ghostMarker.opacity = player2.ghostMarker.timer / 60;
+                    if (player2.ghostMarker.timer <= 0) player2.ghostMarker = null;
+                }
             }
 
             // Collision - Player 1 (Only if player.z is near 0)
@@ -1065,7 +1076,29 @@
                 }
             });
 
-            const currentSkin = config.skins[player.skinIndex];
+            // 0. Ghost Marker - 动作起始残影
+            if (player.ghostMarker) {
+                const ghost = player.ghostMarker;
+                const gx = ghost.x + player.width/2;
+                const gy = ghost.y + player.height/2;
+                
+                ctx.globalAlpha = ghost.opacity * 0.6;
+                ctx.strokeStyle = player.colors.main;  // 使用玩家当前颜色
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+                
+                // 虚线方框
+                ctx.strokeRect(ghost.x, ghost.y, player.width, player.height);
+                
+                // 连接线
+                ctx.beginPath();
+                ctx.moveTo(gx, gy);
+                ctx.lineTo(player.x + player.width/2, player.y + player.height/2);
+                ctx.stroke();
+                
+                ctx.setLineDash([]);
+                ctx.globalAlpha = 1;
+            }
 
             // 1. Shadow (Fixed at feet position, grows slightly smaller/fainter as player "rises")
             if (player.z > 0) {
@@ -1091,7 +1124,7 @@
                 const ty = t.y - (th - player.height) / 2;
 
                 ctx.globalAlpha = (player.trail.length - i) / (player.trail.length * 3);
-                ctx.fillStyle = currentSkin.main;
+                ctx.fillStyle = player.colors.main;
                 ctx.fillRect(tx, ty, tw, th);
             });
             ctx.globalAlpha = 1.0;
@@ -1105,26 +1138,39 @@
             const drawY = player.y - (drawH - player.height) / 2;
 
             ctx.shadowBlur = 15 + Math.sin(Date.now()/100) * 5 + (player.z/5);
-            ctx.shadowColor = currentSkin.glow;
-            ctx.fillStyle = currentSkin.main;
+            ctx.shadowColor = player.colors.glow;
+            ctx.fillStyle = player.colors.main;
             ctx.fillRect(drawX, drawY, drawW, drawH);
             
             // Core
-            ctx.fillStyle = currentSkin.core;
+            ctx.fillStyle = player.colors.core;
             ctx.fillRect(drawX + drawW*0.25, drawY + drawH*0.25, drawW*0.5, drawH*0.5);
             ctx.shadowBlur = 0;
 
-            // 4. Dash Cooldown Bar - Player 1
-            if (player.dashCooldown > 0) {
-                ctx.fillStyle = 'rgba(255,255,255,0.2)';
-                ctx.fillRect(player.x, player.y + player.height + 5, player.width, 3);
-                ctx.fillStyle = config.colors.cyan;
-                ctx.fillRect(player.x, player.y + player.height + 5, player.width * (1 - player.dashCooldown/config.dashCooldown), 3);
-            }
 
             // ==================== 绘制 Player 2 ====================
             if (player2.active) {
-                const skin2 = config.skins[player2.skinIndex];
+
+                // Ghost Marker - P2 残影
+                if (player2.ghostMarker) {
+                    const ghost = player2.ghostMarker;
+                    const gx = ghost.x + player2.width/2;
+                    const gy = ghost.y + player2.height/2;
+                    
+                    ctx.globalAlpha = ghost.opacity * 0.6;
+                    ctx.strokeStyle = player2.colors.main;  // 使用玩家当前颜色
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([4, 4]);
+                    
+                    ctx.strokeRect(ghost.x, ghost.y, player2.width, player2.height);
+                    ctx.beginPath();
+                    ctx.moveTo(gx, gy);
+                    ctx.lineTo(player2.x + player2.width/2, player2.y + player2.height/2);
+                    ctx.stroke();
+                    
+                    ctx.setLineDash([]);
+                    ctx.globalAlpha = 1;
+                }
 
                 // Shadow
                 if (player2.z > 0) {
@@ -1150,7 +1196,7 @@
                     const ty2 = t.y - (th2 - player2.height) / 2;
 
                     ctx.globalAlpha = (player2.trail.length - i) / (player2.trail.length * 3);
-                    ctx.fillStyle = skin2.main;
+                    ctx.fillStyle = player2.colors.main;
                     ctx.fillRect(tx2, ty2, tw2, th2);
                 });
                 ctx.globalAlpha = 1.0;
@@ -1163,22 +1209,15 @@
                 const drawY2 = player2.y - (drawH2 - player2.height) / 2;
 
                 ctx.shadowBlur = 15 + Math.sin(Date.now()/100) * 5 + (player2.z/5);
-                ctx.shadowColor = skin2.glow;
-                ctx.fillStyle = skin2.main;
+                ctx.shadowColor = player2.colors.glow;
+                ctx.fillStyle = player2.colors.main;
                 ctx.fillRect(drawX2, drawY2, drawW2, drawH2);
                 
                 // Core
-                ctx.fillStyle = skin2.core;
+                ctx.fillStyle = player2.colors.core;
                 ctx.fillRect(drawX2 + drawW2*0.25, drawY2 + drawH2*0.25, drawW2*0.5, drawH2*0.5);
                 ctx.shadowBlur = 0;
 
-                // Dash Cooldown Bar - Player 2
-                if (player2.dashCooldown > 0) {
-                    ctx.fillStyle = 'rgba(255,255,255,0.2)';
-                    ctx.fillRect(player2.x, player2.y + player2.height + 5, player2.width, 3);
-                    ctx.fillStyle = config.colors.pink;
-                    ctx.fillRect(player2.x, player2.y + player2.height + 5, player2.width * (1 - player2.dashCooldown/config.dashCooldown), 3);
-                }
             }
 
             requestAnimationFrame(() => {
@@ -1382,6 +1421,7 @@
             player.isJumping = false;
             player.dashTimer = 0;
             player.dashCooldown = 0;
+            player.ghostMarker = null;
             
             // 重置 Player 2
             player2.trail = [];
@@ -1392,14 +1432,8 @@
             player2.isJumping = false;
             player2.dashTimer = 0;
             player2.dashCooldown = 0;
+            player2.ghostMarker = null;
         }
-        
-        startBtn.addEventListener('click', () => {
-            startScreen.style.display = 'none';
-            gameState = 'playing';
-            resetGame();
-            // 自动触发第一波（通过 checkAndRefresh）
-        });
         
         restartBtn.addEventListener('click', () => {
             gameoverScreen.style.display = 'none';
@@ -1482,6 +1516,7 @@
             player.isJumping = false;
             player.dashTimer = 0;
             player.dashCooldown = 0;
+            player.ghostMarker = null;
             
             player2.trail = [];
             player2.x = width / 2 - player2.width / 2 + tileSize;
@@ -1491,14 +1526,16 @@
             player2.isJumping = false;
             player2.dashTimer = 0;
             player2.dashCooldown = 0;
+            player2.ghostMarker = null;
             
             console.log(`[DEBUG] 复活！波次: ${waveNumber}, 分数: ${score}`);
         });
 
         window.addEventListener('resize', resize);
-        initSkinSelector();
+        loadPlayerColors();  // 从主页读取玩家颜色
         initGrid();
         resize();
+        resetGame();  // 直接开始游戏
         draw();
         
         // ==================== 二维码功能 ====================
