@@ -1,0 +1,28 @@
+[package]
+name = "blockgame"
+version = "0.1.0"
+description = "方寸枢机 - 移动端控制的像素方块游戏"
+authors = ["you"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# WebSocket 服务器依赖
+tokio = { version = "1", features = ["full"] }
+axum = { version = "0.7", features = ["ws"] }
+tower-http = { version = "0.5", features = ["fs", "cors"] }
+futures-util = "0.3"
+local-ip-address = "0.6"
+chrono = "0.4"
+base64 = "0.22"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+

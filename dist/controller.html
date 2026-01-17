@@ -742,6 +742,95 @@
             50% { opacity: 0.3; }
         }
 
+        /* 缩放面板 */
+        .scale-panel {
+            position: absolute;
+            top: 70px;
+            right: 25px;
+            background: rgba(0, 20, 40, 0.95);
+            border: 2px solid #00ffff;
+            border-radius: 10px;
+            padding: 15px;
+            z-index: 3000;
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        }
+        
+        .scale-panel.visible {
+            display: flex;
+        }
+        
+        .scale-panel-title {
+            font-size: 12px;
+            color: #00ffff;
+            text-shadow: 0 0 5px #00ffff;
+            letter-spacing: 2px;
+            text-align: center;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+        }
+        
+        .scale-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .scale-label {
+            font-size: 11px;
+            color: #ff00ff;
+            text-shadow: 0 0 5px #ff00ff;
+            width: 45px;
+        }
+        
+        .scale-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(0, 255, 255, 0.1);
+            border: 1px solid #00ffff;
+            color: #00ffff;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.2s;
+        }
+        
+        .scale-btn:active {
+            background: rgba(0, 255, 255, 0.3);
+            transform: scale(0.9);
+        }
+        
+        .scale-value {
+            font-size: 12px;
+            color: #00ff00;
+            text-shadow: 0 0 5px #00ff00;
+            width: 45px;
+            text-align: center;
+        }
+        
+        .scale-reset-btn {
+            margin-top: 5px;
+            padding: 8px 12px;
+            background: rgba(255, 0, 255, 0.1);
+            border: 1px solid #ff00ff;
+            border-radius: 5px;
+            color: #ff00ff;
+            font-size: 10px;
+            font-family: 'Orbitron', monospace;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .scale-reset-btn:active {
+            background: rgba(255, 0, 255, 0.3);
+        }
+
         /* 小屏幕横屏适配 */
         @media screen and (max-height: 450px) {
             .joystick-zone {
@@ -847,6 +936,11 @@
                             <path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/>
                         </svg>
                     </button>
+                    <button class="top-btn" id="scaleBtn" title="缩放大小">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M15 3l2.3 2.3-2.89 2.87 1.42 1.42L18.7 6.7 21 9V3h-6zM3 9l2.3-2.3 2.87 2.89 1.42-1.42L6.7 5.3 9 3H3v6zm6 12l-2.3-2.3 2.89-2.87-1.42-1.42L5.3 17.3 3 15v6h6zm12-6l-2.3 2.3-2.87-2.89-1.42 1.42 2.89 2.87L15 21h6v-6z"/>
+                        </svg>
+                    </button>
                     <button class="top-btn" id="refreshBtn" title="刷新">
                         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
@@ -900,6 +994,30 @@
             <div class="drag-handle" id="buttonsHandle">
                 <svg viewBox="0 0 24 24"><path d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg>
         </div>
+        </div>
+        
+        <!-- 缩放控制面板 -->
+        <div class="scale-panel" id="scalePanel">
+            <div class="scale-panel-title">按键大小调整</div>
+            <div class="scale-control">
+                <span class="scale-label">摇杆:</span>
+                <button class="scale-btn" id="joystickScaleDown">−</button>
+                <span class="scale-value" id="joystickScaleValue">100%</span>
+                <button class="scale-btn" id="joystickScaleUp">+</button>
+            </div>
+            <div class="scale-control">
+                <span class="scale-label">按钮:</span>
+                <button class="scale-btn" id="buttonsScaleDown">−</button>
+                <span class="scale-value" id="buttonsScaleValue">100%</span>
+                <button class="scale-btn" id="buttonsScaleUp">+</button>
+            </div>
+            <div class="scale-control">
+                <span class="scale-label">间距:</span>
+                <button class="scale-btn" id="spacingDown">−</button>
+                <span class="scale-value" id="spacingValue">100%</span>
+                <button class="scale-btn" id="spacingUp">+</button>
+            </div>
+            <button class="scale-reset-btn" id="scaleResetBtn">重置全部</button>
         </div>
     </div>
 
@@ -1163,6 +1281,165 @@
         
         // 页面加载时恢复布局
         loadLayout();
+
+        // ==================== 缩放控制 ====================
+        const scaleBtn = document.getElementById('scaleBtn');
+        const scalePanel = document.getElementById('scalePanel');
+        const joystickScaleUp = document.getElementById('joystickScaleUp');
+        const joystickScaleDown = document.getElementById('joystickScaleDown');
+        const joystickScaleValue = document.getElementById('joystickScaleValue');
+        const buttonsScaleUp = document.getElementById('buttonsScaleUp');
+        const buttonsScaleDown = document.getElementById('buttonsScaleDown');
+        const buttonsScaleValue = document.getElementById('buttonsScaleValue');
+        const spacingUp = document.getElementById('spacingUp');
+        const spacingDown = document.getElementById('spacingDown');
+        const spacingValue = document.getElementById('spacingValue');
+        const scaleResetBtn = document.getElementById('scaleResetBtn');
+        const joystickZoneEl = document.getElementById('joystickZone');
+        const buttonsZoneEl = document.querySelector('.buttons-zone');
+        
+        // 缩放配置
+        const SCALE_MIN = 0.6;
+        const SCALE_MAX = 1.5;
+        const SCALE_STEP = 0.1;
+        
+        // 间距配置（基准 200px）
+        const SPACING_BASE = 200;
+        const SPACING_MIN = 0.5;
+        const SPACING_MAX = 1.5;
+        const SPACING_STEP = 0.1;
+        
+        // 当前缩放值
+        let joystickScale = 1.0;
+        let buttonsScale = 1.0;
+        let buttonsSpacing = 1.0;
+        
+        // 加载保存的缩放
+        function loadScale() {
+            const saved = localStorage.getItem('controllerScale');
+            if (saved) {
+                try {
+                    const scale = JSON.parse(saved);
+                    joystickScale = scale.joystick || 1.0;
+                    buttonsScale = scale.buttons || 1.0;
+                    buttonsSpacing = scale.spacing || 1.0;
+                    applyScale();
+                } catch (e) {
+                    console.log('缩放加载失败');
+                }
+            }
+        }
+        
+        // 保存缩放
+        function saveScale() {
+            const scale = {
+                joystick: joystickScale,
+                buttons: buttonsScale,
+                spacing: buttonsSpacing
+            };
+            localStorage.setItem('controllerScale', JSON.stringify(scale));
+        }
+        
+        // 应用缩放
+        function applyScale() {
+            // 摇杆缩放
+            joystickZoneEl.style.transform = `scale(${joystickScale})`;
+            joystickScaleValue.textContent = Math.round(joystickScale * 100) + '%';
+            
+            // 按钮缩放（只缩放按钮本身，不影响间距）
+            const btns = buttonsZoneEl.querySelectorAll('.btn');
+            btns.forEach(btn => {
+                btn.style.transform = btn.style.transform.replace(/scale\([^)]*\)\s*/g, '') + ` scale(${buttonsScale})`;
+                // 保持原有的 translate 变换
+                if (btn.classList.contains('btn-n') || btn.classList.contains('btn-s')) {
+                    btn.style.transform = `translateX(-50%) scale(${buttonsScale})`;
+                } else {
+                    btn.style.transform = `translateY(-50%) scale(${buttonsScale})`;
+                }
+            });
+            buttonsScaleValue.textContent = Math.round(buttonsScale * 100) + '%';
+            
+            // 按钮间距
+            const spacingSize = SPACING_BASE * buttonsSpacing;
+            buttonsZoneEl.style.width = spacingSize + 'px';
+            buttonsZoneEl.style.height = spacingSize + 'px';
+            spacingValue.textContent = Math.round(buttonsSpacing * 100) + '%';
+        }
+        
+        // 切换缩放面板
+        scaleBtn.addEventListener('click', () => {
+            scalePanel.classList.toggle('visible');
+            scaleBtn.classList.toggle('active', scalePanel.classList.contains('visible'));
+            if (navigator.vibrate) {
+                navigator.vibrate(20);
+            }
+        });
+        
+        // 摇杆缩放
+        joystickScaleUp.addEventListener('click', () => {
+            joystickScale = Math.min(SCALE_MAX, joystickScale + SCALE_STEP);
+            applyScale();
+            saveScale();
+            if (navigator.vibrate) navigator.vibrate(15);
+        });
+        
+        joystickScaleDown.addEventListener('click', () => {
+            joystickScale = Math.max(SCALE_MIN, joystickScale - SCALE_STEP);
+            applyScale();
+            saveScale();
+            if (navigator.vibrate) navigator.vibrate(15);
+        });
+        
+        // 按钮缩放
+        buttonsScaleUp.addEventListener('click', () => {
+            buttonsScale = Math.min(SCALE_MAX, buttonsScale + SCALE_STEP);
+            applyScale();
+            saveScale();
+            if (navigator.vibrate) navigator.vibrate(15);
+        });
+        
+        buttonsScaleDown.addEventListener('click', () => {
+            buttonsScale = Math.max(SCALE_MIN, buttonsScale - SCALE_STEP);
+            applyScale();
+            saveScale();
+            if (navigator.vibrate) navigator.vibrate(15);
+        });
+        
+        // 按钮间距
+        spacingUp.addEventListener('click', () => {
+            buttonsSpacing = Math.min(SPACING_MAX, buttonsSpacing + SPACING_STEP);
+            applyScale();
+            saveScale();
+            if (navigator.vibrate) navigator.vibrate(15);
+        });
+        
+        spacingDown.addEventListener('click', () => {
+            buttonsSpacing = Math.max(SPACING_MIN, buttonsSpacing - SPACING_STEP);
+            applyScale();
+            saveScale();
+            if (navigator.vibrate) navigator.vibrate(15);
+        });
+        
+        // 重置全部
+        scaleResetBtn.addEventListener('click', () => {
+            joystickScale = 1.0;
+            buttonsScale = 1.0;
+            buttonsSpacing = 1.0;
+            applyScale();
+            saveScale();
+            if (navigator.vibrate) navigator.vibrate(30);
+        });
+        
+        // 点击面板外关闭
+        document.addEventListener('click', (e) => {
+            if (!scalePanel.contains(e.target) && e.target !== scaleBtn && !scaleBtn.contains(e.target)) {
+                scalePanel.classList.remove('visible');
+                scaleBtn.classList.remove('active');
+            }
+        });
+        
+        // 加载保存的缩放
+        loadScale();
 
         // ==================== 全屏 + 横屏锁定 ====================
         const fullscreenBtn = document.getElementById('fullscreenBtn');

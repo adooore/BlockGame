@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>BlockGame 存档工具</title>
+    <style>
+        body {
+            font-family: 'Consolas', monospace;
+            background: #1a1a2e;
+            color: #0ff;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 { color: #ff6b9d; }
+        h2 { color: #a855f7; margin-top: 30px; }
+        textarea {
+            width: 100%;
+            height: 150px;
+            background: #0d0d1a;
+            color: #0ff;
+            border: 1px solid #0ff;
+            padding: 10px;
+            font-family: inherit;
+            resize: vertical;
+        }
+        button {
+            background: #0ff;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover { background: #ff6b9d; }
+        .result {
+            background: #0d0d1a;
+            border: 1px solid #a855f7;
+            padding: 15px;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+        .error { color: #ff6b6b; }
+        .success { color: #6bff6b; }
+        pre { white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>🔧 BlockGame 存档工具</h1>
+    <p>用于开发调试：加密/解密存档数据</p>
+
+    <h2>📝 加密存档（JSON → .sav）</h2>
+    <textarea id="jsonInput" placeholder='输入 JSON，例如：
+{
+  "records": {
+    "eatAndAvoid": {
+      "bestTime": 60
+    }
+  },
+  "totalPlayTime": 3600,
+  "playCount": 10
+}'></textarea>
+    <br>
+    <button onclick="encrypt()">加密 →</button>
+    <div id="encryptResult" class="result"></div>
+
+    <h2>🔓 解密存档（.sav → JSON）</h2>
+    <textarea id="savInput" placeholder="粘贴 .sav 文件内容（Base64 字符串）"></textarea>
+    <br>
+    <button onclick="decrypt()">← 解密</button>
+    <div id="decryptResult" class="result"></div>
+
+    <h2>📋 快速模板</h2>
+    <button onclick="loadTemplate('newRecord')">新纪录 (60秒)</button>
+    <button onclick="loadTemplate('speedrun')">速通 (30秒)</button>
+    <button onclick="loadTemplate('empty')">空存档</button>
+
+    <h2>ℹ️ 加密说明</h2>
+    <pre>
+密钥: "BlockGame2026!@#" (16字节)
+
+加密过程:
+1. JSON 字符串转字节数组
+2. XOR 加密: encrypted[i] = data[i] ^ key[i % 16]
+3. 计算校验和: sum = Σ(byte × 31) (溢出自动截断)
+4. 拼接: [4字节小端序校验和] + [加密数据]
+5. Base64 编码
+
+解密过程是反过来的。
+    </pre>
+
+    <script>
+        const SAVE_KEY = "BlockGame2026!@#";
+
+        // XOR 加密/解密（对称的）
+        function xorCrypt(data, key) {
+            const result = new Uint8Array(data.length);
+            for (let i = 0; i < data.length; i++) {
+                result[i] = data[i] ^ key.charCodeAt(i % key.length);
+            }
+            return result;
+        }
+
+        // 计算校验和
+        function checksum(data) {
+            let sum = 0;
+            for (let i = 0; i < data.length; i++) {
+                sum = (sum + data[i]) >>> 0;  // 转无符号
+                sum = (sum * 31) >>> 0;
+            }
+            return sum;
+        }
+
+        // 加密
+        function encrypt() {
+            const resultDiv = document.getElementById('encryptResult');
+            try {
+                const jsonStr = document.getElementById('jsonInput').value.trim();
+                // 验证 JSON
+                JSON.parse(jsonStr);
+                
+                // 转字节
+                const encoder = new TextEncoder();
+                const jsonBytes = encoder.encode(jsonStr);
+                
+                // 计算校验和
+                const sum = checksum(jsonBytes);
+                
+                // XOR 加密
+                const encrypted = xorCrypt(jsonBytes, SAVE_KEY);
+                
+                // 拼接：[4字节校验和] + [加密数据]
+                const saveData = new Uint8Array(4 + encrypted.length);
+                // 小端序写入校验和
+                saveData[0] = sum & 0xFF;
+                saveData[1] = (sum >> 8) & 0xFF;
+                saveData[2] = (sum >> 16) & 0xFF;
+                saveData[3] = (sum >> 24) & 0xFF;
+                saveData.set(encrypted, 4);
+                
+                // Base64 编码
+                const base64 = btoa(String.fromCharCode.apply(null, saveData));
+                
+                resultDiv.innerHTML = `
+                    <span class="success">✓ 加密成功！</span><br><br>
+                    <strong>复制以下内容到 game_data.sav 文件：</strong><br>
+                    <code>${base64}</code><br><br>
+                    <strong>校验和:</strong> ${sum} (0x${sum.toString(16)})<br>
+                    <strong>数据长度:</strong> ${jsonBytes.length} 字节
+                `;
+            } catch (e) {
+                resultDiv.innerHTML = `<span class="error">✗ 错误: ${e.message}</span>`;
+            }
+        }
+
+        // 解密
+        function decrypt() {
+            const resultDiv = document.getElementById('decryptResult');
+            try {
+                const base64 = document.getElementById('savInput').value.trim();
+                
+                // Base64 解码
+                const binaryStr = atob(base64);
+                const saveData = new Uint8Array(binaryStr.length);
+                for (let i = 0; i < binaryStr.length; i++) {
+                    saveData[i] = binaryStr.charCodeAt(i);
+                }
+                
+                if (saveData.length < 4) {
+                    throw new Error('数据太短');
+                }
+                
+                // 提取校验和（小端序）
+                const storedSum = saveData[0] | (saveData[1] << 8) | (saveData[2] << 16) | (saveData[3] << 24);
+                const encrypted = saveData.slice(4);
+                
+                // XOR 解密
+                const decrypted = xorCrypt(encrypted, SAVE_KEY);
+                
+                // 验证校验和
+                const computedSum = checksum(decrypted);
+                const checksumMatch = (storedSum >>> 0) === (computedSum >>> 0);
+                
+                // 转字符串
+                const decoder = new TextDecoder();
+                const jsonStr = decoder.decode(decrypted);
+                
+                // 美化 JSON
+                const parsed = JSON.parse(jsonStr);
+                const pretty = JSON.stringify(parsed, null, 2);
+                
+                resultDiv.innerHTML = `
+                    <span class="${checksumMatch ? 'success' : 'error'}">
+                        ${checksumMatch ? '✓ 校验和匹配' : '✗ 校验和不匹配（存档可能被篡改）'}
+                    </span><br>
+                    <strong>存储的校验和:</strong> ${storedSum >>> 0}<br>
+                    <strong>计算的校验和:</strong> ${computedSum >>> 0}<br><br>
+                    <strong>解密后的 JSON:</strong>
+                    <pre>${pretty}</pre>
+                `;
+            } catch (e) {
+                resultDiv.innerHTML = `<span class="error">✗ 错误: ${e.message}</span>`;
+            }
+        }
+
+        // 加载模板
+        function loadTemplate(type) {
+            const templates = {
+                newRecord: {
+                    records: { eatAndAvoid: { bestTime: 60 } },
+                    totalPlayTime: 300,
+                    playCount: 5
+                },
+                speedrun: {
+                    records: { eatAndAvoid: { bestTime: 30 } },
+                    totalPlayTime: 1800,
+                    playCount: 50
+                },
+                empty: {}
+            };
+            document.getElementById('jsonInput').value = JSON.stringify(templates[type], null, 2);
+        }
+
+        // 默认加载一个模板
+        loadTemplate('newRecord');
+    </script>
+</body>
+</html>
+

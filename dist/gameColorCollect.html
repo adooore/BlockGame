@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>方寸枢机 - 颜色收集</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;700&family=Zhi+Mang+Xing&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-cyan: #00f2ff;
+            --neon-pink: #ff00ff;
+            --bg-dark: #050505;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            font-family: 'JetBrains Mono', monospace;
+            touch-action: none;
+        }
+
+        /* Scanlines Effect */
+        body::after {
+            content: " ";
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.05), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.05));
+            background-size: 100% 4px, 3px 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        canvas { display: block; }
+
+        #ui-overlay {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            color: var(--neon-cyan);
+            pointer-events: none;
+            z-index: 20;
+            text-shadow: 0 0 10px var(--neon-cyan);
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .cyber-border {
+            border: 2px solid var(--neon-cyan);
+            box-shadow: 0 0 15px var(--neon-cyan), inset 0 0 10px var(--neon-cyan);
+            background: rgba(0, 0, 0, 0.8);
+        }
+
+        .message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 30px 40px;
+            border-radius: 4px;
+            text-align: center;
+            display: none;
+            z-index: 100;
+            font-family: 'Orbitron', sans-serif;
+            min-width: 400px;
+        }
+
+        .neon-text-pink { color: var(--neon-pink); text-shadow: 0 0 10px var(--neon-pink), 0 0 20px var(--neon-pink); }
+        .neon-text-cyan { color: var(--neon-cyan); text-shadow: 0 0 10px var(--neon-cyan), 0 0 20px var(--neon-cyan); }
+
+        @keyframes flicker {
+            0% { opacity: 0.9; } 5% { opacity: 0.5; } 10% { opacity: 0.9; } 100% { opacity: 1; }
+        }
+        .flicker { animation: flicker 3s infinite step-end; }
+
+        .btn-cyber {
+            background: transparent;
+            border: 2px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            padding: 12px 40px;
+            font-size: 1.1rem;
+            min-width: 200px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 0 10px var(--neon-cyan);
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .btn-cyber:hover, .btn-cyber.selected {
+            background: var(--neon-cyan);
+            color: #000 !important;
+            box-shadow: 0 0 30px var(--neon-cyan);
+        }
+
+        /* 调试日志面板 */
+        .debug-log {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            width: 280px;
+            max-height: 200px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: #888;
+            overflow-y: auto;
+            z-index: 50;
+        }
+        .debug-log-title { color: #00ff00; font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 4px; }
+        .debug-log-item { padding: 3px 0; border-bottom: 1px solid #222; }
+        .debug-log-item:last-child { border-bottom: none; }
+        .log-wave { color: #00f2ff; }
+        .log-cyan { color: #00f2ff; }
+        .log-pink { color: #ff00ff; }
+
+        /* 菜单操作提示样式 */
+        .menu-control-hints {
+            margin-top: 24px;
+            padding: 12px 20px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        .hint-item { display: flex; align-items: center; gap: 4px; }
+        .hint-key {
+            display: inline-block;
+            padding: 2px 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: #fff;
+            min-width: 20px;
+            text-align: center;
+        }
+        .hint-sep { color: rgba(255, 255, 255, 0.3); }
+        .hint-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            font-family: 'Zhi Mang Xing', cursive;
+            font-size: 14px;
+            color: #fff;
+        }
+        .hint-btn-west {
+            border: 2px solid #3b82f6;
+            background: rgba(59, 130, 246, 0.2);
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.02); }
+        }
+    </style>
+    <!-- 引入模块 -->
+    <script src="js/controlHint.js"></script>
+    <script src="js/gameData.js"></script>
+    <script src="js/gridSystem.js"></script>
+    <script src="js/pathfinding.js"></script>
+    <script src="js/waveSystem.js"></script>
+    <script src="js/gameUtils.js"></script>
+    <script src="js/player.js"></script>
+</head>
+<body>
+
+    <div id="ui-overlay" class="flicker">
+        <div class="text-3xl font-black mb-2 tracking-widest">用时: <span id="timer">00:00</span></div>
+        <div class="text-sm opacity-70">最快记录: <span id="best-time">--:--</span></div>
+        
+        <!-- 关卡标题 -->
+        <div id="level-title" class="mb-2" style="font-size: 14px; opacity: 0.6; letter-spacing: 2px;"></div>
+        
+        <!-- 颜色指示器容器 -->
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <!-- 目标颜色指示器 -->
+            <div id="target-color-box" class="mt-2" style="background: rgba(0,0,0,0.8); border: 3px solid #00f2ff; border-radius: 10px; padding: 12px 16px; display: inline-block;">
+                <div style="font-size: 10px; opacity: 0.7; margin-bottom: 5px;">收集目标</div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div id="target-color-indicator" style="width: 35px; height: 35px; border-radius: 6px; background: #00f2ff; box-shadow: 0 0 15px #00f2ff;"></div>
+                    <div>
+                        <div id="target-color-name" style="font-size: 16px; font-weight: bold;">青色</div>
+                        <div id="target-color-count" style="font-size: 10px; opacity: 0.7;">剩余: 0</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 危险颜色指示器（第三关显示） -->
+            <div id="danger-color-box" class="mt-2" style="background: rgba(0,0,0,0.8); border: 3px solid #ff00ff; border-radius: 10px; padding: 12px 16px; display: none;">
+                <div style="font-size: 10px; opacity: 0.7; margin-bottom: 5px;">⚠ 危险障碍</div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div id="danger-color-indicator" style="width: 35px; height: 35px; border-radius: 6px; background: #ff00ff; box-shadow: 0 0 15px #ff00ff;"></div>
+                    <div>
+                        <div id="danger-color-name" style="font-size: 16px; font-weight: bold; color: #ff00ff;">粉色</div>
+                        <div style="font-size: 10px; opacity: 0.7;">触碰即死</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4 text-[10px] tracking-widest opacity-60">[WASD] 移动 | [K] 跳跃 | [J] 冲刺</div>
+        <div id="controller-status" class="mt-4 text-xs tracking-widest">
+            <span id="p1-status" class="opacity-30">● 玩家1</span>
+            <span id="p2-status" class="ml-4 opacity-30">● 玩家2</span>
+        </div>
+        <!-- 调试信息 -->
+        <div id="debug-info" class="mt-4 text-xs tracking-widest" style="font-family: 'JetBrains Mono', monospace;">
+            <div>波次: <span id="wave-num" class="neon-text-cyan">0</span></div>
+            <div class="mt-1">
+                <span style="color: #00f2ff; text-shadow: 0 0 5px #00f2ff;">■</span> 能量: <span id="cyan-count">0</span>
+                <span class="ml-3" style="color: #ff00ff; text-shadow: 0 0 5px #ff00ff;">■</span> 危险: <span id="pink-count">0</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 开始蒙版 -->
+    <div id="start-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 500;">
+        <div style="color: rgba(0, 242, 255, 0.3); font-family: 'Orbitron', sans-serif; font-size: 24px; text-transform: uppercase; letter-spacing: 8px; animation: pulse 2s ease-in-out infinite;">按任意键开始</div>
+        <div style="color: rgba(255, 255, 255, 0.2); font-size: 12px; margin-top: 20px;">PRESS ANY KEY TO START</div>
+        
+        <!-- 操作提示 -->
+        <div style="margin-top: 60px; display: flex; gap: 40px; color: rgba(255,255,255,0.5); font-size: 14px;">
+            <div style="text-align: center;">
+                <div style="width: 50px; height: 50px; border: 2px solid #4ade80; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-family: 'Zhi Mang Xing', cursive; font-size: 24px; color: #4ade80;">南</div>
+                <div>跳跃</div>
+                <div style="font-size: 10px; opacity: 0.5;">长按滞空</div>
+            </div>
+            <div style="text-align: center;">
+                <div style="width: 50px; height: 50px; border: 2px solid #f87171; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-family: 'Zhi Mang Xing', cursive; font-size: 24px; color: #f87171;">东</div>
+                <div>冲刺</div>
+                <div style="font-size: 10px; opacity: 0.5;">快速移动</div>
+            </div>
+            <div style="text-align: center;">
+                <div style="width: 50px; height: 50px; border: 2px solid #facc15; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-family: 'Zhi Mang Xing', cursive; font-size: 24px; color: #facc15;">北</div>
+                <div>静步</div>
+                <div style="font-size: 10px; opacity: 0.5;">按住减速</div>
+            </div>
+        </div>
+        
+        <!-- 键盘提示 -->
+        <div style="margin-top: 30px; color: rgba(255,255,255,0.3); font-size: 11px;">键盘: K=跳跃 | J=冲刺 | L=静步 | WASD=移动</div>
+    </div>
+    
+    <!-- Game Over 界面 -->
+    <div id="gameover-screen" class="message cyber-border" style="display: none;">
+        <h1 class="text-4xl font-black mb-4 neon-text-pink">游戏结束</h1>
+        <p class="text-sm tracking-widest opacity-80 mb-2">本次用时</p>
+        <p class="text-5xl font-black neon-text-cyan mb-6" id="final-time">00:00</p>
+        <p class="text-xs opacity-60 mb-8">最快记录: <span id="final-high-time">--:--</span></p>
+        <div class="flex flex-col gap-3 items-center" id="gameover-buttons">
+            <button id="restart-btn" class="btn-cyber pointer-events-auto menu-btn" data-index="0">重新开始</button>
+            <button id="revive-btn" class="btn-cyber pointer-events-auto menu-btn" data-index="1">复活 <span style="font-size: 10px; opacity: 0.7;">(+1分钟)</span></button>
+            <button id="back-btn" class="btn-cyber pointer-events-auto menu-btn" data-index="2">返回主菜单</button>
+        </div>
+        <div class="menu-control-hints">
+            <span class="hint-item"><span class="hint-key">W</span><span class="hint-key">S</span> 移动</span>
+            <span class="hint-sep">|</span>
+            <span class="hint-item"><span class="hint-key">Enter</span> 确认</span>
+            <span class="hint-sep">|</span>
+            <span class="hint-item"><span class="hint-btn hint-btn-west">西</span> 确认</span>
+        </div>
+    </div>
+
+    <!-- 通关界面 -->
+    <div id="victory-screen" class="message cyber-border" style="display: none;">
+        <h1 class="text-4xl font-black mb-4" style="color: #ffd700; text-shadow: 0 0 20px #ffd700, 0 0 40px #ff8c00;">通关成功！</h1>
+        <p class="text-sm tracking-widest opacity-80 mb-2">通关用时</p>
+        <p class="text-5xl font-black neon-text-cyan mb-2" id="victory-time">00:00</p>
+        <p class="text-xs opacity-60 mb-4">全部波次已通过</p>
+        <p class="text-xs opacity-60 mb-8">最快记录: <span id="victory-high-time">--:--</span></p>
+        <div class="flex flex-col gap-3 items-center" id="victory-buttons">
+            <button id="replay-btn" class="btn-cyber pointer-events-auto menu-btn" data-index="0">再玩一次</button>
+            <button id="victory-back-btn" class="btn-cyber pointer-events-auto menu-btn" data-index="1">返回主菜单</button>
+        </div>
+        <div class="menu-control-hints">
+            <span class="hint-item"><span class="hint-key">W</span><span class="hint-key">S</span> 移动</span>
+            <span class="hint-sep">|</span>
+            <span class="hint-item"><span class="hint-key">Enter</span> 确认</span>
+            <span class="hint-sep">|</span>
+            <span class="hint-item"><span class="hint-btn hint-btn-west">西</span> 确认</span>
+        </div>
+    </div>
+
+    <!-- 调试日志面板 -->
+    <div class="debug-log" id="debugLog">
+        <div class="debug-log-title">
+            [DEBUG LOG]
+            <button id="deadlock-btn" style="margin-left: 10px; padding: 2px 8px; font-size: 10px; background: #333; border: 1px solid #ff6600; color: #ff6600; cursor: pointer;">死局测试: OFF</button>
+            <button id="reproduce-btn" style="margin-left: 5px; padding: 2px 8px; font-size: 10px; background: #333; border: 1px solid #ff0000; color: #ff0000; cursor: pointer;">还原死局</button>
+            <button id="victory-test-btn" style="margin-left: 5px; padding: 2px 8px; font-size: 10px; background: #333; border: 1px solid #ffd700; color: #ffd700; cursor: pointer;">快速通关</button>
+        </div>
+        <div id="logContent"></div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        // ==================== 游戏配置 ====================
+        const config = {
+            gridSize: 12,
+            tileGap: 6,
+            playerSizeRatio: 0.5,
+            moveSpeed: 5,
+            dashMultiplier: 3.5,
+            dashDuration: 8,
+            dashCooldown: 30,
+            jumpPower: 14,
+            gravity: 1.0,
+            trailLength: 6,
+            maxWaves: 12,
+            initialCyan: 8,
+            cyanDecrement: 1,
+            minCyan: 3,
+            initialPink: 5,
+            pinkIncrement: 2,
+            maxPink: 25,
+            colors: { bg: '#050505', grid: '#1a1a1a', cyan: '#00f2ff', pink: '#ff00ff' },
+            collectibleColors: ['cyan', 'yellow', 'purple', 'orange'],
+            colorHex: { cyan: '#00f2ff', yellow: '#facc15', purple: '#a855f7', orange: '#fb923c' },
+            colorNames: { cyan: '青色', yellow: '黄色', purple: '紫色', orange: '橙色' },
+            wrongColorPenalty: 5,
+            dangerColors: ['pink', 'red', 'gray'],
+            dangerColorHex: { pink: '#ff00ff', red: '#ff4444', gray: '#888888' },
+            dangerColorNames: { pink: '粉色', red: '红色', gray: '灰色' }
+        };
+        
+        // ==================== 关卡配置 ====================
+        const urlParams = new URLSearchParams(window.location.search);
+        const levelMode = parseInt(urlParams.get('level')) || 1;
+        
+        const levelNames = { 1: '颜色收集 I', 2: '颜色收集 II', 3: '颜色收集 III' };
+        const levelSubtitles = {
+            1: '基础模式 - 固定目标与障碍',
+            2: '进阶模式 - 动态目标颜色',
+            3: '极限模式 - 双重颜色变换'
+        };
+        
+        let targetColor = 'cyan';
+        let dangerColor = 'pink';
+        
+        // 玩家颜色
+        const ALL_COLORS = [
+            { id: 1, main: '#00f2ff', glow: '#00f2ff', core: '#e0faff', name: '青' },
+            { id: 2, main: '#a855f7', glow: '#d946ef', core: '#f0e0ff', name: '紫' },
+            { id: 3, main: '#4ade80', glow: '#39ff14', core: '#e0ffe0', name: '绿' },
+            { id: 4, main: '#facc15', glow: '#ffaa00', core: '#fffbe0', name: '黄' },
+            { id: 5, main: '#ff4757', glow: '#ff4757', core: '#ffe0e0', name: '红' },
+            { id: 6, main: '#ff7f50', glow: '#ff7f50', core: '#ffe8e0', name: '橙' },
+            { id: 7, main: '#ff6b9d', glow: '#ff6b9d', core: '#ffe0f0', name: '粉' },
+            { id: 8, main: '#ffffff', glow: '#ffffff', core: '#f8f8f8', name: '白' }
+        ];
+
+        // ==================== DOM 元素 ====================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const timerElement = document.getElementById('timer');
+        const bestTimeElement = document.getElementById('best-time');
+        const gameoverScreen = document.getElementById('gameover-screen');
+        const victoryScreen = document.getElementById('victory-screen');
+        const startOverlay = document.getElementById('start-overlay');
+
+        // ==================== 游戏状态 ====================
+        let gameState = 'waiting';
+        let gameTime = 0;
+        let gameStartTime = 0;
+        let bestTime = 0;
+        let invincibleTimer = 0;
+        const INVINCIBLE_DURATION = 120;
+        const REVIVE_PENALTY = 60;
+        let penaltyTime = 0;
+        let width, height;
+        const keys = {};
+        
+        // ==================== 初始化模块 ====================
+        const gridSys = GridSystem.create({ gridSize: config.gridSize, tileGap: config.tileGap, colors: config.colors });
+        const waveSys = WaveSystem.create({
+            maxWaves: config.maxWaves,
+            initialTarget: config.initialCyan,
+            targetDecrement: config.cyanDecrement,
+            minTarget: config.minCyan,
+            initialDanger: config.initialPink,
+            dangerIncrement: config.pinkIncrement,
+            maxDanger: config.maxPink
+        });
+        const floatingText = GameUtils.createFloatingTextSystem();
+        const menuSystem = GameUtils.createMenuSystem();
+        const debugLog = GameUtils.createDebugLog('logContent', 20);
+        
+        // 基准 tileSize（用于速度缩放）
+        const BASE_TILE_SIZE = 70;
+        let scaledMoveSpeed = config.moveSpeed;
+        
+        // ==================== 玩家对象 ====================
+        const player = {
+            x: 0, y: 0, z: 0, vz: 0, width: 0, height: 0, vx: 0, vy: 0,
+            trail: [], colors: ALL_COLORS[0], isJumping: false, isJumpHeld: false,
+            dashTimer: 0, dashCooldown: 0, ghostMarker: null
+        };
+        
+        const player2 = {
+            x: 0, y: 0, z: 0, vz: 0, width: 0, height: 0, vx: 0, vy: 0,
+            trail: [], colors: ALL_COLORS[1], isJumping: false, isJumpHeld: false,
+            dashTimer: 0, dashCooldown: 0, active: false, ghostMarker: null
+        };
+
+        // ==================== 远程控制器 ====================
+        let remoteControllers = {};
+        let wsConnected = false;
+        let serverInfo = { ip: null, port: 8088 };
+        
+        function getController(id) {
+            if (!remoteControllers[id]) {
+                remoteControllers[id] = { joystick: { x: 0, y: 0 }, buttons: { A: false, B: false, X: false, Y: false } };
+            }
+            return remoteControllers[id];
+        }
+        
+        function updateControllerUI() {
+            const p1Status = document.getElementById('p1-status');
+            const p2Status = document.getElementById('p2-status');
+            const hasP1 = remoteControllers[1] !== undefined;
+            const hasP2 = remoteControllers[2] !== undefined;
+            
+            p1Status.style.opacity = hasP1 ? '1' : '0.3';
+            p1Status.style.color = hasP1 ? '#00f2ff' : '';
+            p1Status.style.textShadow = hasP1 ? '0 0 10px #00f2ff' : 'none';
+            
+            p2Status.style.opacity = hasP2 ? '1' : '0.3';
+            p2Status.style.color = hasP2 ? '#ff00ff' : '';
+            p2Status.style.textShadow = hasP2 ? '0 0 10px #ff00ff' : 'none';
+            
+            player2.active = hasP2;
+        }
+
+        function initWebSocket() {
+            const wsUrl = 'ws://localhost:8088/ws/game';
+            console.log('连接游戏服务器:', wsUrl);
+            const ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => { console.log('游戏已连接到服务器!'); wsConnected = true; };
+            ws.onclose = () => { console.log('与服务器断开连接'); wsConnected = false; remoteControllers = {}; setTimeout(initWebSocket, 3000); };
+            ws.onerror = (error) => { console.error('WebSocket 错误:', error); };
+            
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    const controllerId = data.controller_id;
+                    
+                    if (data.type === 'connected') {
+                        if (data.server_ip) { serverInfo.ip = data.server_ip; serverInfo.port = data.server_port || 8088; }
+                        GameData.setWebSocket(ws);
+                        if (data.game_data) {
+                            GameData.initFromServer(data.game_data);
+                            const records = GameData._cache?.records?.eatAndAvoid;
+                            if (records?.bestTime) { bestTime = records.bestTime; bestTimeElement.textContent = GameUtils.formatBestTime(bestTime); }
+                        }
+                        (data.controllers || []).forEach(c => getController(c.id));
+                        updateControllerUI();
+                    }
+                    else if (data.type === 'controller_joined') { getController(controllerId); updateControllerUI(); }
+                    else if (data.type === 'controller_left') { delete remoteControllers[controllerId]; updateControllerUI(); }
+                    else if (data.type === 'state') {
+                        const ctrl = getController(controllerId);
+                        const prevButtons = { ...ctrl.buttons };
+                        ctrl.joystick = data.joystick;
+                        ctrl.buttons = data.buttons;
+                        
+                        if (gameState === 'waiting') {
+                            const anyButton = data.buttons.E || data.buttons.S || data.buttons.W || data.buttons.N;
+                            const anyJoystick = Math.abs(data.joystick.x) > 0.5 || Math.abs(data.joystick.y) > 0.5;
+                            if (anyButton || anyJoystick) startGame();
+                        }
+                        else if (gameState === 'gameover' || gameState === 'victory') {
+                            menuSystem.handleInput(data.joystick, data.buttons);
+                        }
+                        else if (gameState === 'playing') {
+                            handlePlayerButtons(controllerId, data.buttons, prevButtons);
+                        }
+                    }
+                    else if (data.type === 'button') {
+                        const ctrl = getController(controllerId);
+                        ctrl.buttons[data.button] = data.action === 'press';
+                        if (gameState === 'playing') handlePlayerButtonEvent(controllerId, data.button, data.action === 'press');
+                    }
+                    else if (data.type === 'save_result' || data.type === 'load_result') {
+                        if (data.type === 'load_result' && data.success) GameData.initFromServer(data.data);
+                    }
+                } catch (e) { console.log('收到消息:', event.data); }
+            };
+        }
+        
+        function handlePlayerButtons(controllerId, buttons, prevButtons) {
+            const target = controllerId === 1 ? player : (controllerId === 2 && player2.active ? player2 : null);
+            if (!target) return;
+            
+            const justPressedS = buttons.S && !prevButtons.S;
+            const justPressedE = buttons.E && !prevButtons.E;
+            
+            target.isJumpHeld = buttons.S;
+            
+            if (justPressedS && !target.isJumping) {
+                target.isJumping = true;
+                target.vz = config.jumpPower;
+                target.ghostMarker = { x: target.x, y: target.y, type: 'jump', opacity: 1, timer: 60 };
+            }
+            if (justPressedE && target.dashCooldown <= 0 && (target.vx !== 0 || target.vy !== 0)) {
+                target.dashTimer = config.dashDuration;
+                target.dashCooldown = config.dashCooldown;
+                target.ghostMarker = { x: target.x, y: target.y, type: 'dash', opacity: 1, timer: 60 };
+            }
+        }
+        
+        function handlePlayerButtonEvent(controllerId, btn, pressed) {
+            const target = controllerId === 1 ? player : (controllerId === 2 && player2.active ? player2 : null);
+            if (!target) return;
+            
+            if (btn === 'S') target.isJumpHeld = pressed;
+            if (btn === 'S' && pressed && !target.isJumping) {
+                target.isJumping = true;
+                target.vz = config.jumpPower;
+                target.ghostMarker = { x: target.x, y: target.y, type: 'jump', opacity: 1, timer: 60 };
+            }
+            if (btn === 'E' && pressed && target.dashCooldown <= 0 && (target.vx !== 0 || target.vy !== 0)) {
+                target.dashTimer = config.dashDuration;
+                target.dashCooldown = config.dashCooldown;
+                target.ghostMarker = { x: target.x, y: target.y, type: 'dash', opacity: 1, timer: 60 };
+            }
+        }
+        
+        initWebSocket();
+
+        // ==================== 玩家颜色加载 ====================
+        function loadPlayerColors() {
+            try {
+                const saved = sessionStorage.getItem('playerColors');
+                if (saved) {
+                    const colors = JSON.parse(saved);
+                    if (colors['1']) player.colors = colors['1'];
+                    if (colors['2']) player2.colors = colors['2'];
+                }
+            } catch (e) { console.error('读取玩家颜色失败:', e); }
+        }
+
+        // ==================== 异步加载最快记录 ====================
+        async function loadBestTime() {
+            bestTime = await GameData.records.getBestTime('eatAndAvoid');
+            bestTimeElement.textContent = GameUtils.formatBestTime(bestTime);
+        }
+        loadBestTime();
+
+        // ==================== UI 更新函数 ====================
+        function updateTargetColorUI() {
+            const hex = config.colorHex[targetColor];
+            const name = config.colorNames[targetColor];
+            const box = document.getElementById('target-color-box');
+            const indicator = document.getElementById('target-color-indicator');
+            const nameEl = document.getElementById('target-color-name');
+            
+            box.style.borderColor = hex;
+            indicator.style.background = hex;
+            indicator.style.boxShadow = `0 0 20px ${hex}`;
+            nameEl.textContent = name;
+            nameEl.style.color = hex;
+            nameEl.style.textShadow = `0 0 10px ${hex}`;
+        }
+        
+        function updateDangerColorUI() {
+            const hex = config.dangerColorHex[dangerColor] || '#ff00ff';
+            const name = config.dangerColorNames[dangerColor] || '粉色';
+            const box = document.getElementById('danger-color-box');
+            const indicator = document.getElementById('danger-color-indicator');
+            const nameEl = document.getElementById('danger-color-name');
+            
+            box.style.borderColor = hex;
+            indicator.style.background = hex;
+            indicator.style.boxShadow = `0 0 15px ${hex}`;
+            nameEl.textContent = name;
+            nameEl.style.color = hex;
+        }
+        
+        function initLevelUI() {
+            document.getElementById('level-title').textContent = `${levelNames[levelMode]} - ${levelSubtitles[levelMode]}`;
+            if (levelMode === 3) document.getElementById('danger-color-box').style.display = 'inline-block';
+            console.log(`[Game] 关卡模式: ${levelMode} - ${levelNames[levelMode]}`);
+        }
+        
+        function updateDebugInfo() {
+            const targetCount = gridSys.countTiles(targetColor);
+            const dangerCount = gridSys.countTiles(config.dangerColors);
+            
+            document.getElementById('wave-num').textContent = waveSys.waveNumber;
+            document.getElementById('cyan-count').textContent = targetCount;
+            document.getElementById('pink-count').textContent = dangerCount;
+        }
+        
+        function isDangerColor(type) { return config.dangerColors.includes(type); }
+
+        // ==================== 波次系统 ====================
+        function triggerNewWave() {
+            const colors = config.collectibleColors;
+            
+            // 根据关卡模式设置目标颜色
+            if (levelMode === 1) {
+                targetColor = 'cyan';
+            } else {
+                targetColor = GameUtils.randomChoice(colors);
+            }
+            
+            // 根据关卡模式设置危险颜色
+            if (levelMode === 3) {
+                dangerColor = GameUtils.randomChoice(config.dangerColors);
+                updateDangerColorUI();
+            } else {
+                dangerColor = 'pink';
+            }
+            
+            updateTargetColorUI();
+            
+            // 使用波次系统生成方块
+            const result = waveSys.triggerWave(gridSys, {
+                targetColors: colors,
+                dangerColors: config.dangerColors,
+                currentTarget: targetColor,
+                currentDanger: dangerColor,
+                players: [player, player2],
+                dynamicTarget: levelMode >= 2,
+                dynamicDanger: levelMode >= 3,
+                otherColorRatio: 0.6
+            });
+            
+            // 覆盖波次系统的颜色（因为我们自己设置了）
+            // 重新放置方块以使用正确的颜色
+            gridSys.clearAll();
+            const occupied = gridSys.getOccupiedTiles([player, player2]);
+            const availableTiles = gridSys.getAvailableTiles(occupied);
+            const shuffled = GameUtils.shuffle([...availableTiles]);
+            
+            const { targetCount, dangerCount } = waveSys.getWaveConfig();
+            const otherColorCount = Math.floor(targetCount * 0.6);
+            
+            let idx = 0;
+            const collectibleTiles = [];
+            
+            // 放置目标颜色方块
+            const actualTarget = Math.min(targetCount, shuffled.length - idx);
+            for (let i = 0; i < actualTarget && idx < shuffled.length; i++, idx++) {
+                shuffled[idx].type = targetColor;
+                shuffled[idx].pulse = 0;
+                collectibleTiles.push(shuffled[idx]);
+            }
+            
+            // 放置其他颜色方块（干扰项）
+            if (levelMode >= 2) {
+                const otherColors = colors.filter(c => c !== targetColor);
+                otherColors.forEach(color => {
+                    const count = Math.min(otherColorCount, shuffled.length - idx);
+                    for (let i = 0; i < count && idx < shuffled.length; i++, idx++) {
+                        shuffled[idx].type = color;
+                        shuffled[idx].pulse = 0;
+                        collectibleTiles.push(shuffled[idx]);
+                    }
+                });
+            }
+            
+            // 安全区
+            const safeZone = new Set();
+            const directions = [[-1,0], [1,0], [0,-1], [0,1]];
+            collectibleTiles.forEach(tile => {
+                directions.forEach(([dr, dc]) => {
+                    const nr = tile.row + dr;
+                    const nc = tile.col + dc;
+                    if (nr >= 0 && nr < config.gridSize && nc >= 0 && nc < config.gridSize) {
+                        safeZone.add(`${nr},${nc}`);
+                    }
+                });
+            });
+            
+            // 放置危险方块
+            let dangerPlaced = 0;
+            for (let i = idx; i < shuffled.length && dangerPlaced < dangerCount; i++) {
+                const tile = shuffled[i];
+                if (!safeZone.has(`${tile.row},${tile.col}`)) {
+                    tile.type = dangerColor;
+                    tile.pulse = 0;
+                    dangerPlaced++;
+                }
+            }
+            
+            console.log(`[Wave ${waveSys.waveNumber}] 目标: ${targetColor}, 目标数: ${actualTarget}, 粉色: ${dangerPlaced}`);
+            debugLog.logWave(waveSys.waveNumber, actualTarget, dangerPlaced);
+            
+            // 死局测试
+            if (window.DEBUG_DEADLOCK) {
+                const deadlockRow = 1;
+                const deadlockCol = config.gridSize - 2;
+                gridSys.grid[deadlockRow * config.gridSize + deadlockCol].type = 'cyan';
+                [[-1,0], [1,0], [0,-1], [0,1]].forEach(([dr, dc]) => {
+                    const nr = deadlockRow + dr;
+                    const nc = deadlockCol + dc;
+                    if (nr >= 0 && nr < config.gridSize && nc >= 0 && nc < config.gridSize) {
+                        gridSys.grid[nr * config.gridSize + nc].type = 'pink';
+                    }
+                });
+            }
+            
+            invincibleTimer = INVINCIBLE_DURATION;
+        }
+        
+        function checkAndRefresh() {
+            if (gameState !== 'playing') return;
+            
+            const targetCount = gridSys.countTiles(targetColor);
+            document.getElementById('target-color-count').textContent = `剩余: ${targetCount}`;
+            
+            if (targetCount === 0) {
+                if (waveSys.isComplete()) {
+                    victory();
+                } else {
+                    triggerNewWave();
+                }
+            }
+        }
+
+        // ==================== 死局检测 ====================
+        function checkDeadlock() {
+            const p1Col = Math.floor((player.x + player.width/2 - gridSys.gridX) / (gridSys.tileSize + config.tileGap));
+            const p1Row = Math.floor((player.y + player.height/2 - gridSys.gridY) / (gridSys.tileSize + config.tileGap));
+            
+            const startPositions = [{ row: p1Row, col: p1Col }];
+            if (player2.active) {
+                const p2Col = Math.floor((player2.x + player2.width/2 - gridSys.gridX) / (gridSys.tileSize + config.tileGap));
+                const p2Row = Math.floor((player2.y + player2.height/2 - gridSys.gridY) / (gridSys.tileSize + config.tileGap));
+                startPositions.push({ row: p2Row, col: p2Col });
+            }
+            
+            return Pathfinding.checkDeadlock({
+                grid: gridSys.grid,
+                gridSize: config.gridSize,
+                startPositions,
+                targetTypes: [targetColor]
+            });
+        }
+        
+        let deadlockCheckInProgress = false;
+
+        // ==================== 窗口调整 ====================
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            
+            const dims = gridSys.resize(width, height);
+            scaledMoveSpeed = config.moveSpeed * (dims.tileSize / BASE_TILE_SIZE);
+            
+            player.width = dims.tileSize * config.playerSizeRatio;
+            player.height = dims.tileSize * config.playerSizeRatio;
+            player2.width = dims.tileSize * config.playerSizeRatio;
+            player2.height = dims.tileSize * config.playerSizeRatio;
+        }
+
+        // ==================== 游戏控制 ====================
+        function startGame() {
+            if (gameState === 'waiting') {
+                gameState = 'playing';
+                gameStartTime = Date.now();
+                startOverlay.style.display = 'none';
+                invincibleTimer = INVINCIBLE_DURATION;
+                console.log('[Game] 游戏开始计时！');
+            }
+        }
+        
+        let keyboardMenuThrottle = false;
+        
+        window.addEventListener('keydown', e => {
+            keys[e.code] = true;
+            
+            if (gameState === 'waiting') { startGame(); return; }
+            
+            if (gameState === 'gameover' || gameState === 'victory') {
+                if (!keyboardMenuThrottle) {
+                    if (e.code === 'KeyW' || e.code === 'ArrowUp') {
+                        menuSystem.moveUp();
+                        keyboardMenuThrottle = true;
+                        setTimeout(() => keyboardMenuThrottle = false, 150);
+                    }
+                    if (e.code === 'KeyS' || e.code === 'ArrowDown') {
+                        menuSystem.moveDown();
+                        keyboardMenuThrottle = true;
+                        setTimeout(() => keyboardMenuThrottle = false, 150);
+                    }
+                }
+                if (e.code === 'Enter' || e.code === 'Space') menuSystem.confirm();
+                return;
+            }
+            
+            if (e.code === 'KeyK') player.isJumpHeld = true;
+            if (e.code === 'KeyK' && !player.isJumping && gameState === 'playing') {
+                player.isJumping = true;
+                player.vz = config.jumpPower;
+                player.ghostMarker = { x: player.x, y: player.y, type: 'jump', opacity: 1, timer: 60 };
+            }
+            if (e.code === 'KeyJ' && player.dashCooldown <= 0 && gameState === 'playing') {
+                if (player.vx !== 0 || player.vy !== 0) {
+                    player.dashTimer = config.dashDuration;
+                    player.dashCooldown = config.dashCooldown;
+                    player.ghostMarker = { x: player.x, y: player.y, type: 'dash', opacity: 1, timer: 60 };
+                }
+            }
+        });
+        
+        window.addEventListener('keyup', e => {
+            keys[e.code] = false;
+            if (e.code === 'KeyK') player.isJumpHeld = false;
+        });
+
+        // ==================== 游戏更新 ====================
+        function update() {
+            if (gameState !== 'playing') return;
+
+            if (gameStartTime > 0) {
+                gameTime = (Date.now() - gameStartTime) / 1000 + penaltyTime;
+                timerElement.textContent = GameUtils.formatTime(gameTime);
+            }
+
+            const deadzone = 0.3;
+            const { gridX, gridY, gridTotalDim, tileSize } = gridSys;
+
+            // Player 1 更新
+            player.vx = 0; player.vy = 0;
+            if (keys['KeyW'] || keys['ArrowUp']) player.vy = -1;
+            if (keys['KeyS'] || keys['ArrowDown']) player.vy = 1;
+            if (keys['KeyA'] || keys['ArrowLeft']) player.vx = -1;
+            if (keys['KeyD'] || keys['ArrowRight']) player.vx = 1;
+            
+            const p1Ctrl = remoteControllers[1];
+            if (p1Ctrl && (Math.abs(p1Ctrl.joystick.x) > deadzone || Math.abs(p1Ctrl.joystick.y) > deadzone)) {
+                player.vx = p1Ctrl.joystick.x;
+                player.vy = p1Ctrl.joystick.y;
+            }
+            
+            const isPrecise1 = keys['KeyL'] || (p1Ctrl && p1Ctrl.buttons && p1Ctrl.buttons.N);
+            const speedMult1 = isPrecise1 ? 0.5 : 1.0;
+            
+            updatePlayerMovement(player, speedMult1);
+            
+            // Player 2 更新
+            if (player2.active) {
+                player2.vx = 0; player2.vy = 0;
+                const p2Ctrl = remoteControllers[2];
+                if (p2Ctrl && (Math.abs(p2Ctrl.joystick.x) > deadzone || Math.abs(p2Ctrl.joystick.y) > deadzone)) {
+                    player2.vx = p2Ctrl.joystick.x;
+                    player2.vy = p2Ctrl.joystick.y;
+                }
+                const isPrecise2 = p2Ctrl && p2Ctrl.buttons && p2Ctrl.buttons.N;
+                updatePlayerMovement(player2, isPrecise2 ? 0.5 : 1.0);
+            }
+
+            if (invincibleTimer > 0) invincibleTimer--;
+            
+            // 碰撞检测
+            checkPlayerCollision(player);
+            if (player2.active) checkPlayerCollision(player2);
+
+            gridSys.grid.forEach(t => t.pulse += 0.05);
+            updateDebugInfo();
+            checkAndRefresh();
+        }
+        
+        function updatePlayerMovement(p, speedMult) {
+            const { gridX, gridY, gridTotalDim, tileSize } = gridSys;
+            
+            const isDashing = p.dashTimer > 0;
+            if (isDashing) {
+                p.x += p.vx * scaledMoveSpeed * config.dashMultiplier * speedMult;
+                p.y += p.vy * scaledMoveSpeed * config.dashMultiplier * speedMult;
+                p.dashTimer--;
+            } else {
+                p.x += p.vx * scaledMoveSpeed * speedMult;
+                p.y += p.vy * scaledMoveSpeed * speedMult;
+            }
+            if (p.dashCooldown > 0) p.dashCooldown--;
+
+            if (p.isJumping) {
+                p.z += p.vz;
+                const effectiveGravity = p.isJumpHeld ? config.gravity * 0.5 : config.gravity;
+                p.vz -= effectiveGravity;
+                if (p.z <= 0) { p.z = 0; p.vz = 0; p.isJumping = false; p.isJumpHeld = false; }
+            }
+
+            const isMoving = p.vx !== 0 || p.vy !== 0;
+            if (isMoving || p.isJumping) p.trail.unshift({x: p.x, y: p.y, z: p.z, opacity: 1});
+            const maxTrail = p.dashTimer > 0 ? config.trailLength + 4 : config.trailLength;
+            while (p.trail.length > maxTrail) p.trail.pop();
+            if (!isMoving && !p.isJumping && p.trail.length > 0) p.trail.pop();
+
+            p.x = Math.max(gridX, Math.min(p.x, gridX + gridTotalDim - p.width));
+            p.y = Math.max(gridY, Math.min(p.y, gridY + gridTotalDim - p.height));
+
+            if (p.ghostMarker) {
+                p.ghostMarker.timer--;
+                p.ghostMarker.opacity = p.ghostMarker.timer / 60;
+                if (p.ghostMarker.timer <= 0) p.ghostMarker = null;
+            }
+        }
+        
+        function checkPlayerCollision(p) {
+            if (p.z >= 1) return;
+            
+            const { gridX, gridY, tileSize } = gridSys;
+            const cx = p.x + p.width/2;
+            const cy = p.y + p.height/2;
+            const col = Math.floor((cx - gridX) / (tileSize + config.tileGap));
+            const row = Math.floor((cy - gridY) / (tileSize + config.tileGap));
+
+            if (row >= 0 && row < config.gridSize && col >= 0 && col < config.gridSize) {
+                const tile = gridSys.grid.find(t => t.row === row && t.col === col);
+                if (tile && tile.type !== 'none') {
+                    if (isDangerColor(tile.type) && invincibleTimer <= 0) {
+                        gameOver();
+                        return;
+                    } else if (config.collectibleColors.includes(tile.type)) {
+                        const pos = gridSys.getTilePosition(row, col);
+                        if (tile.type === targetColor) {
+                            tile.type = 'none';
+                            floatingText.show('+正确', config.colorHex[targetColor], pos.centerX, pos.y);
+                        } else {
+                            tile.type = 'none';
+                            gameTime += config.wrongColorPenalty;
+                            floatingText.show(`+${config.wrongColorPenalty}秒`, '#ff6b6b', pos.centerX, pos.y);
+                        }
+                    }
+                }
+            }
+        }
+
+        // ==================== 绘制 ====================
+        function draw() {
+            ctx.fillStyle = config.colors.bg;
+            ctx.fillRect(0, 0, width, height);
+
+            const { gridX, gridY, gridTotalDim, tileSize } = gridSys;
+
+            // 网格线
+            gridSys.drawGridLines(ctx);
+
+            // 方块
+            gridSys.drawTiles(ctx, (tile) => {
+                let color;
+                if (isDangerColor(tile.type)) {
+                    color = config.dangerColorHex[tile.type] || config.colors.pink;
+                } else if (config.colorHex[tile.type]) {
+                    color = config.colorHex[tile.type];
+                } else {
+                    color = config.colors.cyan;
+                }
+                return { color, isHighlight: tile.type === targetColor };
+            });
+
+            // 绘制玩家
+            drawPlayer(player);
+            if (player2.active) drawPlayer(player2);
+
+            // 浮动文字
+            floatingText.draw(ctx);
+            floatingText.update();
+            
+            requestAnimationFrame(() => { update(); draw(); });
+        }
+        
+        function drawPlayer(p) {
+            const { tileSize } = gridSys;
+            
+            // Ghost Marker
+            if (p.ghostMarker) {
+                const ghost = p.ghostMarker;
+                ctx.globalAlpha = ghost.opacity * 0.6;
+                ctx.strokeStyle = p.colors.main;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+                ctx.strokeRect(ghost.x, ghost.y, p.width, p.height);
+                ctx.beginPath();
+                ctx.moveTo(ghost.x + p.width/2, ghost.y + p.height/2);
+                ctx.lineTo(p.x + p.width/2, p.y + p.height/2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.globalAlpha = 1;
+            }
+
+            // Shadow
+            if (p.z > 0) {
+                const shadowScale = Math.max(0.2, 1 - p.z / 150);
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.beginPath();
+                ctx.ellipse(p.x + p.width/2, p.y + p.height/2, (p.width/2) * shadowScale, (p.height/2) * shadowScale, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Trails
+            p.trail.forEach((t, i) => {
+                const trailScale = 1 + (t.z / 120);
+                const tw = p.width * trailScale;
+                const th = p.height * trailScale;
+                const tx = t.x - (tw - p.width) / 2;
+                const ty = t.y - (th - p.height) / 2;
+                ctx.globalAlpha = (p.trail.length - i) / (p.trail.length * 3);
+                ctx.fillStyle = p.colors.main;
+                ctx.fillRect(tx, ty, tw, th);
+            });
+            ctx.globalAlpha = 1.0;
+
+            // Body
+            const jumpScale = 1 + (p.z / 80);
+            const drawW = p.width * jumpScale;
+            const drawH = p.height * jumpScale;
+            const drawX = p.x - (drawW - p.width) / 2;
+            const drawY = p.y - (drawH - p.height) / 2;
+
+            const isInvincible = invincibleTimer > 0;
+            if (isInvincible) ctx.globalAlpha = 0.5 + Math.sin(Date.now() / 50) * 0.5;
+
+            ctx.shadowBlur = 15 + Math.sin(Date.now()/100) * 5 + (p.z/5);
+            ctx.shadowColor = isInvincible ? '#ffffff' : p.colors.glow;
+            ctx.fillStyle = p.colors.main;
+            ctx.fillRect(drawX, drawY, drawW, drawH);
+            
+            ctx.fillStyle = p.colors.core;
+            ctx.fillRect(drawX + drawW*0.25, drawY + drawH*0.25, drawW*0.5, drawH*0.5);
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1.0;
+        }
+
+        // ==================== 游戏结束/胜利 ====================
+        function gameOver() {
+            if (deadlockCheckInProgress) return;
+            
+            deadlockCheckInProgress = true;
+            const isDeadlock = checkDeadlock();
+            deadlockCheckInProgress = false;
+            
+            if (isDeadlock) {
+                debugLog.add(`<span style="color: #ffaa00;">⚠️ 死局检测：自动刷新</span>`);
+                resetPlayerPosition(player);
+                if (player2.active) resetPlayerPosition(player2);
+                if (waveSys.isComplete()) victory();
+                else triggerNewWave();
+                return;
+            }
+            
+            gameState = 'gameover';
+            const finalTime = Math.floor(gameTime);
+            
+            document.getElementById('final-time').textContent = GameUtils.formatTime(finalTime);
+            document.getElementById('final-high-time').textContent = GameUtils.formatBestTime(bestTime);
+            gameoverScreen.style.display = 'block';
+            
+            menuSystem.setup('gameover-buttons');
+            ControlHint.hide();
+        }
+        
+        function victory() {
+            gameState = 'victory';
+            const finalTime = Math.floor(gameTime);
+            
+            if (bestTime === 0 || finalTime < bestTime) {
+                bestTime = finalTime;
+                GameData.records.setBestTime('eatAndAvoid', bestTime);
+            }
+            
+            document.getElementById('victory-time').textContent = GameUtils.formatTime(finalTime);
+            document.getElementById('victory-high-time').textContent = GameUtils.formatBestTime(bestTime);
+            bestTimeElement.textContent = GameUtils.formatBestTime(bestTime);
+            victoryScreen.style.display = 'block';
+            
+            menuSystem.setup('victory-buttons');
+            ControlHint.hide();
+            debugLog.add(`<span style="color: #ffd700;">🎉 通关！时间: ${GameUtils.formatTime(finalTime)}</span>`);
+        }
+        
+        function resetPlayerPosition(p) {
+            p.trail = [];
+            p.x = width / 2 - p.width / 2 - (p === player ? gridSys.tileSize : -gridSys.tileSize);
+            p.y = height / 2 - p.height / 2;
+            p.z = 0;
+            p.vz = 0;
+        }
+        
+        function resetGame() {
+            gameTime = 0;
+            gameStartTime = 0;
+            penaltyTime = 0;
+            timerElement.textContent = '00:00';
+            
+            waveSys.reset();
+            gridSys.clearAll();
+            
+            resetPlayerPosition(player);
+            player.isJumping = false;
+            player.dashTimer = 0;
+            player.dashCooldown = 0;
+            player.ghostMarker = null;
+            
+            resetPlayerPosition(player2);
+            player2.isJumping = false;
+            player2.dashTimer = 0;
+            player2.dashCooldown = 0;
+            player2.ghostMarker = null;
+        }
+
+        // ==================== 按钮事件 ====================
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            gameoverScreen.style.display = 'none';
+            gameState = 'waiting';
+            resetGame();
+            startOverlay.style.display = 'flex';
+        });
+        
+        document.getElementById('replay-btn').addEventListener('click', () => {
+            victoryScreen.style.display = 'none';
+            gameState = 'waiting';
+            resetGame();
+            startOverlay.style.display = 'flex';
+        });
+        
+        document.getElementById('back-btn').addEventListener('click', () => { window.location.href = 'index.html'; });
+        document.getElementById('victory-back-btn').addEventListener('click', () => { window.location.href = 'index.html'; });
+        
+        document.getElementById('revive-btn').addEventListener('click', () => {
+            gameoverScreen.style.display = 'none';
+            gameState = 'playing';
+            penaltyTime += REVIVE_PENALTY;
+            
+            resetPlayerPosition(player);
+            player.isJumping = false;
+            player.dashTimer = 0;
+            player.dashCooldown = 0;
+            player.ghostMarker = null;
+            
+            resetPlayerPosition(player2);
+            player2.isJumping = false;
+            player2.dashTimer = 0;
+            player2.dashCooldown = 0;
+            player2.ghostMarker = null;
+            
+            invincibleTimer = INVINCIBLE_DURATION;
+        });
+
+        // ==================== 调试按钮 ====================
+        window.DEBUG_DEADLOCK = false;
+        document.getElementById('deadlock-btn').addEventListener('click', function() {
+            window.DEBUG_DEADLOCK = !window.DEBUG_DEADLOCK;
+            this.textContent = `死局测试: ${window.DEBUG_DEADLOCK ? 'ON' : 'OFF'}`;
+            this.style.borderColor = window.DEBUG_DEADLOCK ? '#00ff00' : '#ff6600';
+            this.style.color = window.DEBUG_DEADLOCK ? '#00ff00' : '#ff6600';
+        });
+        
+        document.getElementById('reproduce-btn').addEventListener('click', () => {
+            gridSys.clearAll();
+            const size = config.gridSize;
+            gridSys.grid[1 * size + 10].type = 'cyan';
+            gridSys.grid[0 * size + 10].type = 'pink';
+            gridSys.grid[2 * size + 10].type = 'pink';
+            gridSys.grid[1 * size + 9].type = 'pink';
+            gridSys.grid[1 * size + 11].type = 'pink';
+            
+            const pos = gridSys.getTilePosition(5, 5);
+            player.x = pos.x + gridSys.tileSize * 0.25;
+            player.y = pos.y + gridSys.tileSize * 0.25;
+            player.trail = [];
+            
+            const isDeadlock = checkDeadlock();
+            debugLog.add(`<span style="color: #ff0000;">还原完成，检测: ${isDeadlock ? '死局✓' : '非死局✗'}</span>`);
+        });
+        
+        document.getElementById('victory-test-btn').addEventListener('click', () => {
+            if (gameState === 'playing' || gameState === 'waiting') {
+                if (gameState === 'waiting') startGame();
+                debugLog.add(`<span style="color: #ffd700;">🎉 [DEBUG] 触发快速通关</span>`);
+                victory();
+            }
+        });
+
+        // ==================== 初始化 ====================
+        window.addEventListener('resize', resize);
+        loadPlayerColors();
+        gridSys.initGrid();
+        initLevelUI();
+        resize();
+        resetGame();
+        draw();
+        
+        // ==================== 背景音乐 ====================
+        const bgm = new Audio('source/eat_and_avoid_bgm.wav');
+        bgm.loop = true;
+        bgm.volume = 0.5;
+        let bgmStarted = false;
+        
+        function tryPlayBGM() {
+            if (bgmStarted) return;
+            bgm.play().then(() => { bgmStarted = true; }).catch(() => {});
+        }
+        
+        ['click', 'keydown', 'touchstart'].forEach(event => {
+            document.addEventListener(event, tryPlayBGM, { once: false });
+        });
+        tryPlayBGM();
+    </script>
+</body>
+</html>

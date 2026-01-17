@@ -21,7 +21,7 @@ function createWSClient(callbacks = {}, type = 'game') {
     } = callbacks;
     
     let ws = null;
-    let serverInfo = { ip: null, port: 8080 };
+    let serverInfo = { ip: null, port: 8088 };
     let reconnectTimer = null;
     
     function connect() {
@@ -68,7 +68,7 @@ function createWSClient(callbacks = {}, type = 'game') {
             case 'connected':
                 if (data.server_ip) {
                     serverInfo.ip = data.server_ip;
-                    serverInfo.port = data.server_port || 8080;
+                    serverInfo.port = data.server_port || 8088;
                     onServerInfo?.(serverInfo);
                 }
                 if (data.controllers) {

@@ -206,7 +206,7 @@
     <canvas id="preview-canvas" class="fixed inset-0 pointer-events-none z-0"></canvas>
 
     <!-- 主界面内容 -->
-    <main class="h-screen flex flex-col items-center justify-center relative px-4">
+    <main class="h-screen flex flex-col items-center justify-center relative px-4 pt-16">
         
         <!-- 装饰性元素 -->
         <div class="absolute top-10 left-10 flex flex-col gap-2 opacity-50">
@@ -215,7 +215,7 @@
         </div>
 
         <!-- 标题区域 -->
-        <div class="text-center mb-16 relative">
+        <div class="text-center mb-6 relative">
             <h2 class="text-xl tracking-[0.5em] text-cyan-400 font-light mb-2 opacity-80 uppercase">Minimalist Geometric Action</h2>
             <h1 class="text-6xl md:text-8xl font-game font-bold tracking-tighter mb-4">
                 BLOCK <span class="text-cyan-400">GAME</span>
@@ -223,7 +223,7 @@
             <h2 class="text-4xl md:text-5xl font-black tracking-[0.2em] text-white/90">
                 方寸<span class="text-purple-500">枢机</span>
             </h2>
-            <div class="mt-8 text-xs font-mono text-white/40 text-center">
+            <div class="mt-4 text-xs font-mono text-white/40 text-center">
                 <span>VER 1.0.0-BETA</span>
             </div>
         </div>
@@ -248,30 +248,39 @@
                 <button class="flex-1 glass-panel py-3 hover:bg-white/10 transition flex items-center justify-center gap-2 text-sm uppercase tracking-widest">
                     <i data-lucide="settings" class="w-4 h-4"></i> 设置
                 </button>
-                <button class="flex-1 glass-panel py-3 hover:bg-white/10 transition flex items-center justify-center gap-2 text-sm uppercase tracking-widest">
-                    <i data-lucide="help-circle" class="w-4 h-4"></i> 教程
+                <button class="flex-1 glass-panel py-3 hover:bg-white/10 transition flex items-center justify-center gap-2 text-sm uppercase tracking-widest" onclick="exitGame()">
+                    <i data-lucide="power" class="w-4 h-4"></i> 退出
                 </button>
             </div>
         </div>
 
-        <!-- 菜单区域：模式选择菜单 -->
-        <div id="mode-menu" class="menu-container flex flex-col gap-6 w-full max-w-xs hidden-menu">
-            <button class="btn-glitch group !border-cyan-400" onclick="selectMode('CO-OP')">
+        <!-- 菜单区域：关卡选择菜单 -->
+        <div id="mode-menu" class="menu-container flex flex-col gap-4 w-full max-w-xs hidden-menu" style="margin-top: -100px;">
+            <div class="text-center text-sm opacity-60 mb-2">颜色收集 - 选择难度</div>
+            
+            <button class="btn-glitch group !border-cyan-400" onclick="selectLevel(1)">
                 <span class="flex flex-col items-center justify-center py-1">
-                    <span class="text-lg">合作模式</span>
-                    <span class="text-[10px] opacity-50 font-game tracking-widest">CO-OPERATIVE</span>
+                    <span class="text-lg">颜色收集 I</span>
+                    <span class="text-[10px] opacity-50 font-game tracking-widest">基础模式</span>
                 </span>
             </button>
 
-            <button class="btn-glitch group !border-purple-500 hover:!bg-purple-500" onclick="selectMode('VERSUS')">
+            <button class="btn-glitch group !border-yellow-400 hover:!bg-yellow-400" onclick="selectLevel(2)">
                 <span class="flex flex-col items-center justify-center py-1">
-                    <span class="text-lg">对战模式</span>
-                    <span class="text-[10px] opacity-50 font-game tracking-widest">VERSUS MODE</span>
+                    <span class="text-lg">颜色收集 II</span>
+                    <span class="text-[10px] opacity-50 font-game tracking-widest">动态目标</span>
+                </span>
+            </button>
+            
+            <button class="btn-glitch group !border-purple-500 hover:!bg-purple-500" onclick="selectLevel(3)">
+                <span class="flex flex-col items-center justify-center py-1">
+                    <span class="text-lg">颜色收集 III</span>
+                    <span class="text-[10px] opacity-50 font-game tracking-widest">极限模式</span>
                 </span>
             </button>
 
-            <button class="flex items-center justify-center gap-2 text-white/40 hover:text-white transition text-sm uppercase tracking-tighter" onclick="backToMain()">
-                <i data-lucide="arrow-left" class="w-4 h-4"></i> 返回主菜单
+            <button class="flex items-center justify-center gap-2 text-white/40 hover:text-white transition text-xs uppercase tracking-tighter mt-2" onclick="backToMain()">
+                <i data-lucide="arrow-left" class="w-3 h-3"></i> 返回
             </button>
         </div>
 
@@ -324,9 +333,12 @@
                 <div class="w-full h-full bg-white flex items-center justify-center relative overflow-hidden rounded-lg">
                     <div class="qr-scanner-line"></div>
                     <canvas id="qr-canvas"></canvas>
+                    <div id="qr-loading" class="absolute inset-0 flex items-center justify-center bg-white text-gray-400 text-sm">
+                        正在连接服务器...
+                    </div>
                 </div>
             </div>
-            <p id="qr-url" class="text-xs text-cyan-400 text-center mb-4 font-mono break-all px-4"></p>
+            <p id="qr-url" class="text-xs text-cyan-400 text-center mb-4 font-mono break-all px-4">等待服务器响应...</p>
 
             <div class="space-y-4">
                 <div class="flex items-start gap-3 text-xs text-white/60">
@@ -411,13 +423,13 @@
         }, { once: true });
 
         // ==================== 真实二维码生成 ====================
-        let serverInfo = { ip: null, port: 8080 };
+        let serverInfo = { ip: null, port: 8088 };
         
         // 获取控制器 URL
         function getControllerUrl() {
             const protocol = window.location.protocol;
             const host = serverInfo.ip || window.location.hostname;
-            const port = serverInfo.port || window.location.port || '8080';
+            const port = serverInfo.port || window.location.port || '8088';
             return `${protocol}//${host}:${port}/controller.html`;
         }
         
@@ -426,6 +438,10 @@
             const url = getControllerUrl();
             const qrCanvas = document.getElementById('qr-canvas');
             const qrUrlDisplay = document.getElementById('qr-url');
+            const qrLoading = document.getElementById('qr-loading');
+            
+            // 隐藏 loading 状态
+            if (qrLoading) qrLoading.style.display = 'none';
             
             qrUrlDisplay.textContent = url;
             
@@ -726,9 +742,10 @@
         
         // 连接 WebSocket 获取服务器 IP
         function initWebSocket() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/ws/game`;
+            // 始终连接本地 8088 端口的游戏服务器
+            const wsUrl = 'ws://localhost:8088/ws/game';
             
+            console.log('WebSocket 连接地址:', wsUrl);
             const ws = new WebSocket(wsUrl);
             
             ws.onopen = () => {
@@ -736,16 +753,22 @@
             };
             
             ws.onmessage = (event) => {
+                console.log('收到 WebSocket 消息:', event.data);
                 try {
                     const data = JSON.parse(event.data);
+                    console.log('解析后的数据:', data);
                     
                     if (data.type === 'connected') {
+                        console.log('连接消息，server_ip:', data.server_ip);
                         // 获取服务器 IP
                         if (data.server_ip) {
                             serverInfo.ip = data.server_ip;
-                            serverInfo.port = data.server_port || 8080;
+                            serverInfo.port = data.server_port || 8088;
+                            console.log('调用 generateQRCode，IP:', serverInfo.ip);
                             generateQRCode();
-                            console.log('服务器 IP:', serverInfo.ip);
+                            console.log('二维码生成完成');
+                        } else {
+                            console.log('没有 server_ip 字段！');
                         }
                         // 初始化已连接的控制器
                         if (data.controllers) {
@@ -775,6 +798,15 @@
                         if (controllerInputs[id]) {
                             controllerInputs[id].joystick = data.joystick;
                             controllerInputs[id].buttons = data.buttons;
+                            
+                            // 检测是否有输入（摇杆移动或按钮按下）
+                            const hasInput = Math.abs(data.joystick.x) > 0.1 || 
+                                           Math.abs(data.joystick.y) > 0.1 ||
+                                           data.buttons.N || data.buttons.S || 
+                                           data.buttons.E || data.buttons.W;
+                            if (hasInput) {
+                                ControlHint.onInput();
+                            }
                         }
                     }
                     else if (data.type === 'joystick') {
@@ -816,8 +848,25 @@
         }
         
         // 初始化
-        generateQRCode();
-        initWebSocket();
+        async function init() {
+            // 尝试通过 Tauri 命令获取服务器信息（比 WebSocket 更快）
+            if (window.__TAURI__) {
+                try {
+                    const info = await window.__TAURI__.core.invoke('get_server_info');
+                    if (info.ip) {
+                        serverInfo.ip = info.ip;
+                        serverInfo.port = info.port || 8088;
+                        generateQRCode();
+                        console.log('通过 Tauri 获取服务器 IP:', info.ip);
+                    }
+                } catch (e) {
+                    console.log('Tauri 命令失败，等待 WebSocket:', e);
+                }
+            }
+            // 同时启动 WebSocket 连接（用于控制器消息转发）
+            initWebSocket();
+        }
+        init();
 
         // 创建背景悬浮方块
         function createBlocks() {
@@ -883,8 +932,20 @@
             }, 300);
         }
 
-        function selectMode(mode) {
-            console.log("Selected Mode:", mode);
+        function exitGame() {
+            if (confirm('确定要退出游戏吗？')) {
+                // Tauri 环境下关闭窗口
+                if (window.__TAURI__) {
+                    window.__TAURI__.window.getCurrent().close();
+                } else {
+                    // 网页环境下关闭标签页
+                    window.close();
+                }
+            }
+        }
+
+        function selectLevel(level) {
+            console.log("Selected Level:", level);
             
             // 保存玩家颜色到 sessionStorage，供关卡页面读取
             const savedColors = {};
@@ -903,28 +964,44 @@
             sessionStorage.setItem('playerColors', JSON.stringify(savedColors));
             console.log('保存玩家颜色:', savedColors);
             
+            // 关卡配置（统一使用 gameColorCollect.html）
+            const levels = {
+                1: { name: '颜色收集 I', file: 'gameColorCollect.html' },
+                2: { name: '颜色收集 II', file: 'gameColorCollect.html' },
+                3: { name: '颜色收集 III', file: 'gameColorCollect.html' },
+            };
+            
+            const levelInfo = levels[level];
+            if (!levelInfo) {
+                alert('关卡不存在！');
+                return;
+            }
+            
             document.body.style.transition = 'all 1s ease';
             document.body.style.transform = 'scale(2)';
             document.body.style.filter = 'brightness(0) blur(20px)';
             
             setTimeout(() => {
-                const message = mode === 'CO-OP' ? '正在进入合作模式...' : '正在进入对战模式...';
+                const message = `正在进入第${level}关：${levelInfo.name}...`;
                 const overlay = document.createElement('div');
                 overlay.className = 'fixed inset-0 z-[100] flex items-center justify-center bg-black text-cyan-400 text-2xl font-bold tracking-widest';
                 overlay.innerText = message;
                 document.body.appendChild(overlay);
                 
                 setTimeout(() => {
-                    if (mode === 'CO-OP') {
-                        // 跳转到合作模式第一关
-                        window.location.href = 'gameEatAndAvoid.html?mode=coop&level=1';
-                    } else if (mode === 'VERSUS') {
-                        // 对战模式（暂未开发）
-                        alert('对战模式正在开发中...');
-                        location.reload();
-                    }
+                    window.location.href = `${levelInfo.file}?mode=coop&level=${level}`;
                 }, 800);
-            }, 800);
+            }, 200);
+        }
+        
+        // 保留旧函数名兼容
+        function selectMode(mode) {
+            if (mode === 'CO-OP') {
+                selectLevel(1);
+            } else if (mode === 'VERSUS') {
+                alert('对战模式正在开发中...');
+                location.reload();
+            }
         }
 
         function toggleQR() {
@@ -933,13 +1010,21 @@
                 modal.classList.remove('active');
                 setTimeout(() => {
                     modal.style.display = 'none';
+                    ControlHint.setMode('menu');  // 恢复菜单模式
                     updateControlHints();
                 }, 300);
             } else {
                 modal.style.display = 'flex';
+                // 弹窗时只显示关闭提示
+                ControlHint.update({
+                    N: '关闭',
+                    S: null,
+                    E: null,
+                    W: null
+                });
+                ControlHint.show();
                 setTimeout(() => {
                     modal.classList.add('active');
-                    updateControlHints();
                 }, 10);
             }
         }

@@ -1,17 +1,26 @@
 /**
  * 底部控制提示控件
- * 显示四个方向按钮及其在当前页面的功能
+ * 
+ * 场景模式：
+ * - menu: 功能画面，有输入时显示，静止后自动淡出
+ * - game: 游戏画面，默认隐藏，只有特殊情况才显示
  * 
  * 使用方法：
  * 1. 引入脚本: <script src="js/controlHint.js"></script>
  * 2. 初始化: ControlHint.init({ N: '返回', S: '跳跃', E: '冲刺', W: '确认' })
- * 3. 更新: ControlHint.update({ S: '新功能' })
- * 4. 显示/隐藏: ControlHint.show() / ControlHint.hide()
+ * 3. 设置模式: ControlHint.setMode('menu') 或 ControlHint.setMode('game')
+ * 4. 有输入时调用: ControlHint.onInput() 来显示并重置淡出计时器
  */
 
 const ControlHint = (function() {
     let container = null;
     let buttons = {};
+    let mode = 'menu';  // 'menu' 或 'game'
+    let fadeTimer = null;
+    let isVisible = false;
+    
+    // 配置
+    const FADE_DELAY = 3000;  // 无输入后多久开始淡出（毫秒）
     
     // 按钮配置（颜色与控制器一致）
     const BUTTON_CONFIG = {
@@ -35,19 +44,26 @@ const ControlHint = (function() {
                 transform: translateX(-50%);
                 display: flex;
                 gap: 24px;
-                padding: 12px 24px;
-                background: rgba(0, 0, 0, 0.85);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 12px;
-                backdrop-filter: blur(10px);
+                padding: 10px 20px;
+                background: rgba(0, 0, 0, 0.3);
+                border: 1px solid rgba(255, 255, 255, 0.05);
+                border-radius: 20px;
+                backdrop-filter: blur(5px);
                 z-index: 1000;
                 font-family: 'JetBrains Mono', 'Consolas', monospace;
-                transition: opacity 0.3s, transform 0.3s;
+                transition: opacity 0.5s ease, transform 0.5s ease;
+                opacity: 0;
+                pointer-events: none;
+            }
+            
+            .control-hint-bar.visible {
+                opacity: 1;
+                pointer-events: auto;
             }
             
             .control-hint-bar.hidden {
                 opacity: 0;
-                transform: translateX(-50%) translateY(20px);
+                transform: translateX(-50%) translateY(10px);
                 pointer-events: none;
             }
             
@@ -64,30 +80,31 @@ const ControlHint = (function() {
             }
             
             .control-hint-btn {
-                width: 28px;
-                height: 28px;
+                width: 24px;
+                height: 24px;
                 border-radius: 50%;
-                border: 2px solid currentColor;
+                border: 1.5px solid currentColor;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 font-size: 12px;
-                font-weight: bold;
-                box-shadow: 0 0 8px currentColor;
+                font-family: 'Zhi Mang Xing', cursive;
+                box-shadow: 0 0 4px currentColor;
                 flex-shrink: 0;
+                opacity: 0.7;
             }
             
             .control-hint-text {
-                font-size: 11px;
-                color: rgba(255, 255, 255, 0.8);
+                font-size: 10px;
+                color: rgba(255, 255, 255, 0.5);
                 text-transform: uppercase;
                 letter-spacing: 1px;
                 white-space: nowrap;
             }
             
             .control-hint-item.active .control-hint-text {
-                color: white;
-                text-shadow: 0 0 10px currentColor;
+                color: rgba(255, 255, 255, 0.7);
+                text-shadow: 0 0 5px currentColor;
             }
         `;
         document.head.appendChild(style);
@@ -131,11 +148,33 @@ const ControlHint = (function() {
         return container;
     }
     
+    // 开始淡出计时
+    function startFadeTimer() {
+        clearFadeTimer();
+        if (mode === 'menu') {
+            fadeTimer = setTimeout(() => {
+                hide();
+            }, FADE_DELAY);
+        }
+    }
+    
+    // 清除淡出计时
+    function clearFadeTimer() {
+        if (fadeTimer) {
+            clearTimeout(fadeTimer);
+            fadeTimer = null;
+        }
+    }
+    
     // 初始化
     function init(hints = {}) {
         createContainer();
         update(hints);
-        show();
+        // 初始时显示一下，然后开始淡出计时
+        if (mode === 'menu') {
+            show();
+            startFadeTimer();
+        }
     }
     
     // 更新提示
@@ -158,21 +197,62 @@ const ControlHint = (function() {
         });
     }
     
+    // 设置模式
+    function setMode(newMode) {
+        mode = newMode;
+        if (mode === 'game') {
+            // 游戏模式：默认隐藏
+            hide();
+            clearFadeTimer();
+        } else {
+            // 菜单模式：显示后开始淡出计时
+            show();
+            startFadeTimer();
+        }
+    }
+    
+    // 有输入时调用（摇杆移动、按钮按下等）
+    function onInput() {
+        if (mode === 'menu') {
+            show();
+            startFadeTimer();
+        }
+        // 游戏模式下不响应普通输入
+    }
+    
+    // 强制显示（用于游戏中的特殊情况）
+    function forceShow(duration = 3000) {
+        show();
+        if (duration > 0) {
+            clearFadeTimer();
+            fadeTimer = setTimeout(() => {
+                if (mode === 'game') {
+                    hide();
+                }
+            }, duration);
+        }
+    }
+    
     // 显示
     function show() {
         if (!container) createContainer();
+        container.classList.add('visible');
         container.classList.remove('hidden');
+        isVisible = true;
     }
     
     // 隐藏
     function hide() {
         if (container) {
+            container.classList.remove('visible');
             container.classList.add('hidden');
+            isVisible = false;
         }
     }
     
     // 销毁
     function destroy() {
+        clearFadeTimer();
         if (container) {
             container.remove();
             container = null;
@@ -196,13 +276,28 @@ const ControlHint = (function() {
         }
     }
     
+    // 获取当前模式
+    function getMode() {
+        return mode;
+    }
+    
+    // 是否可见
+    function isShowing() {
+        return isVisible;
+    }
+    
     return {
         init,
         update,
         show,
         hide,
         destroy,
-        setButton
+        setButton,
+        setMode,
+        onInput,
+        forceShow,
+        getMode,
+        isShowing
     };
 })();
 
@@ -210,4 +305,3 @@ const ControlHint = (function() {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = ControlHint;
 }
-
