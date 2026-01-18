@@ -24,10 +24,10 @@ const ControlHint = (function() {
     
     // 按钮配置（颜色与控制器一致）
     const BUTTON_CONFIG = {
-        E: { label: '东', color: '#ff0066' },  // 红色
-        S: { label: '南', color: '#00ff00' },  // 绿色
-        W: { label: '西', color: '#00aaff' },  // 蓝色
-        N: { label: '北', color: '#ffff00' }   // 黄色
+        E: { label: '东', color: '#ff0066', key: 'K' },  // 红色 - K键
+        S: { label: '南', color: '#00ff00', key: 'J' },  // 绿色 - J键
+        W: { label: '西', color: '#00aaff', key: 'U' },  // 蓝色 - U键
+        N: { label: '北', color: '#ffff00', key: 'I' }   // 黄色 - I键
     };
     
     // 创建样式
@@ -106,6 +106,23 @@ const ControlHint = (function() {
                 color: rgba(255, 255, 255, 0.7);
                 text-shadow: 0 0 5px currentColor;
             }
+            
+            .control-hint-key {
+                font-size: 9px;
+                color: rgba(255, 255, 255, 0.35);
+                background: rgba(255, 255, 255, 0.08);
+                padding: 1px 5px;
+                border-radius: 3px;
+                margin-left: 4px;
+                font-family: 'JetBrains Mono', monospace;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+            
+            .control-hint-item.active .control-hint-key {
+                color: rgba(255, 255, 255, 0.5);
+                background: rgba(255, 255, 255, 0.1);
+                border-color: rgba(255, 255, 255, 0.2);
+            }
         `;
         document.head.appendChild(style);
     }
@@ -137,11 +154,16 @@ const ControlHint = (function() {
             text.className = 'control-hint-text';
             text.textContent = '-';
             
+            const keyHint = document.createElement('span');
+            keyHint.className = 'control-hint-key';
+            keyHint.textContent = config.key;
+            
             item.appendChild(btn);
             item.appendChild(text);
+            item.appendChild(keyHint);
             container.appendChild(item);
             
-            buttons[key] = { item, text };
+            buttons[key] = { item, text, keyHint };
         });
         
         document.body.appendChild(container);
