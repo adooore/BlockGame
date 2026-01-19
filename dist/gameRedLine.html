@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>方寸枢机 - 红线危机</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;700&family=Zhi+Mang+Xing&display=swap" rel="stylesheet">
+    <script src="libs/tailwind.js"></script>
+    <link rel="stylesheet" href="fonts/fonts.css">
     <style>
         :root {
             --neon-cyan: #00f2ff;
@@ -44,6 +44,8 @@
             z-index: 20;
             text-shadow: 0 0 10px var(--neon-cyan);
             font-family: 'Orbitron', sans-serif;
+            transform-origin: top left;
+            transition: transform 0.2s ease;
         }
 
         .cyber-border {
@@ -413,8 +415,9 @@
         const redLineConfig = {
             color: '#ff4444',
             glowColor: '#ff0000',
-            speed: 1 / 60,  // 每帧移动的格子数，约1秒1格（60fps）
-            warningTime: 60  // 红线出现前的警告时间（帧）
+            baseSpeed: 1 / 60,  // 基础速度：每帧移动的格子数，约1秒1格（60fps）
+            maxSpeedMult: 3,    // 最终速度倍率：第12波时达到3倍速
+            warningTime: 60     // 红线出现前的警告时间（帧）
         };
         
         // 红线对象数组（支持多条红线）
@@ -477,8 +480,10 @@
                     return;
                 }
                 
-                // 移动红线（均匀速度，约1秒1格）
-                const speed = redLineConfig.speed;
+                // 移动红线（速度随波次增加，第1波1倍速，第12波2倍速）
+                const waveProgress = (waveSys.waveNumber - 1) / (config.maxWaves - 1);  // 0 ~ 1
+                const speedMult = 1 + waveProgress * (redLineConfig.maxSpeedMult - 1);   // 1 ~ 2
+                const speed = redLineConfig.baseSpeed * speedMult;
                 
                 switch (line.direction) {
                     case 'down':
@@ -525,6 +530,10 @@
             const gap = config.tileGap;
             const totalTileSize = tileSize + gap;
             
+            // 确保开始绘制前重置所有状态
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
+            
             redLines.forEach(line => {
                 // 计算红线位置
                 const pos = Math.floor(line.position);
@@ -541,6 +550,7 @@
                         ctx.shadowColor = redLineConfig.glowColor;
                         ctx.fillRect(x, gridY, tileSize, config.gridSize * totalTileSize - gap);
                         ctx.shadowBlur = 0;
+                        ctx.shadowColor = 'transparent';
                     } else if (line.warning > 0) {
                         // 绘制警告效果
                         const alpha = 0.3 + Math.sin(Date.now() / 100) * 0.2;
@@ -559,6 +569,7 @@
                         ctx.shadowColor = redLineConfig.glowColor;
                         ctx.fillRect(gridX, y, config.gridSize * totalTileSize - gap, tileSize);
                         ctx.shadowBlur = 0;
+                        ctx.shadowColor = 'transparent';
                     } else if (line.warning > 0) {
                         const alpha = 0.3 + Math.sin(Date.now() / 100) * 0.2;
                         ctx.fillStyle = `rgba(255, 68, 68, ${alpha})`;
@@ -567,6 +578,10 @@
                     }
                 }
             });
+            
+            // 确保绘制完成后重置状态
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
         }
         
         /**
@@ -947,6 +962,8 @@
         }
         
         // ==================== 窗口调整 ====================
+        const BASE_UI_WIDTH = 1280;  // UI设计基准宽度
+        
         function resize() {
             width = window.innerWidth;
             height = window.innerHeight;
@@ -962,6 +979,21 @@
                 p.width = dims.tileSize * config.playerSizeRatio;
                 p.height = dims.tileSize * config.playerSizeRatio;
             });
+            
+            // 根据窗口大小缩放UI
+            const uiScale = Math.max(0.8, Math.min(2, width / BASE_UI_WIDTH));
+            const uiOverlay = document.getElementById('ui-overlay');
+            if (uiOverlay) {
+                uiOverlay.style.transform = `scale(${uiScale})`;
+            }
+            
+            // 缩放游戏结束和通关弹窗
+            if (gameoverScreen) {
+                gameoverScreen.style.transform = `translate(-50%, -50%) scale(${uiScale})`;
+            }
+            if (victoryScreen) {
+                victoryScreen.style.transform = `translate(-50%, -50%) scale(${uiScale})`;
+            }
         }
 
         // ==================== 游戏控制 ====================
@@ -1192,6 +1224,7 @@
                         tile.type = 'none';
                         const pos = gridSys.getTilePosition(row, col);
                         floatingText.show('+1', config.colorHex[targetColor], pos.centerX, pos.y);
+                        playSound(sfxScore);  // 播放得分音效
                     }
                 }
             }
@@ -1199,6 +1232,11 @@
             
         // ==================== 绘制 ====================
         function draw() {
+            // 重置 canvas 状态，防止残留效果
+            ctx.globalAlpha = 1.0;
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
+            
             ctx.fillStyle = config.colors.bg;
             ctx.fillRect(0, 0, width, height);
 
@@ -1487,8 +1525,10 @@
         // ==================== 音效 ====================
         const sfxDash = new Audio('source/flash_effect.wav');
         const sfxLand = new Audio('source/fall_effect.wav');
+        const sfxScore = new Audio('source/score_effect.wav');
         sfxDash.volume = 0.6;
         sfxLand.volume = 0.5;
+        sfxScore.volume = 0.5;
         
         function playSound(audio) {
             audio.currentTime = 0;

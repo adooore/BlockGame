@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>方寸枢机 - 颜色收集</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;700&family=Zhi+Mang+Xing&display=swap" rel="stylesheet">
+    <script src="libs/tailwind.js"></script>
+    <link rel="stylesheet" href="fonts/fonts.css">
     <style>
         :root {
             --neon-cyan: #00f2ff;
@@ -44,6 +44,8 @@
             z-index: 20;
             text-shadow: 0 0 10px var(--neon-cyan);
             font-family: 'Orbitron', sans-serif;
+            transform-origin: top left;
+            transition: transform 0.2s ease;
         }
 
         .cyber-border {
@@ -809,6 +811,8 @@
         }
         
         // ==================== 窗口调整 ====================
+        const BASE_UI_WIDTH = 1280;  // UI设计基准宽度
+        
         function resize() {
             width = window.innerWidth;
             height = window.innerHeight;
@@ -824,6 +828,21 @@
                 p.width = dims.tileSize * config.playerSizeRatio;
                 p.height = dims.tileSize * config.playerSizeRatio;
             });
+            
+            // 根据窗口大小缩放UI
+            const uiScale = Math.max(0.8, Math.min(2, width / BASE_UI_WIDTH));
+            const uiOverlay = document.getElementById('ui-overlay');
+            if (uiOverlay) {
+                uiOverlay.style.transform = `scale(${uiScale})`;
+            }
+            
+            // 缩放游戏结束和通关弹窗
+            if (gameoverScreen) {
+                gameoverScreen.style.transform = `translate(-50%, -50%) scale(${uiScale})`;
+            }
+            if (victoryScreen) {
+                victoryScreen.style.transform = `translate(-50%, -50%) scale(${uiScale})`;
+            }
         }
 
         // ==================== 游戏控制 ====================
@@ -1063,6 +1082,7 @@
                         if (tile.type === targetColor) {
                             tile.type = 'none';
                             floatingText.show('+正确', config.colorHex[targetColor], pos.centerX, pos.y);
+                            playSound(sfxScore);  // 播放得分音效
                         } else {
                             tile.type = 'none';
                             penaltyTime += config.wrongColorPenalty;
@@ -1075,6 +1095,11 @@
             
         // ==================== 绘制 ====================
         function draw() {
+            // 重置 canvas 状态，防止残留效果
+            ctx.globalAlpha = 1.0;
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
+            
             ctx.fillStyle = config.colors.bg;
             ctx.fillRect(0, 0, width, height);
 
@@ -1360,8 +1385,10 @@
         // ==================== 音效 ====================
         const sfxDash = new Audio('source/flash_effect.wav');
         const sfxLand = new Audio('source/fall_effect.wav');
+        const sfxScore = new Audio('source/score_effect.wav');
         sfxDash.volume = 0.6;
         sfxLand.volume = 0.5;
+        sfxScore.volume = 0.5;
         
         function playSound(audio) {
             audio.currentTime = 0;

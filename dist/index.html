@@ -4,12 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BLOCK GAME 方寸枢机 - 官方主页</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="libs/tailwind.js"></script>
+    <script src="libs/lucide.min.js"></script>
+    <script src="libs/qrcode.min.js"></script>
+    <link rel="stylesheet" href="fonts/fonts.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;500;900&family=Orbitron:wght@400;700&display=swap');
-
         :root {
             --primary: #00f2ff;
             --secondary: #7000ff;
@@ -20,13 +19,13 @@
         body {
             background-color: var(--bg-dark);
             color: white;
-            font-family: 'Noto Sans SC', sans-serif;
+            font-family: 'Noto Sans SC', 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
             overflow: hidden;
             height: 100vh;
         }
 
         .font-game {
-            font-family: 'Orbitron', sans-serif;
+            font-family: 'Orbitron', 'Consolas', 'Monaco', monospace;
         }
 
         /* 动态方块背景 */
@@ -206,7 +205,7 @@
     <canvas id="preview-canvas" class="fixed inset-0 pointer-events-none z-0"></canvas>
 
     <!-- 主界面内容 -->
-    <main class="h-screen flex flex-col items-center justify-center relative px-4 pt-16">
+    <main id="main-content" class="h-screen flex flex-col items-center justify-center relative px-4 pt-16" style="transform-origin: center center;">
         
         <!-- 装饰性元素 -->
         <div class="absolute top-10 left-10 flex flex-col gap-2 opacity-50">
@@ -215,7 +214,7 @@
         </div>
 
         <!-- 标题区域 -->
-        <div class="text-center mb-6 relative">
+        <div id="title-section" class="text-center mb-6 relative transition-all duration-300">
             <h2 class="text-xl tracking-[0.5em] text-cyan-400 font-light mb-2 opacity-80 uppercase">Minimalist Geometric Action</h2>
             <h1 class="text-6xl md:text-8xl font-game font-bold tracking-tighter mb-4">
                 BLOCK <span class="text-cyan-400">GAME</span>
@@ -255,31 +254,60 @@
         </div>
 
         <!-- 菜单区域：关卡选择菜单 -->
-        <div id="mode-menu" class="menu-container flex flex-col gap-4 w-full max-w-xs hidden-menu" style="margin-top: -100px;">
-            <div class="text-center text-sm opacity-60 mb-2">颜色收集 - 选择难度</div>
+        <div id="mode-menu" class="menu-container flex flex-col gap-3 w-full max-w-md hidden-menu" style="margin-top: -100px;">
             
-            <button class="btn-glitch group !border-cyan-400" onclick="selectLevel(1)">
-                <span class="flex flex-col items-center justify-center py-1">
-                    <span class="text-lg">颜色收集 I</span>
-                    <span class="text-[10px] opacity-50 font-game tracking-widest">基础模式</span>
-                </span>
-            </button>
-
-            <button class="btn-glitch group !border-yellow-400 hover:!bg-yellow-400" onclick="selectLevel(2)">
-                <span class="flex flex-col items-center justify-center py-1">
-                    <span class="text-lg">颜色收集 II</span>
-                    <span class="text-[10px] opacity-50 font-game tracking-widest">动态目标</span>
-                </span>
-            </button>
+            <!-- 颜色收集 -->
+            <div class="text-center text-sm opacity-60 mb-1">🎨 颜色收集</div>
+            <div class="flex gap-2">
+                <button class="btn-glitch group !border-cyan-400 flex-1" onclick="selectLevel('color', 1)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 I</span>
+                        <span class="text-[9px] opacity-50 font-game">基础模式</span>
+                    </span>
+                </button>
+                <button class="btn-glitch group !border-yellow-400 hover:!bg-yellow-400 flex-1" onclick="selectLevel('color', 2)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 II</span>
+                        <span class="text-[9px] opacity-50 font-game">动态目标</span>
+                    </span>
+                </button>
+                <button class="btn-glitch group !border-purple-500 hover:!bg-purple-500 flex-1" onclick="selectLevel('color', 3)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 III</span>
+                        <span class="text-[9px] opacity-50 font-game">极限模式</span>
+                    </span>
+                </button>
+            </div>
             
-            <button class="btn-glitch group !border-purple-500 hover:!bg-purple-500" onclick="selectLevel(3)">
-                <span class="flex flex-col items-center justify-center py-1">
-                    <span class="text-lg">颜色收集 III</span>
-                    <span class="text-[10px] opacity-50 font-game tracking-widest">极限模式</span>
-                </span>
-            </button>
+            <!-- 分隔线 -->
+            <div class="flex items-center gap-3 my-2">
+                <div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+            </div>
+            
+            <!-- 红线危机 -->
+            <div class="text-center text-sm opacity-60 mb-1">🔴 红线危机</div>
+            <div class="flex gap-2">
+                <button class="btn-glitch group !border-red-500 hover:!bg-red-500 flex-1" onclick="selectLevel('redline', 1)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 I</span>
+                        <span class="text-[9px] opacity-50 font-game">单线追击</span>
+                    </span>
+                </button>
+                <button class="btn-glitch group !border-orange-500 hover:!bg-orange-500 flex-1" onclick="selectLevel('redline', 2)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 II</span>
+                        <span class="text-[9px] opacity-50 font-game">双线夹击</span>
+                    </span>
+                </button>
+                <button class="btn-glitch group !border-pink-500 hover:!bg-pink-500 flex-1" onclick="selectLevel('redline', 3)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 III</span>
+                        <span class="text-[9px] opacity-50 font-game">十字封锁</span>
+                    </span>
+                </button>
+            </div>
 
-            <button class="flex items-center justify-center gap-2 text-white/40 hover:text-white transition text-xs uppercase tracking-tighter mt-2" onclick="backToMain()">
+            <button class="flex items-center justify-center gap-2 text-white/40 hover:text-white transition text-xs uppercase tracking-tighter mt-3" onclick="backToMain()">
                 <i data-lucide="arrow-left" class="w-3 h-3"></i> 返回
             </button>
         </div>
@@ -292,32 +320,33 @@
             </div>
         </div>
         
-        <!-- 换衣区 -->
-        <div id="wardrobe-zone" class="fixed bottom-6 left-6 z-40">
-            <div class="glass-panel p-4 rounded-xl">
-                <div class="text-[10px] text-white/50 uppercase tracking-widest mb-3 text-center">换装区</div>
-                <div id="color-options" class="grid grid-cols-4 gap-2">
-                    <div class="color-swatch" data-color="1" style="background: #00f2ff; box-shadow: 0 0 10px #00f2ff;"></div>
-                    <div class="color-swatch" data-color="2" style="background: #a855f7; box-shadow: 0 0 10px #d946ef;"></div>
-                    <div class="color-swatch" data-color="3" style="background: #4ade80; box-shadow: 0 0 10px #39ff14;"></div>
-                    <div class="color-swatch" data-color="4" style="background: #facc15; box-shadow: 0 0 10px #ffaa00;"></div>
-                    <div class="color-swatch" data-color="5" style="background: #ff4757; box-shadow: 0 0 10px #ff4757;"></div>
-                    <div class="color-swatch" data-color="6" style="background: #ff7f50; box-shadow: 0 0 10px #ff7f50;"></div>
-                    <div class="color-swatch" data-color="7" style="background: #ff6b9d; box-shadow: 0 0 10px #ff6b9d;"></div>
-                    <div class="color-swatch" data-color="8" style="background: #ffffff; box-shadow: 0 0 10px #ffffff;"></div>
-                </div>
-                <div class="text-[8px] text-white/30 mt-2 text-center flex items-center justify-center gap-1">
-                    进入区域按
-                    <span class="inline-flex items-center justify-center w-4 h-4 rounded-full border border-blue-400 text-blue-400 text-[10px]" style="font-family: 'Zhi Mang Xing', cursive;">西</span>
-                    换色
-                </div>
+    </main>
+    
+    <!-- 换衣区 - 独立于 main-content，不受缩放影响 -->
+    <div id="wardrobe-zone" class="fixed z-40" style="bottom: 24px; left: 24px; transform-origin: bottom left;">
+        <div class="glass-panel p-4 rounded-xl">
+            <div class="text-[10px] text-white/50 uppercase tracking-widest mb-3 text-center">换装区</div>
+            <div id="color-options" class="grid grid-cols-4 gap-2">
+                <div class="color-swatch" data-color="1" style="background: #00f2ff; box-shadow: 0 0 10px #00f2ff;"></div>
+                <div class="color-swatch" data-color="2" style="background: #a855f7; box-shadow: 0 0 10px #d946ef;"></div>
+                <div class="color-swatch" data-color="3" style="background: #4ade80; box-shadow: 0 0 10px #39ff14;"></div>
+                <div class="color-swatch" data-color="4" style="background: #facc15; box-shadow: 0 0 10px #ffaa00;"></div>
+                <div class="color-swatch" data-color="5" style="background: #ff4757; box-shadow: 0 0 10px #ff4757;"></div>
+                <div class="color-swatch" data-color="6" style="background: #ff7f50; box-shadow: 0 0 10px #ff7f50;"></div>
+                <div class="color-swatch" data-color="7" style="background: #ff6b9d; box-shadow: 0 0 10px #ff6b9d;"></div>
+                <div class="color-swatch" data-color="8" style="background: #ffffff; box-shadow: 0 0 10px #ffffff;"></div>
+            </div>
+            <div class="text-[8px] text-white/30 mt-2 text-center flex items-center justify-center gap-1">
+                进入区域按
+                <span class="inline-flex items-center justify-center w-4 h-4 rounded-full border border-blue-400 text-blue-400 text-[10px]" style="font-family: 'Zhi Mang Xing', cursive;">西</span>
+                换色
             </div>
         </div>
-    </main>
+    </div>
 
     <!-- 扫码弹窗 -->
     <div id="qr-modal" class="fixed inset-0 z-50 items-center justify-center p-6">
-        <div class="glass-panel p-8 rounded-2xl max-w-sm w-full relative">
+        <div id="qr-content" class="glass-panel p-8 rounded-2xl max-w-sm w-full relative" style="transform-origin: center center;">
             <button onclick="toggleQR()" class="absolute top-4 right-4 text-white/50 hover:text-white">
                 <i data-lucide="x"></i>
             </button>
@@ -519,9 +548,38 @@
             updateWardrobeUI();
         }
         
+        const BASE_UI_WIDTH = 1280;  // UI设计基准宽度
+        const BASE_UI_HEIGHT = 720; // UI设计基准高度
+        
         function resizePreviewCanvas() {
             previewCanvas.width = window.innerWidth;
             previewCanvas.height = window.innerHeight;
+            
+            // 根据窗口大小缩放主内容
+            const mainContent = document.getElementById('main-content');
+            const wardrobeZone = document.getElementById('wardrobe-zone');
+            
+            if (mainContent) {
+                // 基于宽度和高度计算缩放比例，取较小值确保内容不超出
+                const scaleX = window.innerWidth / BASE_UI_WIDTH;
+                const scaleY = window.innerHeight / BASE_UI_HEIGHT;
+                const scale = Math.max(0.8, Math.min(2, Math.min(scaleX, scaleY)));
+                
+                mainContent.style.transform = `scale(${scale})`;
+            }
+            
+            // 换装区缩放 - 现在独立于 main-content，可以安全缩放
+            if (wardrobeZone) {
+                const scale = Math.max(1, Math.min(1.8, window.innerWidth / BASE_UI_WIDTH));
+                wardrobeZone.style.transform = `scale(${scale})`;
+            }
+            
+            // 二维码弹窗缩放
+            const qrContent = document.getElementById('qr-content');
+            if (qrContent) {
+                const scale = Math.max(1, Math.min(1.5, window.innerWidth / BASE_UI_WIDTH));
+                qrContent.style.transform = `scale(${scale})`;
+            }
         }
         
         // 每个玩家触碰的按钮 { playerId: button }
@@ -956,13 +1014,22 @@
         function showModeSelection() {
             const mainMenu = document.getElementById('main-menu');
             const modeMenu = document.getElementById('mode-menu');
+            const titleSection = document.getElementById('title-section');
             
             mainMenu.classList.remove('visible-menu');
             mainMenu.classList.add('hidden-menu');
             
+            // 隐藏标题
+            if (titleSection) {
+                titleSection.style.opacity = '0';
+                titleSection.style.transform = 'translateY(-30px)';
+                titleSection.style.pointerEvents = 'none';
+            }
+            
             setTimeout(() => {
                 modeMenu.classList.remove('hidden-menu');
                 modeMenu.classList.add('visible-menu');
+                if (titleSection) titleSection.style.display = 'none';
                 updateControlHints();
             }, 300);
         }
@@ -970,9 +1037,20 @@
         function backToMain() {
             const mainMenu = document.getElementById('main-menu');
             const modeMenu = document.getElementById('mode-menu');
+            const titleSection = document.getElementById('title-section');
             
             modeMenu.classList.remove('visible-menu');
             modeMenu.classList.add('hidden-menu');
+            
+            // 显示标题
+            if (titleSection) {
+                titleSection.style.display = '';
+                setTimeout(() => {
+                    titleSection.style.opacity = '1';
+                    titleSection.style.transform = 'translateY(0)';
+                    titleSection.style.pointerEvents = '';
+                }, 50);
+            }
             
             setTimeout(() => {
                 mainMenu.classList.remove('hidden-menu');
@@ -993,8 +1071,8 @@
             }
         }
 
-        function selectLevel(level) {
-            console.log("Selected Level:", level);
+        function selectLevel(gameType, level) {
+            console.log("Selected Game:", gameType, "Level:", level);
             
             // 保存玩家颜色到 sessionStorage，供关卡页面读取
             const savedColors = {};
@@ -1013,14 +1091,21 @@
             sessionStorage.setItem('playerColors', JSON.stringify(savedColors));
             console.log('保存玩家颜色:', savedColors);
             
-            // 关卡配置（统一使用 gameColorCollect.html）
-            const levels = {
-                1: { name: '颜色收集 I', file: 'gameColorCollect.html' },
-                2: { name: '颜色收集 II', file: 'gameColorCollect.html' },
-                3: { name: '颜色收集 III', file: 'gameColorCollect.html' },
+            // 关卡配置
+            const games = {
+                color: {
+                    1: { name: '颜色收集 I', file: 'gameColorCollect.html' },
+                    2: { name: '颜色收集 II', file: 'gameColorCollect.html' },
+                    3: { name: '颜色收集 III', file: 'gameColorCollect.html' },
+                },
+                redline: {
+                    1: { name: '红线危机 I', file: 'gameRedLine.html' },
+                    2: { name: '红线危机 II', file: 'gameRedLine.html' },
+                    3: { name: '红线危机 III', file: 'gameRedLine.html' },
+                }
             };
             
-            const levelInfo = levels[level];
+            const levelInfo = games[gameType]?.[level];
             if (!levelInfo) {
                 alert('关卡不存在！');
                 return;

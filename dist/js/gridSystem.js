@@ -178,7 +178,9 @@ const GridSystem = (function() {
                 const y = gridY + tile.row * (tileSize + config.tileGap);
                 
                 if (tile.type === 'none') {
-                    ctx.strokeStyle = '#222';
+                    // 空格子：绘制统一的暗色边框，保持视觉一致性
+                    ctx.strokeStyle = '#333';
+                    ctx.lineWidth = 1;
                     ctx.strokeRect(x, y, tileSize, tileSize);
                 } else {
                     const { color, isHighlight } = getColorFn(tile);
