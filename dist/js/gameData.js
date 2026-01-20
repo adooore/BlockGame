@@ -3,6 +3,18 @@
  * 支持 Tauri 文件存储（加密）和浏览器 localStorage 回退
  */
 
+// ==================== 玩家颜色常量 ====================
+const ALL_PLAYER_COLORS = [
+    { id: 1, main: '#00f2ff', glow: '#00f2ff', core: '#e0faff', name: '青' },
+    { id: 2, main: '#a855f7', glow: '#d946ef', core: '#f0e0ff', name: '紫' },
+    { id: 3, main: '#4ade80', glow: '#39ff14', core: '#e0ffe0', name: '绿' },
+    { id: 4, main: '#facc15', glow: '#ffaa00', core: '#fffbe0', name: '黄' },
+    { id: 5, main: '#ff4757', glow: '#ff4757', core: '#ffe0e0', name: '红' },
+    { id: 6, main: '#ff7f50', glow: '#ff7f50', core: '#ffe8e0', name: '橙' },
+    { id: 7, main: '#ff6b9d', glow: '#ff6b9d', core: '#ffe0f0', name: '粉' },
+    { id: 8, main: '#ffffff', glow: '#ffffff', core: '#f8f8f8', name: '白' }
+];
+
 const GameData = {
     // 检测是否为桌面应用
     // - Tauri 原生页面有 window.__TAURI__
@@ -276,6 +288,198 @@ const GameData = {
         }
     },
     
+    // ========== 游戏设置（持久化存储）==========
+    
+    gameSettings: {
+        _key: 'blockgame_gameSettings',
+        
+        get() {
+            try {
+                return JSON.parse(localStorage.getItem(this._key) || '{}');
+            } catch (e) {
+                return {};
+            }
+        },
+        
+        set(data) {
+            const current = this.get();
+            localStorage.setItem(this._key, JSON.stringify({ ...current, ...data }));
+        },
+        
+        /**
+         * 获取控制器模式
+         * @returns {'shared'|'independent'} 默认 'shared'
+         */
+        getControllerMode() {
+            return this.get().controllerMode || 'shared';
+        },
+        
+        /**
+         * 设置控制器模式
+         * @param {'shared'|'independent'} mode
+         */
+        setControllerMode(mode) {
+            this.set({ controllerMode: mode });
+            console.log('[GameData] 控制器模式:', mode);
+        },
+        
+        /**
+         * 获取键盘是否启用
+         * @returns {boolean} 默认 true
+         */
+        getKeyboardEnabled() {
+            const val = this.get().keyboardEnabled;
+            return val !== false; // 默认启用
+        },
+        
+        /**
+         * 设置键盘是否启用
+         * @param {boolean} enabled
+         */
+        setKeyboardEnabled(enabled) {
+            this.set({ keyboardEnabled: enabled });
+            console.log('[GameData] 键盘控制:', enabled ? '启用' : '禁用');
+        },
+        
+        /**
+         * 获取游戏难度
+         * @returns {'easy'|'normal'} 默认 'normal'
+         */
+        getDifficulty() {
+            return this.get().difficulty || 'normal';
+        },
+        
+        /**
+         * 设置游戏难度
+         * @param {'easy'|'normal'} difficulty
+         */
+        setDifficulty(difficulty) {
+            this.set({ difficulty });
+            console.log('[GameData] 游戏难度:', difficulty);
+        },
+        
+        /**
+         * 获取所有设置
+         */
+        getAll() {
+            return {
+                controllerMode: this.getControllerMode(),
+                difficulty: this.getDifficulty()
+            };
+        }
+    },
+    
+    // ========== 玩家颜色管理（持久化存储）==========
+    
+    playerColors: {
+        _key: 'blockgame_playerColors',
+        
+        /**
+         * 获取所有颜色定义
+         */
+        getAllColors() {
+            return ALL_PLAYER_COLORS;
+        },
+        
+        /**
+         * 根据ID获取颜色
+         */
+        getColorById(id) {
+            return ALL_PLAYER_COLORS.find(c => c.id === id) || ALL_PLAYER_COLORS[0];
+        },
+        
+        /**
+         * 根据main色值查找颜色
+         */
+        getColorByMain(mainColor) {
+            return ALL_PLAYER_COLORS.find(c => c.main === mainColor);
+        },
+        
+        /**
+         * 获取保存的玩家颜色 { playerId: { main, glow, core } }
+         */
+        getSavedColors() {
+            try {
+                const saved = localStorage.getItem(this._key);
+                return saved ? JSON.parse(saved) : {};
+            } catch (e) {
+                console.warn('[GameData] 读取玩家颜色失败:', e);
+                return {};
+            }
+        },
+        
+        /**
+         * 保存玩家颜色
+         */
+        saveColors(colors) {
+            try {
+                localStorage.setItem(this._key, JSON.stringify(colors));
+                console.log('[GameData] 保存玩家颜色:', colors);
+            } catch (e) {
+                console.error('[GameData] 保存玩家颜色失败:', e);
+            }
+        },
+        
+        /**
+         * 获取单个玩家的颜色（返回颜色对象或默认值）
+         */
+        getPlayerColor(playerId) {
+            const saved = this.getSavedColors();
+            if (saved[playerId]) {
+                // 尝试找到匹配的预设颜色
+                const preset = this.getColorByMain(saved[playerId].main);
+                if (preset) return preset;
+                // 返回保存的自定义颜色
+                return { id: 0, ...saved[playerId], name: '自定义' };
+            }
+            // 默认：玩家ID对应颜色ID
+            return this.getColorById(parseInt(playerId)) || ALL_PLAYER_COLORS[0];
+        },
+        
+        /**
+         * 设置单个玩家的颜色
+         */
+        setPlayerColor(playerId, colorIdOrObject) {
+            const saved = this.getSavedColors();
+            
+            if (typeof colorIdOrObject === 'number') {
+                // 传入颜色ID
+                const color = this.getColorById(colorIdOrObject);
+                if (color) {
+                    saved[playerId] = { main: color.main, glow: color.glow, core: color.core };
+                }
+            } else if (colorIdOrObject && colorIdOrObject.main) {
+                // 传入颜色对象
+                saved[playerId] = { 
+                    main: colorIdOrObject.main, 
+                    glow: colorIdOrObject.glow, 
+                    core: colorIdOrObject.core 
+                };
+            }
+            
+            this.saveColors(saved);
+        },
+        
+        /**
+         * 应用保存的颜色到玩家对象
+         */
+        applyToPlayer(player) {
+            if (!player || !player.id) return;
+            const color = this.getPlayerColor(player.id);
+            if (color) {
+                player.colors = { main: color.main, glow: color.glow, core: color.core };
+            }
+        },
+        
+        /**
+         * 应用保存的颜色到所有玩家
+         */
+        applyToAllPlayers(players) {
+            if (!players) return;
+            Object.values(players).forEach(player => this.applyToPlayer(player));
+        }
+    },
+    
     // ========== 会话数据（临时，页面关闭后消失）==========
     
     session: {
@@ -292,15 +496,6 @@ const GameData = {
         set(data) {
             const current = this.get();
             sessionStorage.setItem(this._key, JSON.stringify({ ...current, ...data }));
-        },
-        
-        // 玩家颜色
-        getPlayerColors() {
-            return this.get().playerColors || null;
-        },
-        
-        setPlayerColors(colors) {
-            this.set({ playerColors: colors });
         },
         
         clear() {

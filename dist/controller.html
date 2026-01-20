@@ -318,7 +318,7 @@
             width: 65px;
             height: 65px;
             border-radius: 50%;
-            background: linear-gradient(145deg, #2a2a4a 0%, #1a1a2e 100%);
+            background: transparent;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -326,7 +326,7 @@
             font-size: 38px;
             font-weight: 400;
             cursor: pointer;
-            transition: all 0.1s ease;
+            transition: all 0.2s ease;
             touch-action: manipulation;
         }
 
@@ -349,92 +349,92 @@
             filter: brightness(1.2);
         }
 
-        /* 北按钮 - 黄色 */
+        /* 北按钮 - 黄色 赛博朋克风格 */
         .btn-n {
             top: 0;
             left: 50%;
             transform: translateX(-50%);
-            border: 3px solid #ffff00;
-            color: #ffff00;
-            text-shadow: 0 0 10px #ffff00;
+            border: 3px solid #ffcc00;
+            color: #ffcc00;
+            text-shadow: 0 0 8px #ffcc00;
             box-shadow: 
-                0 0 15px rgba(255, 255, 0, 0.5),
-                0 0 30px rgba(255, 255, 0, 0.3),
-                inset 0 0 20px rgba(255, 255, 0, 0.1);
+                0 0 15px rgba(255, 204, 0, 0.5),
+                0 0 30px rgba(255, 204, 0, 0.2),
+                inset 0 0 15px rgba(255, 204, 0, 0.1);
         }
 
-        .btn-n:active {
-            background: radial-gradient(circle, rgba(255, 255, 0, 0.3) 0%, #1a1a2e 100%);
-            box-shadow: 
-                0 0 25px rgba(255, 255, 0, 0.8),
-                0 0 50px rgba(255, 255, 0, 0.5),
-                inset 0 0 30px rgba(255, 255, 0, 0.3);
+        .btn-n:active, .btn-n.pressed {
+            background: #ffcc00;
+            color: #000;
+            text-shadow: none;
+            box-shadow: 0 0 40px rgba(255, 204, 0, 0.8);
+            transform: translateX(-50%) scale(0.95);
         }
 
-        /* 南按钮 - 绿色 */
+        /* 南按钮 - 绿色 赛博朋克风格 */
         .btn-s {
             bottom: 0;
             left: 50%;
             transform: translateX(-50%);
-            border: 3px solid #00ff00;
-            color: #00ff00;
-            text-shadow: 0 0 10px #00ff00;
+            border: 3px solid #00ff66;
+            color: #00ff66;
+            text-shadow: 0 0 8px #00ff66;
             box-shadow: 
-                0 0 15px rgba(0, 255, 0, 0.5),
-                0 0 30px rgba(0, 255, 0, 0.3),
-                inset 0 0 20px rgba(0, 255, 0, 0.1);
+                0 0 15px rgba(0, 255, 102, 0.5),
+                0 0 30px rgba(0, 255, 102, 0.2),
+                inset 0 0 15px rgba(0, 255, 102, 0.1);
         }
 
-        .btn-s:active {
-            background: radial-gradient(circle, rgba(0, 255, 0, 0.3) 0%, #1a1a2e 100%);
-            box-shadow: 
-                0 0 25px rgba(0, 255, 0, 0.8),
-                0 0 50px rgba(0, 255, 0, 0.5),
-                inset 0 0 30px rgba(0, 255, 0, 0.3);
+        .btn-s:active, .btn-s.pressed {
+            background: #00ff66;
+            color: #000;
+            text-shadow: none;
+            box-shadow: 0 0 40px rgba(0, 255, 102, 0.8);
+            transform: translateX(-50%) scale(0.95);
         }
 
-        /* 西按钮 - 蓝色 */
+        /* 西按钮 - 青色 赛博朋克风格 */
         .btn-w {
             left: 0;
             top: 50%;
             transform: translateY(-50%);
-            border: 3px solid #00aaff;
-            color: #00aaff;
-            text-shadow: 0 0 10px #00aaff;
+            border: 3px solid #00f2ff;
+            color: #00f2ff;
+            text-shadow: 0 0 8px #00f2ff;
             box-shadow: 
-                0 0 15px rgba(0, 170, 255, 0.5),
-                0 0 30px rgba(0, 170, 255, 0.3),
-                inset 0 0 20px rgba(0, 170, 255, 0.1);
+                0 0 15px rgba(0, 242, 255, 0.5),
+                0 0 30px rgba(0, 242, 255, 0.2),
+                inset 0 0 15px rgba(0, 242, 255, 0.1);
         }
 
-        .btn-w:active {
-            background: radial-gradient(circle, rgba(0, 170, 255, 0.3) 0%, #1a1a2e 100%);
-            box-shadow: 
-                0 0 25px rgba(0, 170, 255, 0.8),
-                0 0 50px rgba(0, 170, 255, 0.5),
-                inset 0 0 30px rgba(0, 170, 255, 0.3);
+        .btn-w:active, .btn-w.pressed {
+            background: #00f2ff;
+            color: #000;
+            text-shadow: none;
+            box-shadow: 0 0 40px rgba(0, 242, 255, 0.8);
+            transform: translateY(-50%) scale(0.95);
         }
 
-        /* 东按钮 - 红色 */
+        /* 东按钮 - 红色 赛博朋克风格 */
         .btn-e {
             right: 0;
             top: 50%;
             transform: translateY(-50%);
             border: 3px solid #ff0066;
             color: #ff0066;
-            text-shadow: 0 0 10px #ff0066;
+            text-shadow: 0 0 8px #ff0066;
             box-shadow: 
                 0 0 15px rgba(255, 0, 102, 0.5),
-                0 0 30px rgba(255, 0, 102, 0.3),
-                inset 0 0 20px rgba(255, 0, 102, 0.1);
+                0 0 30px rgba(255, 0, 102, 0.2),
+                inset 0 0 15px rgba(255, 0, 102, 0.1);
         }
 
-        .btn-e:active {
-            background: radial-gradient(circle, rgba(255, 0, 102, 0.3) 0%, #1a1a2e 100%);
-            box-shadow: 
-                0 0 25px rgba(255, 0, 102, 0.8),
-                0 0 50px rgba(255, 0, 102, 0.5),
-                inset 0 0 30px rgba(255, 0, 102, 0.3);
+        .btn-e:active, .btn-e.pressed {
+            background: #ff0066;
+            color: #000;
+            text-shadow: none;
+            box-shadow: 0 0 40px rgba(255, 0, 102, 0.8);
+            transform: translateY(-50%) scale(0.95);
         }
 
         /* 装饰性元素 */

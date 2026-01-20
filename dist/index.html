@@ -95,6 +95,14 @@
             from { box-shadow: 0 0 20px var(--primary); }
             to { box-shadow: 0 0 40px var(--primary), 0 0 60px var(--primary); }
         }
+        
+        /* glass-panel 按钮悬停样式 */
+        .glass-panel.player-hover {
+            background: rgba(0, 242, 255, 0.2) !important;
+            border-color: var(--primary) !important;
+            box-shadow: 0 0 20px var(--primary);
+            animation: btnPulse 0.5s ease-in-out infinite alternate;
+        }
 
         .btn-secondary {
             border-color: var(--secondary);
@@ -109,12 +117,12 @@
             transition: all 0.5s ease;
         }
         .hidden-menu {
-            display: none;
+            display: none !important;
             opacity: 0;
             transform: translateY(20px);
         }
         .visible-menu {
-            display: flex;
+            display: flex !important;
             opacity: 1;
             transform: translateY(0);
         }
@@ -131,6 +139,38 @@
         #qr-modal.active {
             display: flex;
             opacity: 1;
+        }
+
+        #settings-modal {
+            opacity: 0;
+        }
+        #settings-modal.active {
+            display: flex !important;
+            opacity: 1;
+        }
+        
+        /* 难度选择按钮样式 */
+        #difficulty-easy, #difficulty-normal {
+            background: transparent;
+            border-color: rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.6);
+        }
+        
+        #difficulty-easy:hover, #difficulty-normal:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+        
+        #difficulty-easy.selected {
+            background: rgba(74, 222, 128, 0.2);
+            border-color: #4ade80;
+            color: #4ade80;
+        }
+        
+        #difficulty-normal.selected {
+            background: rgba(0, 242, 255, 0.2);
+            border-color: #00f2ff;
+            color: #00f2ff;
         }
         
         /* 换衣区样式 */
@@ -244,7 +284,7 @@
             </button>
 
             <div class="flex gap-4">
-                <button class="flex-1 glass-panel py-3 hover:bg-white/10 transition flex items-center justify-center gap-2 text-sm uppercase tracking-widest">
+                <button class="flex-1 glass-panel py-3 hover:bg-white/10 transition flex items-center justify-center gap-2 text-sm uppercase tracking-widest" onclick="toggleSettings()">
                     <i data-lucide="settings" class="w-4 h-4"></i> 设置
                 </button>
                 <button class="flex-1 glass-panel py-3 hover:bg-white/10 transition flex items-center justify-center gap-2 text-sm uppercase tracking-widest" onclick="exitGame()">
@@ -260,17 +300,17 @@
             <div class="text-center text-sm opacity-60 mb-1">🎨 颜色收集</div>
             <div class="flex gap-2">
                 <button class="btn-glitch group !border-cyan-400 flex-1" onclick="selectLevel('color', 1)">
-                    <span class="flex flex-col items-center justify-center py-1">
+                <span class="flex flex-col items-center justify-center py-1">
                         <span class="text-base">关卡 I</span>
                         <span class="text-[9px] opacity-50 font-game">基础模式</span>
-                    </span>
-                </button>
+                </span>
+            </button>
                 <button class="btn-glitch group !border-yellow-400 hover:!bg-yellow-400 flex-1" onclick="selectLevel('color', 2)">
-                    <span class="flex flex-col items-center justify-center py-1">
+                <span class="flex flex-col items-center justify-center py-1">
                         <span class="text-base">关卡 II</span>
                         <span class="text-[9px] opacity-50 font-game">动态目标</span>
-                    </span>
-                </button>
+                </span>
+            </button>
                 <button class="btn-glitch group !border-purple-500 hover:!bg-purple-500 flex-1" onclick="selectLevel('color', 3)">
                     <span class="flex flex-col items-center justify-center py-1">
                         <span class="text-base">关卡 III</span>
@@ -288,11 +328,11 @@
             <div class="text-center text-sm opacity-60 mb-1">🔴 红线危机</div>
             <div class="flex gap-2">
                 <button class="btn-glitch group !border-red-500 hover:!bg-red-500 flex-1" onclick="selectLevel('redline', 1)">
-                    <span class="flex flex-col items-center justify-center py-1">
+                <span class="flex flex-col items-center justify-center py-1">
                         <span class="text-base">关卡 I</span>
                         <span class="text-[9px] opacity-50 font-game">单线追击</span>
-                    </span>
-                </button>
+                </span>
+            </button>
                 <button class="btn-glitch group !border-orange-500 hover:!bg-orange-500 flex-1" onclick="selectLevel('redline', 2)">
                     <span class="flex flex-col items-center justify-center py-1">
                         <span class="text-base">关卡 II</span>
@@ -324,25 +364,25 @@
     
     <!-- 换衣区 - 独立于 main-content，不受缩放影响 -->
     <div id="wardrobe-zone" class="fixed z-40" style="bottom: 24px; left: 24px; transform-origin: bottom left;">
-        <div class="glass-panel p-4 rounded-xl">
-            <div class="text-[10px] text-white/50 uppercase tracking-widest mb-3 text-center">换装区</div>
-            <div id="color-options" class="grid grid-cols-4 gap-2">
-                <div class="color-swatch" data-color="1" style="background: #00f2ff; box-shadow: 0 0 10px #00f2ff;"></div>
-                <div class="color-swatch" data-color="2" style="background: #a855f7; box-shadow: 0 0 10px #d946ef;"></div>
-                <div class="color-swatch" data-color="3" style="background: #4ade80; box-shadow: 0 0 10px #39ff14;"></div>
-                <div class="color-swatch" data-color="4" style="background: #facc15; box-shadow: 0 0 10px #ffaa00;"></div>
-                <div class="color-swatch" data-color="5" style="background: #ff4757; box-shadow: 0 0 10px #ff4757;"></div>
-                <div class="color-swatch" data-color="6" style="background: #ff7f50; box-shadow: 0 0 10px #ff7f50;"></div>
-                <div class="color-swatch" data-color="7" style="background: #ff6b9d; box-shadow: 0 0 10px #ff6b9d;"></div>
-                <div class="color-swatch" data-color="8" style="background: #ffffff; box-shadow: 0 0 10px #ffffff;"></div>
-            </div>
-            <div class="text-[8px] text-white/30 mt-2 text-center flex items-center justify-center gap-1">
-                进入区域按
-                <span class="inline-flex items-center justify-center w-4 h-4 rounded-full border border-blue-400 text-blue-400 text-[10px]" style="font-family: 'Zhi Mang Xing', cursive;">西</span>
-                换色
+            <div class="glass-panel p-4 rounded-xl">
+                <div class="text-[10px] text-white/50 uppercase tracking-widest mb-3 text-center">换装区</div>
+                <div id="color-options" class="grid grid-cols-4 gap-2">
+                    <div class="color-swatch" data-color="1" style="background: #00f2ff; box-shadow: 0 0 10px #00f2ff;"></div>
+                    <div class="color-swatch" data-color="2" style="background: #a855f7; box-shadow: 0 0 10px #d946ef;"></div>
+                    <div class="color-swatch" data-color="3" style="background: #4ade80; box-shadow: 0 0 10px #39ff14;"></div>
+                    <div class="color-swatch" data-color="4" style="background: #facc15; box-shadow: 0 0 10px #ffaa00;"></div>
+                    <div class="color-swatch" data-color="5" style="background: #ff4757; box-shadow: 0 0 10px #ff4757;"></div>
+                    <div class="color-swatch" data-color="6" style="background: #ff7f50; box-shadow: 0 0 10px #ff7f50;"></div>
+                    <div class="color-swatch" data-color="7" style="background: #ff6b9d; box-shadow: 0 0 10px #ff6b9d;"></div>
+                    <div class="color-swatch" data-color="8" style="background: #ffffff; box-shadow: 0 0 10px #ffffff;"></div>
+                </div>
+                <div class="text-[8px] text-white/30 mt-2 text-center flex items-center justify-center gap-1">
+                    进入区域按
+                    <span class="inline-flex items-center justify-center w-4 h-4 rounded-full border border-blue-400 text-blue-400 text-[10px]" style="font-family: 'Zhi Mang Xing', cursive;">西</span>
+                    换色
+                </div>
             </div>
         </div>
-    </div>
 
     <!-- 扫码弹窗 -->
     <div id="qr-modal" class="fixed inset-0 z-50 items-center justify-center p-6">
@@ -402,6 +442,73 @@
                     </div>
                 </div>
                 <p id="connection-hint" class="text-[10px] text-white/30 uppercase tracking-widest mt-4 text-center">Awaiting Device Handshake...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置面板 -->
+    <div id="settings-modal" class="fixed inset-0 z-50 flex items-center justify-center p-6" style="background: rgba(10, 10, 12, 0.95); backdrop-filter: blur(10px); display: none; transition: opacity 0.3s ease;">
+        <div id="settings-content" class="glass-panel p-8 rounded-2xl max-w-md w-full relative" style="transform-origin: center center;">
+            <button onclick="toggleSettings()" class="absolute top-4 right-4 text-white/50 hover:text-white">
+                <i data-lucide="x"></i>
+            </button>
+            
+            <div class="text-center mb-8">
+                <h3 class="text-2xl font-bold mb-2 text-white"><i data-lucide="settings" class="w-6 h-6 inline-block mr-2 text-cyan-400"></i>游戏设置</h3>
+                <p class="text-sm text-white/50">调整游戏参数</p>
+            </div>
+
+            <!-- 控制器模式 -->
+            <div class="mb-6">
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <h4 class="text-sm font-bold text-white">设备独立模式</h4>
+                        <p class="text-xs text-white/50 mt-1">开启后每个设备控制不同角色</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="controller-mode-toggle" class="sr-only peer" onchange="onControllerModeChange(this.checked)">
+                        <div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
+                    </label>
+                </div>
+                <div id="controller-mode-hint" class="text-xs px-3 py-2 rounded-lg bg-white/5 border border-white/10">
+                    <span class="text-cyan-400">共享模式：</span>
+                    <span class="text-white/60">所有设备（键盘、手柄、手机）控制同一个角色</span>
+                </div>
+            </div>
+
+            <!-- 键盘控制 -->
+            <div class="mb-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h4 class="text-sm font-bold text-white">键盘控制</h4>
+                        <p class="text-xs text-white/50 mt-1">关闭后键盘不参与控制</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="keyboard-toggle" class="sr-only peer" onchange="onKeyboardToggle(this.checked)" checked>
+                        <div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 游戏难度 -->
+            <div class="mb-6">
+                <h4 class="text-sm font-bold text-white mb-3">游戏难度</h4>
+                <div class="flex gap-3">
+                    <button id="difficulty-easy" class="flex-1 py-3 px-4 rounded-lg border-2 transition-all text-center" onclick="setDifficulty('easy')">
+                        <div class="text-base font-bold">简单</div>
+                        <div class="text-xs opacity-60 mt-1">适合新手</div>
+                    </button>
+                    <button id="difficulty-normal" class="flex-1 py-3 px-4 rounded-lg border-2 transition-all text-center" onclick="setDifficulty('normal')">
+                        <div class="text-base font-bold">普通</div>
+                        <div class="text-xs opacity-60 mt-1">标准挑战</div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 保存提示 -->
+            <div class="text-center text-xs text-white/40 mt-6">
+                <i data-lucide="check-circle" class="w-4 h-4 inline-block mr-1"></i>
+                设置自动保存
             </div>
         </div>
     </div>
@@ -536,8 +643,10 @@
                 joystick: { x: 0, y: 0 },
                 buttons: { N: false, S: false, E: false, W: false }
             };
-            // 设置默认颜色
-            playerColors[id] = parseInt(id);
+            // 使用 GameData 统一的颜色管理
+            const savedColor = GameData.playerColors.getPlayerColor(id);
+            playerColors[id] = savedColor.id || parseInt(id);
+            GameData.playerColors.applyToPlayer(players[id]);
             updateWardrobeUI();
         }
         
@@ -587,7 +696,8 @@
         
         // 检测角色与按钮的碰撞
         function checkButtonCollision(player) {
-            const buttons = document.querySelectorAll('.btn-glitch:not([style*="display: none"])');
+            // 检测所有可点击的按钮（btn-glitch 和带 onclick 的 glass-panel）
+            const buttons = document.querySelectorAll('.btn-glitch:not([style*="display: none"]), .glass-panel[onclick]');
             const px = player.x + player.width / 2;
             const py = player.y + player.height / 2;
             
@@ -595,6 +705,10 @@
                 // 跳过不可见的按钮（在隐藏菜单中）
                 const menu = btn.closest('.menu-container');
                 if (menu && menu.classList.contains('hidden-menu')) continue;
+                
+                // 跳过隐藏的弹窗中的按钮
+                const modal = btn.closest('#qr-modal, #settings-modal');
+                if (modal && !modal.classList.contains('active')) continue;
                 
                 const rect = btn.getBoundingClientRect();
                 if (px >= rect.left && px <= rect.right && py >= rect.top && py <= rect.bottom) {
@@ -606,8 +720,8 @@
         
         // 更新按钮高亮状态
         function updateButtonHighlight() {
-            // 清除所有高亮
-            document.querySelectorAll('.btn-glitch.player-hover').forEach(btn => {
+            // 清除所有高亮（包括 btn-glitch 和 glass-panel）
+            document.querySelectorAll('.btn-glitch.player-hover, .glass-panel.player-hover').forEach(btn => {
                 btn.classList.remove('player-hover');
             });
             
@@ -635,16 +749,8 @@
         }
         
         // ==================== 换装系统 ====================
-        const ALL_COLORS = [
-            { id: 1, main: '#00f2ff', glow: '#00f2ff', core: '#e0faff', name: '青' },
-            { id: 2, main: '#a855f7', glow: '#d946ef', core: '#f0e0ff', name: '紫' },
-            { id: 3, main: '#4ade80', glow: '#39ff14', core: '#e0ffe0', name: '绿' },
-            { id: 4, main: '#facc15', glow: '#ffaa00', core: '#fffbe0', name: '黄' },
-            { id: 5, main: '#ff4757', glow: '#ff4757', core: '#ffe0e0', name: '红' },
-            { id: 6, main: '#ff7f50', glow: '#ff7f50', core: '#ffe8e0', name: '橙' },
-            { id: 7, main: '#ff6b9d', glow: '#ff6b9d', core: '#ffe0f0', name: '粉' },
-            { id: 8, main: '#ffffff', glow: '#ffffff', core: '#f8f8f8', name: '白' }
-        ];
+        // 使用 GameData 统一管理的颜色常量
+        const ALL_COLORS = GameData.playerColors.getAllColors();
         
         // 玩家当前颜色 { playerId: colorId }
         const playerColors = {};
@@ -769,9 +875,23 @@
         }
         
         // ===== 输入处理（通过 ControllerManager 抽象层）=====
-        // 初始化 ControllerManager（只用输入功能，不让它管理 players）
+        // 初始化 ControllerManager
         ControllerManager.init({
             enableKeyboard: true,
+            onPlayerCreate: (id) => {
+                // 创建新玩家
+                initPlayer(id);
+                console.log(`[Main] 创建玩家 P${id}`);
+                return players[id];
+            },
+            onPlayerRemove: (id) => {
+                // 移除玩家
+                if (players[id]) {
+                    delete players[id];
+                    delete playerColors[id];
+                    console.log(`[Main] 移除玩家 P${id}`);
+                }
+            },
             onUpdate: () => {
                 // 有输入变化时显示控制提示
                 ControlHint.onInput();
@@ -802,14 +922,14 @@
                     // 确保 P1 角色存在
                     if (!players[1]) initPlayer(1);
                 } else {
-                    if (connectedControllers[i]) {
-                        slot.style.opacity = '1';
-                        slot.style.borderColor = color;
-                        slot.style.boxShadow = `0 0 15px ${color}`;
-                    } else {
-                        slot.style.opacity = '0.3';
-                        slot.style.borderColor = 'rgba(255,255,255,0.1)';
-                        slot.style.boxShadow = 'none';
+                if (connectedControllers[i]) {
+                    slot.style.opacity = '1';
+                    slot.style.borderColor = color;
+                    slot.style.boxShadow = `0 0 15px ${color}`;
+                } else {
+                    slot.style.opacity = '0.3';
+                    slot.style.borderColor = 'rgba(255,255,255,0.1)';
+                    slot.style.boxShadow = 'none';
                     }
                 }
             }
@@ -890,16 +1010,16 @@
                         if (!controllerInputs[id]) {
                             controllerInputs[id] = { joystick: { x: 0, y: 0 }, buttons: { N: false, S: false, E: false, W: false } };
                         }
-                        controllerInputs[id].joystick = data.joystick;
-                        controllerInputs[id].buttons = data.buttons;
-                        
+                            controllerInputs[id].joystick = data.joystick;
+                            controllerInputs[id].buttons = data.buttons;
+                            
                         // 检测是否有输入
-                        const hasInput = Math.abs(data.joystick.x) > 0.1 || 
-                                       Math.abs(data.joystick.y) > 0.1 ||
-                                       data.buttons.N || data.buttons.S || 
-                                       data.buttons.E || data.buttons.W;
-                        if (hasInput) {
-                            ControlHint.onInput();
+                            const hasInput = Math.abs(data.joystick.x) > 0.1 || 
+                                           Math.abs(data.joystick.y) > 0.1 ||
+                                           data.buttons.N || data.buttons.S || 
+                                           data.buttons.E || data.buttons.W;
+                            if (hasInput) {
+                                ControlHint.onInput();
                         }
                     }
                     else if (data.type === 'joystick') {
@@ -1074,29 +1194,19 @@
         function selectLevel(gameType, level) {
             console.log("Selected Game:", gameType, "Level:", level);
             
-            // 保存玩家颜色到 sessionStorage，供关卡页面读取
-            const savedColors = {};
+            // 保存玩家颜色（使用 GameData 统一管理）
             Object.keys(players).forEach(playerId => {
-                const player = players[playerId];
                 const colorId = playerColors[playerId] || parseInt(playerId);
-                const colorData = ALL_COLORS.find(c => c.id === colorId);
-                if (colorData) {
-                    savedColors[playerId] = {
-                        main: colorData.main,
-                        glow: colorData.glow,
-                        core: colorData.core
-                    };
-                }
+                GameData.playerColors.setPlayerColor(playerId, colorId);
             });
-            sessionStorage.setItem('playerColors', JSON.stringify(savedColors));
-            console.log('保存玩家颜色:', savedColors);
+            console.log('保存玩家颜色完成');
             
             // 关卡配置
             const games = {
                 color: {
-                    1: { name: '颜色收集 I', file: 'gameColorCollect.html' },
-                    2: { name: '颜色收集 II', file: 'gameColorCollect.html' },
-                    3: { name: '颜色收集 III', file: 'gameColorCollect.html' },
+                1: { name: '颜色收集 I', file: 'gameColorCollect.html' },
+                2: { name: '颜色收集 II', file: 'gameColorCollect.html' },
+                3: { name: '颜色收集 III', file: 'gameColorCollect.html' },
                 },
                 redline: {
                     1: { name: '红线危机 I', file: 'gameRedLine.html' },
@@ -1163,14 +1273,115 @@
             }
         }
         
+        // ==================== 设置面板 ====================
+        function toggleSettings() {
+            const modal = document.getElementById('settings-modal');
+            if (!modal) return;
+            
+            if (modal.classList.contains('active')) {
+                modal.classList.remove('active');
+                setTimeout(() => {
+                    modal.style.display = 'none';
+                    ControlHint.setMode('menu');
+                    updateControlHints();
+                }, 300);
+            } else {
+                // 打开前先加载当前设置
+                loadSettingsUI();
+                modal.style.display = 'flex';
+                modal.style.opacity = '0';
+                ControlHint.update({
+                    N: '关闭',
+                    S: null,
+                    E: null,
+                    W: null
+                });
+                ControlHint.show();
+                // 强制重绘后再添加 active 类实现淡入效果
+                requestAnimationFrame(() => {
+                    modal.classList.add('active');
+                    modal.style.opacity = '1';
+                });
+            }
+        }
+        
+        // 加载设置到UI
+        function loadSettingsUI() {
+            // 控制器模式
+            const controllerMode = GameData.gameSettings.getControllerMode();
+            const modeToggle = document.getElementById('controller-mode-toggle');
+            modeToggle.checked = (controllerMode === 'independent');
+            updateControllerModeHint(controllerMode);
+            
+            // 键盘控制
+            const keyboardEnabled = GameData.gameSettings.getKeyboardEnabled();
+            const keyboardToggle = document.getElementById('keyboard-toggle');
+            keyboardToggle.checked = keyboardEnabled;
+            
+            // 游戏难度
+            const difficulty = GameData.gameSettings.getDifficulty();
+            updateDifficultyUI(difficulty);
+        }
+        
+        // 控制器模式切换
+        function onControllerModeChange(isIndependent) {
+            const mode = isIndependent ? 'independent' : 'shared';
+            ControllerManager.setControllerMode(mode);  // 内部会保存到 GameData
+            updateControllerModeHint(mode);
+        }
+        
+        // 键盘控制切换
+        function onKeyboardToggle(enabled) {
+            ControllerManager.setKeyboardEnabled(enabled);  // 内部会保存到 GameData
+        }
+        
+        // 更新控制器模式提示文字
+        function updateControllerModeHint(mode) {
+            const hint = document.getElementById('controller-mode-hint');
+            if (mode === 'independent') {
+                hint.innerHTML = '<span class="text-green-400">独立模式：</span><span class="text-white/60">键盘=P1，其他设备自动分配P2、P3、P4</span>';
+            } else {
+                hint.innerHTML = '<span class="text-cyan-400">共享模式：</span><span class="text-white/60">所有设备（键盘、手柄、手机）控制同一个角色</span>';
+            }
+        }
+        
+        // 设置游戏难度
+        function setDifficulty(difficulty) {
+            GameData.gameSettings.setDifficulty(difficulty);
+            updateDifficultyUI(difficulty);
+            console.log('[Settings] 游戏难度:', difficulty);
+        }
+        
+        // 更新难度UI
+        function updateDifficultyUI(difficulty) {
+            const easyBtn = document.getElementById('difficulty-easy');
+            const normalBtn = document.getElementById('difficulty-normal');
+            
+            easyBtn.classList.remove('selected');
+            normalBtn.classList.remove('selected');
+            
+            if (difficulty === 'easy') {
+                easyBtn.classList.add('selected');
+            } else {
+                normalBtn.classList.add('selected');
+            }
+        }
+        
         // N 键返回处理
         function handleBack() {
             const qrModal = document.getElementById('qr-modal');
+            const settingsModal = document.getElementById('settings-modal');
             const modeMenu = document.getElementById('mode-menu');
             
             // 优先关闭二维码弹窗
             if (qrModal.classList.contains('active')) {
                 toggleQR();
+                return;
+            }
+            
+            // 关闭设置面板
+            if (settingsModal.classList.contains('active')) {
+                toggleSettings();
                 return;
             }
             
@@ -1185,6 +1396,7 @@
         // 更新控制提示（根据当前界面状态）
         function updateControlHints() {
             const qrModal = document.getElementById('qr-modal');
+            const settingsModal = document.getElementById('settings-modal');
             const modeMenu = document.getElementById('mode-menu');
             
             if (qrModal.classList.contains('active')) {
@@ -1193,6 +1405,14 @@
                     N: '关闭',
                     S: '跳跃',
                     E: '冲刺',
+                    W: null
+                });
+            } else if (settingsModal.classList.contains('active')) {
+                // 设置面板
+                ControlHint.update({
+                    N: '关闭',
+                    S: null,
+                    E: null,
                     W: null
                 });
             } else if (modeMenu.classList.contains('visible-menu')) {

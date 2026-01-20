@@ -244,82 +244,9 @@
         </div>
     </div>
     
-    <!-- 开始蒙版 -->
-    <div id="start-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 500;">
-        <div style="color: #00f2ff; font-family: 'Orbitron', sans-serif; font-size: 28px; text-transform: uppercase; letter-spacing: 8px; text-shadow: 0 0 20px #00f2ff, 0 0 40px #00f2ff; animation: pulse 2s ease-in-out infinite;">按任意键开始</div>
-        <div style="color: rgba(255, 255, 255, 0.6); font-size: 12px; margin-top: 20px; letter-spacing: 4px;">PRESS ANY KEY TO START</div>
-        
-        <!-- 操作提示 -->
-        <div style="margin-top: 60px; display: flex; gap: 40px; color: rgba(255,255,255,0.5); font-size: 14px;">
-            <div style="text-align: center;">
-                <div style="width: 50px; height: 50px; border: 2px solid #4ade80; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-family: 'Zhi Mang Xing', cursive; font-size: 24px; color: #4ade80;">南</div>
-                <div>跳跃</div>
-                <div style="font-size: 10px; opacity: 0.5;">长按滞空</div>
-            </div>
-            <div style="text-align: center;">
-                <div style="width: 50px; height: 50px; border: 2px solid #f87171; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-family: 'Zhi Mang Xing', cursive; font-size: 24px; color: #f87171;">东</div>
-                <div>冲刺</div>
-                <div style="font-size: 10px; opacity: 0.5;">快速移动</div>
-            </div>
-            <div style="text-align: center;">
-                <div style="width: 50px; height: 50px; border: 2px solid #facc15; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-family: 'Zhi Mang Xing', cursive; font-size: 24px; color: #facc15;">北</div>
-                <div>静步</div>
-                <div style="font-size: 10px; opacity: 0.5;">按住减速</div>
-            </div>
-        </div>
-        
-        <!-- 键盘提示 -->
-        <div style="margin-top: 30px; color: rgba(255,255,255,0.5); font-size: 11px;">键盘: J=跳跃 | K=冲刺 | I=静步 | WASD=移动</div>
-    </div>
+    <!-- 开始蒙版由 JS 动态生成 -->
 
-    <!-- Game Over 界面 -->
-    <div id="gameover-screen" class="message cyber-border" style="display: none;">
-        <h1 class="text-4xl font-black mb-4 neon-text-pink">游戏结束</h1>
-        <p class="text-sm tracking-widest opacity-80 mb-2">本次用时</p>
-        <p class="text-5xl font-black neon-text-cyan mb-2" id="final-time">00:00</p>
-        <div class="text-xs mb-6" style="display: flex; justify-content: center; gap: 20px;">
-            <span style="color: #4ade80;">游戏时间: <span id="final-play-time">00:00</span></span>
-            <span style="color: #ff6b6b;">惩罚时间: <span id="final-penalty-time">+0s</span></span>
-        </div>
-        <p class="text-xs opacity-60 mb-8">最快记录: <span id="final-high-time">--:--</span></p>
-        <div class="flex flex-col gap-3 items-center" id="gameover-buttons">
-            <button id="restart-btn" class="btn-cyber pointer-events-auto menu-btn" data-index="0">重新开始</button>
-            <button id="revive-btn" class="btn-cyber pointer-events-auto menu-btn" data-index="1">复活 <span style="font-size: 10px; opacity: 0.7;">(+1分钟)</span></button>
-            <button id="back-btn" class="btn-cyber pointer-events-auto menu-btn" data-index="2">返回主菜单</button>
-        </div>
-        <div class="menu-control-hints">
-            <span class="hint-item"><span class="hint-key">W</span><span class="hint-key">S</span> 移动</span>
-            <span class="hint-sep">|</span>
-            <span class="hint-item"><span class="hint-key">Enter</span> 确认</span>
-            <span class="hint-sep">|</span>
-            <span class="hint-item"><span class="hint-btn hint-btn-west">西</span> 确认</span>
-        </div>
-    </div>
-
-    <!-- 通关界面 -->
-    <div id="victory-screen" class="message cyber-border" style="display: none;">
-        <h1 class="text-4xl font-black mb-4" style="color: #ffd700; text-shadow: 0 0 20px #ffd700, 0 0 40px #ff8c00;">通关成功！</h1>
-        <p class="text-sm tracking-widest opacity-80 mb-2">通关用时</p>
-        <p class="text-5xl font-black neon-text-cyan mb-2" id="victory-time">00:00</p>
-        <div class="text-xs mb-4" style="display: flex; justify-content: center; gap: 20px;">
-            <span style="color: #4ade80;">游戏时间: <span id="victory-play-time">00:00</span></span>
-            <span style="color: #ff6b6b;">惩罚时间: <span id="victory-penalty-time">+0s</span></span>
-        </div>
-        <p class="text-xs opacity-60 mb-4">全部波次已通过</p>
-        <p class="text-xs opacity-60 mb-8">最快记录: <span id="victory-high-time">--:--</span></p>
-        <div class="flex flex-col gap-3 items-center" id="victory-buttons">
-            <button id="next-level-btn" class="btn-cyber pointer-events-auto menu-btn" data-index="0" style="display: none;">下一关</button>
-            <button id="replay-btn" class="btn-cyber pointer-events-auto menu-btn" data-index="1">再玩一次</button>
-            <button id="victory-back-btn" class="btn-cyber pointer-events-auto menu-btn" data-index="2">返回主菜单</button>
-        </div>
-        <div class="menu-control-hints">
-            <span class="hint-item"><span class="hint-key">W</span><span class="hint-key">S</span> 移动</span>
-            <span class="hint-sep">|</span>
-            <span class="hint-item"><span class="hint-key">Enter</span> 确认</span>
-            <span class="hint-sep">|</span>
-            <span class="hint-item"><span class="hint-btn hint-btn-west">西</span> 确认</span>
-        </div>
-    </div>
+    <!-- Game Over / Victory 界面由 JS 动态生成 -->
 
     <!-- 调试日志面板 -->
     <div class="debug-log" id="debugLog">
@@ -378,26 +305,14 @@
         let targetColor = 'cyan';
         let dangerColor = 'pink';
         
-        // 玩家颜色
-        const ALL_COLORS = [
-            { id: 1, main: '#00f2ff', glow: '#00f2ff', core: '#e0faff', name: '青' },
-            { id: 2, main: '#a855f7', glow: '#d946ef', core: '#f0e0ff', name: '紫' },
-            { id: 3, main: '#4ade80', glow: '#39ff14', core: '#e0ffe0', name: '绿' },
-            { id: 4, main: '#facc15', glow: '#ffaa00', core: '#fffbe0', name: '黄' },
-            { id: 5, main: '#ff4757', glow: '#ff4757', core: '#ffe0e0', name: '红' },
-            { id: 6, main: '#ff7f50', glow: '#ff7f50', core: '#ffe8e0', name: '橙' },
-            { id: 7, main: '#ff6b9d', glow: '#ff6b9d', core: '#ffe0f0', name: '粉' },
-            { id: 8, main: '#ffffff', glow: '#ffffff', core: '#f8f8f8', name: '白' }
-        ];
+        // 玩家颜色（使用 GameData 统一管理）
+        const ALL_COLORS = GameData.playerColors.getAllColors();
 
         // ==================== DOM 元素 ====================
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const timerElement = document.getElementById('timer');
         const bestTimeElement = document.getElementById('best-time');
-        const gameoverScreen = document.getElementById('gameover-screen');
-        const victoryScreen = document.getElementById('victory-screen');
-        const startOverlay = document.getElementById('start-overlay');
 
         // ==================== 游戏状态 ====================
         let gameState = 'waiting';
@@ -426,6 +341,10 @@
         const menuSystem = GameUtils.createMenuSystem();
         const debugLog = GameUtils.createDebugLog('logContent', 20);
         
+        // 游戏界面（使用抽象层）
+        let startOverlay = null;  // 开始蒙版
+        let gameScreens = null;   // 游戏结束屏幕
+        
         // 基准 tileSize（用于速度缩放）
         const BASE_TILE_SIZE = 70;
         let scaledMoveSpeed = config.moveSpeed;
@@ -451,17 +370,17 @@
             const colorIndex = (id - 1) % GAME_PLAYER_COLORS.length;
             const p = {
                 id: id,
-                x: 0, y: 0, z: 0, vz: 0, width: 0, height: 0, vx: 0, vy: 0,
+            x: 0, y: 0, z: 0, vz: 0, width: 0, height: 0, vx: 0, vy: 0,
                 trail: [], colors: GAME_PLAYER_COLORS[colorIndex], isJumping: false, isJumpHeld: false,
-                dashTimer: 0, dashCooldown: 0, ghostMarker: null
-            };
+            dashTimer: 0, dashCooldown: 0, ghostMarker: null
+        };
             // 设置初始大小
             const { tileSize } = gridSys;
             p.width = tileSize * config.playerSizeRatio;
             p.height = tileSize * config.playerSizeRatio;
             resetPlayerPosition(p, id);
             console.log(`[Game] 玩家 ${id} 加入游戏`);
-            
+
             // 更新兼容引用
             if (id === 1) player = p;
             if (id === 2) player2 = p;
@@ -557,16 +476,8 @@
                     }
                     else if (data.type === 'state') {
                         // 更新 ControllerManager 中的输入状态
+                        // （会自动触发 onUpdate 回调，统一处理 waiting 状态等）
                         ControllerManager.updateControllerInput(controllerId, data.joystick, data.buttons);
-                        
-                        // 等待/菜单状态的输入处理
-                        if (gameState === 'waiting') {
-                            const anyButton = data.buttons.E || data.buttons.S || data.buttons.W || data.buttons.N;
-                            const anyJoystick = Math.abs(data.joystick.x) > 0.5 || Math.abs(data.joystick.y) > 0.5;
-                            if (anyButton || anyJoystick) startGame();
-                        }
-                        // 菜单状态由 checkMenuInput() 统一处理，这里不再直接调用
-                        // （手柄输入已经通过 ControllerManager.updateControllerInput 更新）
                     }
                     else if (data.type === 'button') {
                         // 单独的按钮事件（保持兼容）
@@ -580,25 +491,13 @@
                     }
                 } catch (e) { console.log('收到消息:', event.data); }
             };
-        }
+                                }
         
         initWebSocket();
 
         // ==================== 玩家颜色加载 ====================
         function loadPlayerColors() {
-            try {
-                const saved = sessionStorage.getItem('playerColors');
-                if (saved) {
-                    const colors = JSON.parse(saved);
-                    const players = ControllerManager.getPlayers();
-                    // 更新所有玩家的颜色
-                    Object.keys(colors).forEach(id => {
-                        if (players[id]) {
-                            players[id].colors = colors[id];
-                        }
-                    });
-                }
-            } catch (e) { console.error('读取玩家颜色失败:', e); }
+            GameData.playerColors.applyToAllPlayers(ControllerManager.getPlayers());
         }
 
         // ==================== 异步加载最快记录 ====================
@@ -755,14 +654,14 @@
             // 放置其他颜色方块（干扰项）- 排除目标色和危险色
             if (levelMode >= 2) {
                 const otherColors = availableColors.filter(c => c !== targetColor && c !== dangerColor);
-                otherColors.forEach(color => {
-                    const count = Math.min(otherColorCount, shuffled.length - idx);
-                    for (let i = 0; i < count && idx < shuffled.length; i++, idx++) {
-                        shuffled[idx].type = color;
-                        shuffled[idx].pulse = 0;
-                        collectibleTiles.push(shuffled[idx]);
-                    }
-                });
+            otherColors.forEach(color => {
+                const count = Math.min(otherColorCount, shuffled.length - idx);
+                for (let i = 0; i < count && idx < shuffled.length; i++, idx++) {
+                    shuffled[idx].type = color;
+                    shuffled[idx].pulse = 0;
+                    collectibleTiles.push(shuffled[idx]);
+                }
+            });
             }
             
             // 安全区
@@ -809,7 +708,7 @@
                 }
             }
         }
-        
+
         // ==================== 窗口调整 ====================
         const BASE_UI_WIDTH = 1280;  // UI设计基准宽度
         
@@ -837,11 +736,8 @@
             }
             
             // 缩放游戏结束和通关弹窗
-            if (gameoverScreen) {
-                gameoverScreen.style.transform = `translate(-50%, -50%) scale(${uiScale})`;
-            }
-            if (victoryScreen) {
-                victoryScreen.style.transform = `translate(-50%, -50%) scale(${uiScale})`;
+            if (gameScreens) {
+                gameScreens.setScale(uiScale);
             }
         }
 
@@ -850,7 +746,7 @@
             if (gameState === 'waiting') {
                 gameState = 'playing';
                 gameStartTime = Date.now();
-                startOverlay.style.display = 'none';
+                startOverlay.hide();
                 invincibleTimer = INVINCIBLE_DURATION;
                 console.log('[Game] 游戏开始计时！');
             }
@@ -914,17 +810,17 @@
             if (!menuInputThrottle) {
                 if (newUp && !oldUp) {
                     console.log('[Menu] 触发 moveUp');
-                    menuSystem.moveUp();
+                        menuSystem.moveUp();
                     menuInputThrottle = true;
                     setTimeout(() => menuInputThrottle = false, 150);
-                }
+                    }
                 if (newDown && !oldDown) {
                     console.log('[Menu] 触发 moveDown');
-                    menuSystem.moveDown();
+                        menuSystem.moveDown();
                     menuInputThrottle = true;
                     setTimeout(() => menuInputThrottle = false, 150);
+                    }
                 }
-            }
             
             // 确认按钮 (西键 = 确认，南键也可以确认)
             const confirmPressed = (input.buttons.W && !prevMenuInput.buttons.W) || 
@@ -974,8 +870,8 @@
                 if (input && (Math.abs(input.joystick.x) > deadzone || Math.abs(input.joystick.y) > deadzone)) {
                     p.vx = input.joystick.x;
                     p.vy = input.joystick.y;
-                }
-                
+            }
+            
                 // 处理按钮输入（按下事件）
                 if (input && input.buttons) {
                     const prevState = prevButtonStates[p.id] || { S: false, E: false };
@@ -1065,33 +961,33 @@
             const { gridX, gridY, tileSize } = gridSys;
             const cx = p.x + p.width/2;
             const cy = p.y + p.height/2;
-            const col = Math.floor((cx - gridX) / (tileSize + config.tileGap));
-            const row = Math.floor((cy - gridY) / (tileSize + config.tileGap));
+                const col = Math.floor((cx - gridX) / (tileSize + config.tileGap));
+                const row = Math.floor((cy - gridY) / (tileSize + config.tileGap));
 
-            if (row >= 0 && row < config.gridSize && col >= 0 && col < config.gridSize) {
+                if (row >= 0 && row < config.gridSize && col >= 0 && col < config.gridSize) {
                 const tile = gridSys.grid.find(t => t.row === row && t.col === col);
-                if (tile && tile.type !== 'none') {
+                    if (tile && tile.type !== 'none') {
                     // 判断是否为危险颜色（当前波次的危险色）
                     if (isDangerColor(tile.type) && invincibleTimer <= 0) {
-                        gameOver();
-                        return;
+                            gameOver();
+                            return;
                     } 
                     // 判断是否为可收集颜色（非危险色的所有颜色）
                     else if (!isDangerColor(tile.type) && config.colorHex[tile.type]) {
                         const pos = gridSys.getTilePosition(row, col);
-                        if (tile.type === targetColor) {
-                            tile.type = 'none';
+                            if (tile.type === targetColor) {
+                                tile.type = 'none';
                             floatingText.show('+正确', config.colorHex[targetColor], pos.centerX, pos.y);
                             playSound(sfxScore);  // 播放得分音效
-                        } else {
-                            tile.type = 'none';
+                            } else {
+                                tile.type = 'none';
                             penaltyTime += config.wrongColorPenalty;
                             floatingText.show(`+${config.wrongColorPenalty}秒惩罚`, '#ff6b6b', pos.centerX, pos.y);
+                            }
                         }
                     }
                 }
             }
-        }
             
         // ==================== 绘制 ====================
         function draw() {
@@ -1207,16 +1103,14 @@
             const finalPlayTime = Math.floor(purePlayTime);
             const finalPenalty = Math.floor(penaltyTime);
             
-            document.getElementById('final-time').textContent = GameUtils.formatTime(finalTime);
-            document.getElementById('final-play-time').textContent = GameUtils.formatTime(finalPlayTime);
-            document.getElementById('final-penalty-time').textContent = finalPenalty > 0 ? `+${finalPenalty}s` : '+0s';
-            document.getElementById('final-high-time').textContent = GameUtils.formatBestTime(bestTime);
-            gameoverScreen.style.display = 'block';
+            gameScreens.showGameOver({
+                totalTime: finalTime,
+                playTime: finalPlayTime,
+                penaltyTime: finalPenalty,
+                bestTime: bestTime
+            });
             
-            menuSystem.setup('gameover-buttons');
             ControlHint.hide();
-            
-            // 重置菜单输入状态，防止之前按住的按键立即触发选择
             resetMenuInputState();
         }
         
@@ -1231,38 +1125,17 @@
                 GameData.records.setBestTime('eatAndAvoid', bestTime);
             }
             
-            document.getElementById('victory-time').textContent = GameUtils.formatTime(finalTime);
-            document.getElementById('victory-play-time').textContent = GameUtils.formatTime(finalPlayTime);
-            document.getElementById('victory-penalty-time').textContent = finalPenalty > 0 ? `+${finalPenalty}s` : '+0s';
-            document.getElementById('victory-high-time').textContent = GameUtils.formatBestTime(bestTime);
             bestTimeElement.textContent = GameUtils.formatBestTime(bestTime);
             
-            // 控制"下一关"按钮显示（第三关是最后一关，不显示）
-            const nextLevelBtn = document.getElementById('next-level-btn');
-            const replayBtn = document.getElementById('replay-btn');
-            const victoryBackBtn = document.getElementById('victory-back-btn');
+            gameScreens.showVictory({
+                totalTime: finalTime,
+                playTime: finalPlayTime,
+                penaltyTime: finalPenalty,
+                bestTime: bestTime
+            });
             
-            if (levelMode < 3) {
-                nextLevelBtn.style.display = 'block';
-                nextLevelBtn.textContent = `下一关 → 颜色收集 ${['I', 'II', 'III'][levelMode]}`;
-                // 更新按钮索引
-                nextLevelBtn.dataset.index = '0';
-                replayBtn.dataset.index = '1';
-                victoryBackBtn.dataset.index = '2';
-            } else {
-                nextLevelBtn.style.display = 'none';
-                // 最后一关，按钮索引调整
-                replayBtn.dataset.index = '0';
-                victoryBackBtn.dataset.index = '1';
-            }
-            
-            victoryScreen.style.display = 'block';
-            
-            menuSystem.setup('victory-buttons');
             ControlHint.hide();
             debugLog.add(`<span style="color: #ffd700;">🎉 通关！游戏: ${GameUtils.formatTime(finalPlayTime)} + 惩罚: ${finalPenalty}s = 总计: ${GameUtils.formatTime(finalTime)}</span>`);
-            
-            // 重置菜单输入状态，防止之前按住的按键立即触发选择
             resetMenuInputState();
         }
         
@@ -1299,50 +1172,6 @@
             });
         }
         
-        // ==================== 按钮事件 ====================
-        document.getElementById('restart-btn').addEventListener('click', () => {
-            gameoverScreen.style.display = 'none';
-            gameState = 'waiting';
-            resetGame();
-            startOverlay.style.display = 'flex';
-        });
-        
-        document.getElementById('replay-btn').addEventListener('click', () => {
-            victoryScreen.style.display = 'none';
-            gameState = 'waiting';
-            resetGame();
-            startOverlay.style.display = 'flex';
-        });
-        
-        document.getElementById('next-level-btn').addEventListener('click', () => {
-            // 跳转到下一关
-            const nextLevel = levelMode + 1;
-            if (nextLevel <= 3) {
-                window.location.href = `gameColorCollect.html?level=${nextLevel}`;
-            }
-        });
-        
-        document.getElementById('back-btn').addEventListener('click', () => { window.location.href = 'index.html'; });
-        document.getElementById('victory-back-btn').addEventListener('click', () => { window.location.href = 'index.html'; });
-        
-        document.getElementById('revive-btn').addEventListener('click', () => {
-            gameoverScreen.style.display = 'none';
-            gameState = 'playing';
-            penaltyTime += REVIVE_PENALTY;
-            floatingText.show(`+${REVIVE_PENALTY}秒复活惩罚`, '#ff6b6b', width/2, height/2 - 50);
-            
-            // 重置所有玩家
-            ControllerManager.resetAllPlayers(p => {
-                resetPlayerPosition(p);
-                p.isJumping = false;
-                p.dashTimer = 0;
-                p.dashCooldown = 0;
-                p.ghostMarker = null;
-            });
-            
-            invincibleTimer = INVINCIBLE_DURATION;
-        });
-        
         // ==================== 调试按钮 ====================
         document.getElementById('victory-test-btn').addEventListener('click', () => {
             if (gameState === 'playing' || gameState === 'waiting') {
@@ -1357,11 +1186,54 @@
         gridSys.initGrid();
         initLevelUI();
         
+        // 初始化开始蒙版（使用抽象层）
+        startOverlay = GameUtils.createStartOverlay();
+        
+        // 初始化游戏结束屏幕（使用抽象层，支持复用）
+        gameScreens = GameUtils.createGameScreens({
+            gameType: 'color',
+            currentLevel: levelMode,
+            maxLevel: 3,
+            onRestart: () => {
+                gameScreens.hide();
+                gameState = 'waiting';
+                resetGame();
+                startOverlay.show();
+            },
+            onRevive: () => {
+                gameScreens.hide();
+                gameState = 'playing';
+                penaltyTime += REVIVE_PENALTY;
+                floatingText.show(`+${REVIVE_PENALTY}秒复活惩罚`, '#ff6b6b', width/2, height/2 - 50);
+                ControllerManager.resetAllPlayers(p => {
+                    resetPlayerPosition(p);
+                    p.isJumping = false;
+                    p.dashTimer = 0;
+                    p.dashCooldown = 0;
+                    p.ghostMarker = null;
+                });
+                invincibleTimer = INVINCIBLE_DURATION;
+            },
+            onNextLevel: levelMode < 3 ? () => {
+                window.location.href = `gameColorCollect.html?level=${levelMode + 1}`;
+            } : null,
+            onBackToMenu: () => {
+                window.location.href = 'index.html';
+            }
+        });
+        gameScreens.bindMenuSystem(menuSystem);
+        
         // 初始化 ControllerManager（统一管理键盘和手柄输入）
         ControllerManager.init({
             onPlayerCreate: createGamePlayer,
             onPlayerRemove: removeGamePlayer,
-            onUpdate: updateControllerUI,
+            onUpdate: () => {
+                updateControllerUI();
+                // 检查 waiting 状态下的任意输入（统一处理所有输入源）
+                if (gameState === 'waiting' && ControllerManager.hasAnyInput()) {
+                    startGame();
+                }
+            },
             enableKeyboard: true
         });
         
