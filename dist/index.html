@@ -149,6 +149,66 @@
             opacity: 1;
         }
         
+        /* 设置标签页样式 */
+        .settings-tab {
+            background: transparent;
+            color: rgba(255, 255, 255, 0.5);
+        }
+        .settings-tab:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.8);
+        }
+        .settings-tab.active {
+            background: rgba(0, 242, 255, 0.2);
+            color: #00f2ff;
+            box-shadow: 0 0 10px rgba(0, 242, 255, 0.3);
+        }
+
+        /* 滑块样式 */
+        input[type="range"] {
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: linear-gradient(135deg, #00f2ff, #0080ff);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+            transition: transform 0.15s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: linear-gradient(135deg, #00f2ff, #0080ff);
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+        }
+
+        /* 语言选项样式 */
+        .language-option:not([disabled]):hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(0, 242, 255, 0.5);
+        }
+        .language-option.active {
+            border-color: #00f2ff !important;
+            background: rgba(0, 242, 255, 0.1) !important;
+        }
+        .language-option.active i[data-lucide="check"] {
+            display: block;
+        }
+        .language-option:not(.active) i[data-lucide="check"] {
+            display: none;
+        }
+
         /* 难度选择按钮样式 */
         #difficulty-easy, #difficulty-normal {
             background: transparent;
@@ -367,6 +427,7 @@
             <div class="glass-panel p-4 rounded-xl">
                 <div class="text-[10px] text-white/50 uppercase tracking-widest mb-3 text-center">换装区</div>
                 <div id="color-options" class="grid grid-cols-4 gap-2">
+                    <!-- 亮色系 -->
                     <div class="color-swatch" data-color="1" style="background: #00f2ff; box-shadow: 0 0 10px #00f2ff;"></div>
                     <div class="color-swatch" data-color="2" style="background: #a855f7; box-shadow: 0 0 10px #d946ef;"></div>
                     <div class="color-swatch" data-color="3" style="background: #4ade80; box-shadow: 0 0 10px #39ff14;"></div>
@@ -375,6 +436,15 @@
                     <div class="color-swatch" data-color="6" style="background: #ff7f50; box-shadow: 0 0 10px #ff7f50;"></div>
                     <div class="color-swatch" data-color="7" style="background: #ff6b9d; box-shadow: 0 0 10px #ff6b9d;"></div>
                     <div class="color-swatch" data-color="8" style="background: #ffffff; box-shadow: 0 0 10px #ffffff;"></div>
+                    <!-- 深色/暗色系 -->
+                    <div class="color-swatch" data-color="9" style="background: #2563eb; box-shadow: 0 0 10px #3b82f6;"></div>
+                    <div class="color-swatch" data-color="10" style="background: #9ca3af; box-shadow: 0 0 10px #d1d5db;"></div>
+                    <div class="color-swatch" data-color="11" style="background: #92400e; box-shadow: 0 0 10px #b45309;"></div>
+                    <div class="color-swatch" data-color="12" style="background: #4f46e5; box-shadow: 0 0 10px #6366f1;"></div>
+                    <div class="color-swatch" data-color="13" style="background: #059669; box-shadow: 0 0 10px #10b981;"></div>
+                    <div class="color-swatch" data-color="14" style="background: #db2777; box-shadow: 0 0 10px #ec4899;"></div>
+                    <div class="color-swatch" data-color="15" style="background: #475569; box-shadow: 0 0 10px #64748b;"></div>
+                    <div class="color-swatch" data-color="16" style="background: #eab308; box-shadow: 0 0 10px #fbbf24;"></div>
                 </div>
                 <div class="text-[8px] text-white/30 mt-2 text-center flex items-center justify-center gap-1">
                     进入区域按
@@ -448,65 +518,191 @@
 
     <!-- 设置面板 -->
     <div id="settings-modal" class="fixed inset-0 z-50 flex items-center justify-center p-6" style="background: rgba(10, 10, 12, 0.95); backdrop-filter: blur(10px); display: none; transition: opacity 0.3s ease;">
-        <div id="settings-content" class="glass-panel p-8 rounded-2xl max-w-md w-full relative" style="transform-origin: center center;">
-            <button onclick="toggleSettings()" class="absolute top-4 right-4 text-white/50 hover:text-white">
+        <div id="settings-content" class="glass-panel p-6 rounded-2xl max-w-lg w-full relative" style="transform-origin: center center;">
+            <button onclick="toggleSettings()" class="absolute top-4 right-4 text-white/50 hover:text-white z-10">
                 <i data-lucide="x"></i>
             </button>
             
-            <div class="text-center mb-8">
-                <h3 class="text-2xl font-bold mb-2 text-white"><i data-lucide="settings" class="w-6 h-6 inline-block mr-2 text-cyan-400"></i>游戏设置</h3>
-                <p class="text-sm text-white/50">调整游戏参数</p>
+            <!-- 标题 -->
+            <div class="text-center mb-6">
+                <h3 class="text-2xl font-bold text-white"><i data-lucide="settings" class="w-6 h-6 inline-block mr-2 text-cyan-400"></i>游戏设置</h3>
             </div>
 
-            <!-- 控制器模式 -->
-            <div class="mb-6">
-                <div class="flex items-center justify-between mb-3">
-                    <div>
-                        <h4 class="text-sm font-bold text-white">设备独立模式</h4>
-                        <p class="text-xs text-white/50 mt-1">开启后每个设备控制不同角色</p>
+            <!-- 标签页导航 -->
+            <div class="flex gap-1 mb-6 bg-white/5 p-1 rounded-xl">
+                <button class="settings-tab active flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2" data-tab="control">
+                    <i data-lucide="gamepad-2" class="w-4 h-4"></i>
+                    <span>控制</span>
+                </button>
+                <button class="settings-tab flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2" data-tab="audio">
+                    <i data-lucide="volume-2" class="w-4 h-4"></i>
+                    <span>声音</span>
+                </button>
+                <button class="settings-tab flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2" data-tab="game">
+                    <i data-lucide="swords" class="w-4 h-4"></i>
+                    <span>游戏</span>
+                </button>
+                <button class="settings-tab flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2" data-tab="language">
+                    <i data-lucide="globe" class="w-4 h-4"></i>
+                    <span>语言</span>
+                </button>
+            </div>
+
+            <!-- 标签页内容容器 -->
+            <div class="settings-panels" style="min-height: 280px;">
+                
+                <!-- 控制设置 -->
+                <div class="settings-panel active" data-panel="control">
+                    <div class="space-y-5">
+                        <!-- 键盘控制 -->
+                        <div class="flex items-center justify-between p-3 rounded-xl bg-white/5">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                                    <i data-lucide="keyboard" class="w-5 h-5 text-purple-400"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-white">键盘控制</h4>
+                                    <p class="text-xs text-white/50">关闭后键盘不参与控制</p>
+                                </div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="keyboard-toggle" class="sr-only peer" onchange="onKeyboardToggle(this.checked)" checked>
+                                <div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
+                            </label>
+                        </div>
                     </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="controller-mode-toggle" class="sr-only peer" onchange="onControllerModeChange(this.checked)">
-                        <div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
-                    </label>
                 </div>
-                <div id="controller-mode-hint" class="text-xs px-3 py-2 rounded-lg bg-white/5 border border-white/10">
-                    <span class="text-cyan-400">共享模式：</span>
-                    <span class="text-white/60">所有设备（键盘、手柄、手机）控制同一个角色</span>
-                </div>
-            </div>
 
-            <!-- 键盘控制 -->
-            <div class="mb-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h4 class="text-sm font-bold text-white">键盘控制</h4>
-                        <p class="text-xs text-white/50 mt-1">关闭后键盘不参与控制</p>
+                <!-- 声音设置 -->
+                <div class="settings-panel" data-panel="audio" style="display: none;">
+                    <div class="space-y-5">
+                        <!-- 主音量 -->
+                        <div class="p-3 rounded-xl bg-white/5">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 rounded-lg bg-yellow-500/20 flex items-center justify-center">
+                                    <i data-lucide="volume-2" class="w-5 h-5 text-yellow-400"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="text-sm font-bold text-white">主音量</h4>
+                                    <p class="text-xs text-white/50">控制所有声音</p>
+                                </div>
+                                <span id="master-volume-value" class="text-sm font-mono text-cyan-400">100%</span>
+                            </div>
+                            <input type="range" id="master-volume" min="0" max="100" value="100" class="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-cyan-500" onchange="onMasterVolumeChange(this.value)" oninput="onMasterVolumeChange(this.value)">
+                        </div>
+
+                        <!-- 背景音乐 -->
+                        <div class="p-3 rounded-xl bg-white/5">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 rounded-lg bg-pink-500/20 flex items-center justify-center">
+                                    <i data-lucide="music" class="w-5 h-5 text-pink-400"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="text-sm font-bold text-white">背景音乐</h4>
+                                    <p class="text-xs text-white/50">BGM 音量</p>
+                                </div>
+                                <span id="bgm-volume-value" class="text-sm font-mono text-cyan-400">50%</span>
+                            </div>
+                            <input type="range" id="bgm-volume" min="0" max="100" value="50" class="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-cyan-500" onchange="onBGMVolumeChange(this.value)" oninput="onBGMVolumeChange(this.value)">
+                        </div>
+
+                        <!-- 音效 -->
+                        <div class="p-3 rounded-xl bg-white/5">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                                    <i data-lucide="bell-ring" class="w-5 h-5 text-green-400"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="text-sm font-bold text-white">音效</h4>
+                                    <p class="text-xs text-white/50">动作音效音量</p>
+                                </div>
+                                <span id="sfx-volume-value" class="text-sm font-mono text-cyan-400">80%</span>
+                            </div>
+                            <input type="range" id="sfx-volume" min="0" max="100" value="80" class="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-cyan-500" onchange="onSFXVolumeChange(this.value)" oninput="onSFXVolumeChange(this.value)">
+                        </div>
+
+                        <!-- 恢复默认按钮 -->
+                        <button onclick="resetAudioSettings()" class="w-full py-3 px-4 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white transition-all flex items-center justify-center gap-2">
+                            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                            <span>恢复默认</span>
+                        </button>
                     </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="keyboard-toggle" class="sr-only peer" onchange="onKeyboardToggle(this.checked)" checked>
-                        <div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
-                    </label>
                 </div>
-            </div>
 
-            <!-- 游戏难度 -->
-            <div class="mb-6">
-                <h4 class="text-sm font-bold text-white mb-3">游戏难度</h4>
-                <div class="flex gap-3">
-                    <button id="difficulty-easy" class="flex-1 py-3 px-4 rounded-lg border-2 transition-all text-center" onclick="setDifficulty('easy')">
-                        <div class="text-base font-bold">简单</div>
-                        <div class="text-xs opacity-60 mt-1">适合新手</div>
-                    </button>
-                    <button id="difficulty-normal" class="flex-1 py-3 px-4 rounded-lg border-2 transition-all text-center" onclick="setDifficulty('normal')">
-                        <div class="text-base font-bold">普通</div>
-                        <div class="text-xs opacity-60 mt-1">标准挑战</div>
-                    </button>
+                <!-- 游戏设置 -->
+                <div class="settings-panel" data-panel="game" style="display: none;">
+                    <div class="space-y-5">
+                        <!-- 游戏难度 -->
+                        <div>
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                                    <i data-lucide="gauge" class="w-5 h-5 text-orange-400"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-white">游戏难度</h4>
+                                    <p class="text-xs text-white/50">选择适合你的挑战级别</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-3">
+                                <button id="difficulty-easy" class="flex-1 py-4 px-4 rounded-xl border-2 transition-all text-center hover:scale-105" onclick="setDifficulty('easy')">
+                                    <i data-lucide="smile" class="w-8 h-8 mx-auto mb-2"></i>
+                                    <div class="text-base font-bold">简单</div>
+                                    <div class="text-xs opacity-60 mt-1">适合新手</div>
+                                </button>
+                                <button id="difficulty-normal" class="flex-1 py-4 px-4 rounded-xl border-2 transition-all text-center hover:scale-105" onclick="setDifficulty('normal')">
+                                    <i data-lucide="flame" class="w-8 h-8 mx-auto mb-2"></i>
+                                    <div class="text-base font-bold">普通</div>
+                                    <div class="text-xs opacity-60 mt-1">标准挑战</div>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 未来可扩展更多游戏设置 -->
+                        <div class="text-center text-xs text-white/30 py-4">
+                            <i data-lucide="sparkles" class="w-4 h-4 inline-block mr-1"></i>
+                            更多设置敬请期待
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 语言设置 -->
+                <div class="settings-panel" data-panel="language" style="display: none;">
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                                <i data-lucide="languages" class="w-5 h-5 text-blue-400"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-white">显示语言</h4>
+                                <p class="text-xs text-white/50">选择界面语言</p>
+                            </div>
+                        </div>
+
+                        <!-- 语言选项 -->
+                        <div class="space-y-3">
+                            <button class="language-option active w-full flex items-center gap-4 p-4 rounded-xl bg-white/5 border-2 border-cyan-500 transition-all" data-lang="zh-CN" onclick="setLanguage('zh-CN')">
+                                <span class="text-2xl">🇨🇳</span>
+                                <div class="flex-1 text-left">
+                                    <div class="font-bold text-white">简体中文</div>
+                                    <div class="text-xs text-white/50">Simplified Chinese</div>
+                                </div>
+                                <i data-lucide="check" class="w-5 h-5 text-cyan-400"></i>
+                            </button>
+                            <button class="language-option w-full flex items-center gap-4 p-4 rounded-xl bg-white/5 border-2 border-transparent transition-all opacity-50" data-lang="en" onclick="setLanguage('en')" disabled>
+                                <span class="text-2xl">🇺🇸</span>
+                                <div class="flex-1 text-left">
+                                    <div class="font-bold text-white">English</div>
+                                    <div class="text-xs text-white/50">Coming Soon</div>
+                                </div>
+                                <i data-lucide="clock" class="w-5 h-5 text-white/30"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <!-- 保存提示 -->
-            <div class="text-center text-xs text-white/40 mt-6">
+            <div class="text-center text-xs text-white/40 mt-4 pt-4 border-t border-white/10">
                 <i data-lucide="check-circle" class="w-4 h-4 inline-block mr-1"></i>
                 设置自动保存
             </div>
@@ -519,45 +715,15 @@
     <script src="js/gameData.js"></script>
     <script src="js/controlHint.js"></script>
     <script src="js/controllerManager.js"></script>
+    <script src="js/soundManager.js"></script>
     
     <script>
         // 初始化图标
         lucide.createIcons();
 
-        // ==================== 背景音乐 ====================
-        const bgm = new Audio('source/main_bgm.wav');
-        bgm.loop = true;
-        bgm.volume = 0.5;
-        
-        console.log('[BGM] 音频对象已创建');
-        
-        // 监听加载状态
-        bgm.addEventListener('canplaythrough', () => {
-            console.log('[BGM] 音频已加载完成，可以播放');
-        });
-        bgm.addEventListener('error', (e) => {
-            console.error('[BGM] 音频加载失败:', e);
-            console.error('[BGM] 错误代码:', bgm.error);
-        });
-        
-        // 浏览器要求用户交互后才能播放音频
-        function tryPlayBGM() {
-            console.log('[BGM] 尝试播放...');
-            bgm.play().then(() => {
-                console.log('[BGM] ✓ 播放成功！');
-            }).catch((err) => {
-                console.log('[BGM] ✗ 播放失败:', err.message);
-            });
-        }
-        
-        // 尝试自动播放
-        tryPlayBGM();
-        
-        // 用户首次点击时播放
-        document.addEventListener('click', function initBGM() {
-            console.log('[BGM] 检测到用户点击，尝试播放...');
-            tryPlayBGM();
-        }, { once: true });
+        // ==================== 背景音乐（使用 SoundManager 统一管理）====================
+        SoundManager.playMainBGM();
+        SoundManager.initBGMAutoplay();
 
         // ==================== 真实二维码生成 ====================
         let serverInfo = { ip: null, port: 8088 };
@@ -643,10 +809,50 @@
                 joystick: { x: 0, y: 0 },
                 buttons: { N: false, S: false, E: false, W: false }
             };
-            // 使用 GameData 统一的颜色管理
+            
+            // 使用 GameData 统一的颜色管理，避免重复颜色
             const savedColor = GameData.playerColors.getPlayerColor(id);
-            playerColors[id] = savedColor.id || parseInt(id);
-            GameData.playerColors.applyToPlayer(players[id]);
+            // 获取首选颜色ID：优先使用保存的颜色ID，如果没有则用玩家ID作为默认
+            let preferredColorId = (savedColor && savedColor.id && savedColor.id > 0) 
+                ? savedColor.id 
+                : parseInt(id);
+            
+            console.log(`[initPlayer] P${id} 首选颜色ID: ${preferredColorId}, savedColor:`, savedColor);
+            
+            // 获取其他玩家已使用的颜色
+            const usedColors = Object.entries(playerColors)
+                .filter(([pid, _]) => parseInt(pid) !== parseInt(id))  // 排除自己
+                .map(([_, colorId]) => colorId);
+            
+            const ALL_COLORS = GameData.playerColors.getAllColors();
+            let finalColorId = preferredColorId;
+            
+            // 只有当首选颜色已被其他玩家使用时，才顺延到下一个可用颜色
+            if (usedColors.includes(preferredColorId)) {
+                console.log(`[initPlayer] P${id} 颜色 ${preferredColorId} 已被使用，寻找替代...`);
+                for (let i = 1; i <= ALL_COLORS.length; i++) {
+                    const candidateId = ((preferredColorId - 1 + i) % ALL_COLORS.length) + 1;
+                    if (!usedColors.includes(candidateId)) {
+                        finalColorId = candidateId;
+                        console.log(`[initPlayer] P${id} 替代颜色: ${finalColorId}`);
+                        break;
+                    }
+                }
+            }
+            
+            playerColors[id] = finalColorId;
+            
+            // 应用颜色到玩家
+            const colorData = GameData.playerColors.getColorById(finalColorId);
+            if (colorData && players[id]) {
+                players[id].colors = { main: colorData.main, glow: colorData.glow, core: colorData.core };
+            }
+            
+            // 只有当颜色变化时才保存（避免覆盖保存的颜色）
+            if (!savedColor || savedColor.id !== finalColorId) {
+                GameData.playerColors.setPlayerColor(id, finalColorId);
+            }
+            
             updateWardrobeUI();
         }
         
@@ -800,6 +1006,8 @@
                 if (newColor && player.colors) {
                     player.colors = { main: newColor.main, glow: newColor.glow, core: newColor.core };
                 }
+                // 立即保存颜色到存档
+                GameData.playerColors.setPlayerColor(playerId, nextColorId);
                 updateWardrobeUI();
                 return true;
             }
@@ -843,6 +1051,10 @@
         function previewGameLoop() {
             // 更新所有玩家
             Object.keys(players).forEach(id => {
+                // 记录输入处理前的状态（用于检测冲刺开始）
+                const wasDashing = players[id].dashTimer > 0;
+                const wasJumping = players[id].isJumping;
+                
                 // 从 ControllerManager 获取统一的输入（P1 包含键盘，所有玩家包含手柄）
                 const input = ControllerManager.getInput(parseInt(id)) || controllerInputs[id];
                 if (input) {
@@ -851,12 +1063,29 @@
                         onCancel: handleBack                       // N 键返回
                     });
                 }
+                
+                // 检测冲刺开始（dashTimer 从 0 变为 > 0，在 handlePlayerInput 中设置）
+                const isDashing = players[id].dashTimer > 0;
+                if (!wasDashing && isDashing) {
+                    SoundManager.playDash();
+                }
+                
+                // 检测起跳（从非跳跃变为跳跃，在 handlePlayerInput 中设置）
+                if (!wasJumping && players[id].isJumping) {
+                    SoundManager.playJump();
+                }
+                
                 updatePlayer(players[id], {
                     minX: 0,
                     maxX: window.innerWidth,
                     minY: 0,
                     maxY: window.innerHeight
                 });
+                
+                // 检测落地（从跳跃中变为非跳跃，在 updatePlayer 中处理）
+                if (wasJumping && !players[id].isJumping) {
+                    SoundManager.playLand();
+                }
             });
             
             // 检测按钮碰撞
@@ -903,6 +1132,17 @@
             initPlayer(1);
         }
         
+        // ==================== 音效（使用 SoundManager 统一管理）====================
+        SoundManager.preload();
+        
+        // 加载保存的音量设置
+        (function applyVolumeSettings() {
+            const volumes = GameData.gameSettings.getVolume();
+            SoundManager.setMasterVolume(volumes.master);
+            SoundManager.setBGMVolume(volumes.bgm);
+            SoundManager.setSFXVolume(volumes.sfx);
+        })();
+        
         // 启动游戏循环
         resizePreviewCanvas();
         window.addEventListener('resize', resizePreviewCanvas);
@@ -946,19 +1186,32 @@
             }
         }
         
+        // 全局 WebSocket 客户端对象
+        let gameWs = null;
+        const WsClient = {
+            isConnected: () => gameWs && gameWs.readyState === WebSocket.OPEN,
+            send: (data) => {
+                if (WsClient.isConnected()) {
+                    gameWs.send(JSON.stringify(data));
+                    return true;
+                }
+                return false;
+            }
+        };
+        
         // 连接 WebSocket 获取服务器 IP
         function initWebSocket() {
             // 始终连接本地 8088 端口的游戏服务器
             const wsUrl = 'ws://localhost:8088/ws/game';
             
             console.log('WebSocket 连接地址:', wsUrl);
-            const ws = new WebSocket(wsUrl);
+            gameWs = new WebSocket(wsUrl);
             
-            ws.onopen = () => {
+            gameWs.onopen = () => {
                 console.log('已连接到服务器');
             };
             
-            ws.onmessage = (event) => {
+            gameWs.onmessage = (event) => {
                 console.log('收到 WebSocket 消息:', event.data);
                 try {
                     const data = JSON.parse(event.data);
@@ -966,6 +1219,22 @@
                     
                     if (data.type === 'connected') {
                         console.log('连接消息，server_ip:', data.server_ip);
+                        
+                        // 初始化存档数据
+                        if (data.game_data) {
+                            GameData.initFromServer(data.game_data);
+                            GameData.setWebSocket(gameWs);
+                            console.log('[GameData] 从服务器加载存档完成');
+                            
+                            // 重新应用颜色到已存在的玩家
+                            Object.keys(players).forEach(id => {
+                                const savedColor = GameData.playerColors.getPlayerColor(id);
+                                playerColors[id] = savedColor.id || parseInt(id);
+                                GameData.playerColors.applyToPlayer(players[id]);
+                            });
+                            updateWardrobeUI();
+                        }
+                        
                         // 获取服务器 IP
                         if (data.server_ip) {
                             serverInfo.ip = data.server_ip;
@@ -981,25 +1250,41 @@
                             connectedControllers = {};
                             data.controllers.forEach(c => {
                                 connectedControllers[c.id] = true;
-                                ControllerManager.onControllerConnected(c.id);
-                                initPlayer(c.id);  // 创建角色
+                                const actualPlayerId = ControllerManager.onControllerConnected(c.id);
+                                if (actualPlayerId !== null) {
+                                    initPlayer(actualPlayerId);  // 用实际的 playerId 创建角色
+                                    // 通知 Web Controller 实际的玩家编号
+                                    WsClient.send({
+                                        type: 'update_player_id',
+                                        controller_id: c.id,
+                                        player_id: actualPlayerId
+                                    });
+                                }
                             });
                             updateControllerUI();
                         }
                     }
                     else if (data.type === 'controller_joined') {
                         connectedControllers[data.controller_id] = true;
-                        ControllerManager.onControllerConnected(data.controller_id);
-                        initPlayer(data.controller_id);  // 创建角色
+                        const actualPlayerId = ControllerManager.onControllerConnected(data.controller_id);
+                        if (actualPlayerId !== null) {
+                            initPlayer(actualPlayerId);  // 用实际的 playerId 创建角色
+                            // 通知 Web Controller 实际的玩家编号
+                            WsClient.send({
+                                type: 'update_player_id',
+                                controller_id: data.controller_id,
+                                player_id: actualPlayerId
+                            });
+                            console.log(`Web手柄 ${data.controller_id} -> P${actualPlayerId}`);
+                        }
                         updateControllerUI();
-                        console.log(`P${data.controller_id} 已连接`);
                     }
                     else if (data.type === 'controller_left') {
                         delete connectedControllers[data.controller_id];
+                        // ControllerManager 内部会处理 playerId 映射和角色移除
                         ControllerManager.onControllerDisconnected(data.controller_id);
-                        removePlayer(data.controller_id);  // 移除角色
                         updateControllerUI();
-                        console.log(`P${data.controller_id} 已断开`);
+                        console.log(`Web手柄 ${data.controller_id} 已断开`);
                     }
                     else if (data.type === 'state') {
                         // 轮询模式：完整状态包 - 转发给 ControllerManager
@@ -1062,14 +1347,14 @@
                 } catch (e) {}
             };
             
-            ws.onclose = () => {
+            gameWs.onclose = () => {
                 console.log('连接断开，3秒后重连...');
                 connectedControllers = {};
                 updateControllerUI();
                 setTimeout(initWebSocket, 3000);
             };
             
-            ws.onerror = () => {
+            gameWs.onerror = () => {
                 console.log('WebSocket 连接失败，使用本地地址');
             };
         }
@@ -1179,15 +1464,17 @@
             }, 300);
         }
 
-        function exitGame() {
-            if (confirm('确定要退出游戏吗？')) {
-                // Tauri 环境下关闭窗口
-                if (window.__TAURI__) {
-                    window.__TAURI__.window.getCurrent().close();
-                } else {
-                    // 网页环境下关闭标签页
-                    window.close();
-                }
+        async function exitGame() {
+            // 退出前保存数据
+            try {
+                await GameData.save();
+            } catch (e) {
+                console.warn('[Exit] 保存失败:', e);
+            }
+            
+            // 通过 WebSocket 发送退出消息给后端
+            if (WsClient.isConnected()) {
+                WsClient.send({ type: 'exit_app' });
             }
         }
 
@@ -1301,18 +1588,14 @@
                 requestAnimationFrame(() => {
                     modal.classList.add('active');
                     modal.style.opacity = '1';
+                    // 刷新图标
+                    lucide.createIcons();
                 });
             }
         }
         
         // 加载设置到UI
         function loadSettingsUI() {
-            // 控制器模式
-            const controllerMode = GameData.gameSettings.getControllerMode();
-            const modeToggle = document.getElementById('controller-mode-toggle');
-            modeToggle.checked = (controllerMode === 'independent');
-            updateControllerModeHint(controllerMode);
-            
             // 键盘控制
             const keyboardEnabled = GameData.gameSettings.getKeyboardEnabled();
             const keyboardToggle = document.getElementById('keyboard-toggle');
@@ -1321,28 +1604,139 @@
             // 游戏难度
             const difficulty = GameData.gameSettings.getDifficulty();
             updateDifficultyUI(difficulty);
+            
+            // 声音设置
+            loadAudioSettingsUI();
+            
+            // 初始化标签页
+            initSettingsTabs();
         }
         
-        // 控制器模式切换
-        function onControllerModeChange(isIndependent) {
-            const mode = isIndependent ? 'independent' : 'shared';
-            ControllerManager.setControllerMode(mode);  // 内部会保存到 GameData
-            updateControllerModeHint(mode);
+        // 初始化标签页切换
+        function initSettingsTabs() {
+            const tabs = document.querySelectorAll('.settings-tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // 移除所有 active
+                    tabs.forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.settings-panel').forEach(p => {
+                        p.style.display = 'none';
+                    });
+                    
+                    // 添加当前 active
+                    tab.classList.add('active');
+                    const panelId = tab.dataset.tab;
+                    const panel = document.querySelector(`.settings-panel[data-panel="${panelId}"]`);
+                    if (panel) panel.style.display = 'block';
+                    
+                    // 刷新图标
+                    lucide.createIcons();
+                });
+            });
+        }
+        
+        // 加载声音设置到UI
+        function loadAudioSettingsUI() {
+            const volumes = GameData.gameSettings.getVolume();
+            
+            // 主音量
+            const masterSlider = document.getElementById('master-volume');
+            const masterValue = document.getElementById('master-volume-value');
+            if (masterSlider) {
+                masterSlider.value = Math.round(volumes.master * 100);
+                masterValue.textContent = masterSlider.value + '%';
+            }
+            
+            // BGM音量
+            const bgmSlider = document.getElementById('bgm-volume');
+            const bgmValue = document.getElementById('bgm-volume-value');
+            if (bgmSlider) {
+                bgmSlider.value = Math.round(volumes.bgm * 100);
+                bgmValue.textContent = bgmSlider.value + '%';
+            }
+            
+            // 音效音量
+            const sfxSlider = document.getElementById('sfx-volume');
+            const sfxValue = document.getElementById('sfx-volume-value');
+            if (sfxSlider) {
+                sfxSlider.value = Math.round(volumes.sfx * 100);
+                sfxValue.textContent = sfxSlider.value + '%';
+            }
+        }
+        
+        // 主音量变化
+        function onMasterVolumeChange(value) {
+            const volume = parseInt(value) / 100;
+            document.getElementById('master-volume-value').textContent = value + '%';
+            GameData.gameSettings.setVolume('master', volume);
+            SoundManager.setMasterVolume(volume);
+        }
+        
+        // BGM音量变化
+        function onBGMVolumeChange(value) {
+            const volume = parseInt(value) / 100;
+            document.getElementById('bgm-volume-value').textContent = value + '%';
+            GameData.gameSettings.setVolume('bgm', volume);
+            SoundManager.setBGMVolume(volume);
+        }
+        
+        // 音效音量变化
+        function onSFXVolumeChange(value) {
+            const volume = parseInt(value) / 100;
+            document.getElementById('sfx-volume-value').textContent = value + '%';
+            GameData.gameSettings.setVolume('sfx', volume);
+            SoundManager.setSFXVolume(volume);
+            // 播放测试音效
+            SoundManager.playScore();
+        }
+        
+        // 恢复默认音量设置
+        function resetAudioSettings() {
+            // 默认值：主音量100%，BGM 70%，音效 80%
+            const defaults = { master: 1.0, bgm: 0.7, sfx: 0.8 };
+            
+            // 更新UI
+            document.getElementById('master-volume').value = defaults.master * 100;
+            document.getElementById('master-volume-value').textContent = '100%';
+            document.getElementById('bgm-volume').value = defaults.bgm * 100;
+            document.getElementById('bgm-volume-value').textContent = '70%';
+            document.getElementById('sfx-volume').value = defaults.sfx * 100;
+            document.getElementById('sfx-volume-value').textContent = '80%';
+            
+            // 保存并应用
+            GameData.gameSettings.setVolume('master', defaults.master);
+            GameData.gameSettings.setVolume('bgm', defaults.bgm);
+            GameData.gameSettings.setVolume('sfx', defaults.sfx);
+            
+            SoundManager.setMasterVolume(defaults.master);
+            SoundManager.setBGMVolume(defaults.bgm);
+            SoundManager.setSFXVolume(defaults.sfx);
+            
+            // 播放确认音效
+            SoundManager.playScore();
+            console.log('[Settings] 音量已恢复默认');
+        }
+        
+        // 设置语言（预留）
+        function setLanguage(lang) {
+            // 目前只支持中文，其他语言待实现
+            if (lang !== 'zh-CN') {
+                console.log('[Settings] 语言暂不支持:', lang);
+                return;
+            }
+            // 更新UI
+            document.querySelectorAll('.language-option').forEach(opt => {
+                opt.classList.remove('active');
+                if (opt.dataset.lang === lang) {
+                    opt.classList.add('active');
+                }
+            });
+            lucide.createIcons();
         }
         
         // 键盘控制切换
         function onKeyboardToggle(enabled) {
             ControllerManager.setKeyboardEnabled(enabled);  // 内部会保存到 GameData
-        }
-        
-        // 更新控制器模式提示文字
-        function updateControllerModeHint(mode) {
-            const hint = document.getElementById('controller-mode-hint');
-            if (mode === 'independent') {
-                hint.innerHTML = '<span class="text-green-400">独立模式：</span><span class="text-white/60">键盘=P1，其他设备自动分配P2、P3、P4</span>';
-            } else {
-                hint.innerHTML = '<span class="text-cyan-400">共享模式：</span><span class="text-white/60">所有设备（键盘、手柄、手机）控制同一个角色</span>';
-            }
         }
         
         // 设置游戏难度

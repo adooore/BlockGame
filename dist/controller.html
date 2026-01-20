@@ -1628,11 +1628,18 @@
                 try {
                     const data = JSON.parse(event.data);
                     if (data.type === 'connected') {
-                        // 收到服务器分配的控制器 ID
+                        // 收到服务器分配的控制器 ID（临时编号）
                         const controllerId = data.controller_id;
                         const playerIdEl = document.getElementById('playerId');
                         playerIdEl.textContent = `P${controllerId}`;
-                        console.log(`分配玩家编号: P${controllerId}`);
+                        playerIdEl.dataset.controllerId = controllerId;  // 保存控制器ID
+                        console.log(`连接成功，临时编号: P${controllerId}`);
+                    } else if (data.type === 'player_id_updated') {
+                        // 游戏通知实际的玩家编号
+                        const playerIdEl = document.getElementById('playerId');
+                        const actualPlayerId = data.player_id;
+                        playerIdEl.textContent = `P${actualPlayerId}`;
+                        console.log(`更新玩家编号: P${actualPlayerId}`);
                     } else if (data.type === 'pong') {
                         const latency = Date.now() - data.timestamp;
                         updateLatencyDisplay(latency);

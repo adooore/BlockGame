@@ -5,6 +5,7 @@
 
 // ==================== 玩家颜色常量 ====================
 const ALL_PLAYER_COLORS = [
+    // 亮色系
     { id: 1, main: '#00f2ff', glow: '#00f2ff', core: '#e0faff', name: '青' },
     { id: 2, main: '#a855f7', glow: '#d946ef', core: '#f0e0ff', name: '紫' },
     { id: 3, main: '#4ade80', glow: '#39ff14', core: '#e0ffe0', name: '绿' },
@@ -12,7 +13,16 @@ const ALL_PLAYER_COLORS = [
     { id: 5, main: '#ff4757', glow: '#ff4757', core: '#ffe0e0', name: '红' },
     { id: 6, main: '#ff7f50', glow: '#ff7f50', core: '#ffe8e0', name: '橙' },
     { id: 7, main: '#ff6b9d', glow: '#ff6b9d', core: '#ffe0f0', name: '粉' },
-    { id: 8, main: '#ffffff', glow: '#ffffff', core: '#f8f8f8', name: '白' }
+    { id: 8, main: '#ffffff', glow: '#ffffff', core: '#f8f8f8', name: '白' },
+    // 深色/暗色系 (高区分度)
+    { id: 9, main: '#2563eb', glow: '#3b82f6', core: '#bfdbfe', name: '蓝' },
+    { id: 10, main: '#9ca3af', glow: '#d1d5db', core: '#e5e7eb', name: '银' },
+    { id: 11, main: '#92400e', glow: '#b45309', core: '#fde68a', name: '棕' },
+    { id: 12, main: '#4f46e5', glow: '#6366f1', core: '#c7d2fe', name: '靛' },
+    { id: 13, main: '#059669', glow: '#10b981', core: '#a7f3d0', name: '翠' },
+    { id: 14, main: '#db2777', glow: '#ec4899', core: '#fbcfe8', name: '玫' },
+    { id: 15, main: '#475569', glow: '#64748b', core: '#94a3b8', name: '墨' },
+    { id: 16, main: '#eab308', glow: '#fbbf24', core: '#fef08a', name: '金' }
 ];
 
 const GameData = {
@@ -92,6 +102,15 @@ const GameData = {
         }
         
         this._cacheLoaded = true;
+        
+        // 同步内存缓存
+        if (this._cache.gameSettings) {
+            this.gameSettings._memCache = this._cache.gameSettings;
+        }
+        if (this._cache.playerColors) {
+            this.playerColors._memCache = this._cache.playerColors;
+        }
+        
         return this._cache;
     },
     
@@ -199,128 +218,99 @@ const GameData = {
         }
     },
     
-    // ========== 设置 ==========
-    
-    settings: {
-        /**
-         * 获取音量设置
-         */
-        async getVolume() {
-            const data = await GameData.load();
-            return {
-                master: data.settings?.volume?.master ?? 1.0,
-                bgm: data.settings?.volume?.bgm ?? 0.5,
-                sfx: data.settings?.volume?.sfx ?? 0.8
-            };
-        },
-        
-        /**
-         * 设置音量
-         */
-        async setVolume(type, value) {
-            const data = await GameData.load();
-            data.settings = data.settings || {};
-            data.settings.volume = data.settings.volume || {};
-            data.settings.volume[type] = value;
-            await GameData.save();
-        },
-        
-        /**
-         * 获取语言
-         */
-        async getLanguage() {
-            const data = await GameData.load();
-            return data.settings?.language || 'zh';
-        },
-        
-        /**
-         * 设置语言
-         */
-        async setLanguage(lang) {
-            const data = await GameData.load();
-            data.settings = data.settings || {};
-            data.settings.language = lang;
-            await GameData.save();
-        }
-    },
-    
-    // ========== 控制器设置（同步，仍用 localStorage）==========
-    // 控制器需要快速读写，且不需要加密，继续用 localStorage
+    // ========== 控制器设置（存入存档文件）==========
     
     controller: {
-        _key: 'blockgame_controller',
-        
-        get() {
-            try {
-                return JSON.parse(localStorage.getItem(this._key) || '{}');
-            } catch (e) {
-                return {};
-            }
+        async get() {
+            const data = await GameData.load();
+            return data.controller || {};
         },
         
-        set(data) {
-            const current = this.get();
-            localStorage.setItem(this._key, JSON.stringify({ ...current, ...data }));
+        async set(newData) {
+            const data = await GameData.load();
+            data.controller = { ...(data.controller || {}), ...newData };
+            await GameData.save();
         },
         
-        getLayout() {
-            return this.get().layout || null;
+        async getLayout() {
+            const ctrl = await this.get();
+            return ctrl.layout || null;
         },
         
-        setLayout(layout) {
-            this.set({ layout });
+        async setLayout(layout) {
+            await this.set({ layout });
         },
         
-        getScale() {
-            return this.get().scale || { joystick: 1, buttons: 1, gap: 1 };
+        async getScale() {
+            const ctrl = await this.get();
+            return ctrl.scale || { joystick: 1, buttons: 1, gap: 1 };
         },
         
-        setScale(scale) {
-            this.set({ scale });
+        async setScale(scale) {
+            await this.set({ scale });
         },
         
-        getLanguage() {
-            return this.get().lang || 'cn';
+        async getLanguage() {
+            const ctrl = await this.get();
+            return ctrl.lang || 'cn';
         },
         
-        setLanguage(lang) {
-            this.set({ lang });
+        async setLanguage(lang) {
+            await this.set({ lang });
         }
     },
     
-    // ========== 游戏设置（持久化存储）==========
+    // ========== 游戏设置（存入存档文件）==========
     
     gameSettings: {
-        _key: 'blockgame_gameSettings',
+        // 内存缓存，避免频繁异步读取
+        _memCache: null,
         
-        get() {
-            try {
-                return JSON.parse(localStorage.getItem(this._key) || '{}');
-            } catch (e) {
-                return {};
+        _getSync() {
+            // 同步获取（从内存缓存或 _cache）
+            if (this._memCache) return this._memCache;
+            if (GameData._cache && GameData._cache.gameSettings) {
+                this._memCache = GameData._cache.gameSettings;
+                return this._memCache;
             }
+            return {};
         },
         
-        set(data) {
-            const current = this.get();
-            localStorage.setItem(this._key, JSON.stringify({ ...current, ...data }));
+        _setSync(newData) {
+            // 同步设置（更新内存缓存和 _cache，延迟保存）
+            const current = this._getSync();
+            this._memCache = { ...current, ...newData };
+            if (GameData._cache) {
+                GameData._cache.gameSettings = this._memCache;
+            }
+            // 延迟保存，避免频繁写入
+            this._scheduleSave();
+        },
+        
+        _saveTimer: null,
+        _scheduleSave() {
+            if (this._saveTimer) clearTimeout(this._saveTimer);
+            this._saveTimer = setTimeout(() => {
+                GameData.save();
+                this._saveTimer = null;
+            }, 500);
         },
         
         /**
-         * 获取控制器模式
-         * @returns {'shared'|'independent'} 默认 'shared'
+         * 获取控制器模式（已固定为 independent）
+         * @deprecated 模式已固定
+         * @returns {'independent'}
          */
         getControllerMode() {
-            return this.get().controllerMode || 'shared';
+            return 'independent';
         },
         
         /**
-         * 设置控制器模式
-         * @param {'shared'|'independent'} mode
+         * 设置控制器模式（已废弃）
+         * @deprecated 模式已固定为 independent
          */
         setControllerMode(mode) {
-            this.set({ controllerMode: mode });
-            console.log('[GameData] 控制器模式:', mode);
+            // 不再需要，模式固定为 independent
         },
         
         /**
@@ -328,7 +318,7 @@ const GameData = {
          * @returns {boolean} 默认 true
          */
         getKeyboardEnabled() {
-            const val = this.get().keyboardEnabled;
+            const val = this._getSync().keyboardEnabled;
             return val !== false; // 默认启用
         },
         
@@ -337,7 +327,7 @@ const GameData = {
          * @param {boolean} enabled
          */
         setKeyboardEnabled(enabled) {
-            this.set({ keyboardEnabled: enabled });
+            this._setSync({ keyboardEnabled: enabled });
             console.log('[GameData] 键盘控制:', enabled ? '启用' : '禁用');
         },
         
@@ -346,7 +336,7 @@ const GameData = {
          * @returns {'easy'|'normal'} 默认 'normal'
          */
         getDifficulty() {
-            return this.get().difficulty || 'normal';
+            return this._getSync().difficulty || 'normal';
         },
         
         /**
@@ -354,7 +344,7 @@ const GameData = {
          * @param {'easy'|'normal'} difficulty
          */
         setDifficulty(difficulty) {
-            this.set({ difficulty });
+            this._setSync({ difficulty });
             console.log('[GameData] 游戏难度:', difficulty);
         },
         
@@ -364,15 +354,60 @@ const GameData = {
         getAll() {
             return {
                 controllerMode: this.getControllerMode(),
-                difficulty: this.getDifficulty()
+                difficulty: this.getDifficulty(),
+                volume: this.getVolume()
             };
+        },
+        
+        /**
+         * 获取音量设置
+         * @returns {{ master: number, bgm: number, sfx: number }}
+         */
+        getVolume() {
+            const data = this._getSync();
+            return {
+                master: data.volume?.master ?? 1.0,
+                bgm: data.volume?.bgm ?? 0.7,
+                sfx: data.volume?.sfx ?? 0.8
+            };
+        },
+        
+        /**
+         * 设置音量
+         * @param {'master'|'bgm'|'sfx'} type - 音量类型
+         * @param {number} value - 0.0 ~ 1.0
+         */
+        setVolume(type, value) {
+            const data = this._getSync();
+            data.volume = data.volume || {};
+            data.volume[type] = Math.max(0, Math.min(1, value));
+            this._setSync(data);
+            console.log(`[GameData] ${type} 音量:`, Math.round(value * 100) + '%');
+        },
+        
+        /**
+         * 获取语言设置
+         * @returns {string} 默认 'zh-CN'
+         */
+        getLanguage() {
+            return this._getSync().language || 'zh-CN';
+        },
+        
+        /**
+         * 设置语言
+         * @param {string} lang
+         */
+        setLanguage(lang) {
+            this._setSync({ language: lang });
+            console.log('[GameData] 语言:', lang);
         }
     },
     
-    // ========== 玩家颜色管理（持久化存储）==========
+    // ========== 玩家颜色管理（存入存档文件）==========
     
     playerColors: {
-        _key: 'blockgame_playerColors',
+        // 内存缓存
+        _memCache: null,
         
         /**
          * 获取所有颜色定义
@@ -399,25 +434,36 @@ const GameData = {
          * 获取保存的玩家颜色 { playerId: { main, glow, core } }
          */
         getSavedColors() {
-            try {
-                const saved = localStorage.getItem(this._key);
-                return saved ? JSON.parse(saved) : {};
-            } catch (e) {
-                console.warn('[GameData] 读取玩家颜色失败:', e);
-                return {};
+            // 优先从内存缓存读取
+            if (this._memCache) return this._memCache;
+            // 从 _cache 读取
+            if (GameData._cache && GameData._cache.playerColors) {
+                this._memCache = GameData._cache.playerColors;
+                return this._memCache;
             }
+            return {};
         },
         
         /**
          * 保存玩家颜色
          */
         saveColors(colors) {
-            try {
-                localStorage.setItem(this._key, JSON.stringify(colors));
-                console.log('[GameData] 保存玩家颜色:', colors);
-            } catch (e) {
-                console.error('[GameData] 保存玩家颜色失败:', e);
+            this._memCache = colors;
+            if (GameData._cache) {
+                GameData._cache.playerColors = colors;
             }
+            // 延迟保存
+            this._scheduleSave();
+            console.log('[GameData] 保存玩家颜色:', colors);
+        },
+        
+        _saveTimer: null,
+        _scheduleSave() {
+            if (this._saveTimer) clearTimeout(this._saveTimer);
+            this._saveTimer = setTimeout(() => {
+                GameData.save();
+                this._saveTimer = null;
+            }, 500);
         },
         
         /**
@@ -426,9 +472,14 @@ const GameData = {
         getPlayerColor(playerId) {
             const saved = this.getSavedColors();
             if (saved[playerId]) {
-                // 尝试找到匹配的预设颜色
-                const preset = this.getColorByMain(saved[playerId].main);
-                if (preset) return preset;
+                // 优先使用保存的颜色ID
+                if (saved[playerId].id && saved[playerId].id > 0) {
+                    const preset = this.getColorById(saved[playerId].id);
+                    if (preset) return preset;
+                }
+                // 尝试通过颜色值找到匹配的预设颜色
+                const presetByMain = this.getColorByMain(saved[playerId].main);
+                if (presetByMain) return presetByMain;
                 // 返回保存的自定义颜色
                 return { id: 0, ...saved[playerId], name: '自定义' };
             }
@@ -443,14 +494,21 @@ const GameData = {
             const saved = this.getSavedColors();
             
             if (typeof colorIdOrObject === 'number') {
-                // 传入颜色ID
+                // 传入颜色ID - 同时保存ID和颜色值
                 const color = this.getColorById(colorIdOrObject);
                 if (color) {
-                    saved[playerId] = { main: color.main, glow: color.glow, core: color.core };
+                    saved[playerId] = { 
+                        id: colorIdOrObject,  // 保存颜色ID
+                        main: color.main, 
+                        glow: color.glow, 
+                        core: color.core 
+                    };
                 }
             } else if (colorIdOrObject && colorIdOrObject.main) {
-                // 传入颜色对象
+                // 传入颜色对象 - 尝试找到对应的ID
+                const preset = this.getColorByMain(colorIdOrObject.main);
                 saved[playerId] = { 
+                    id: preset ? preset.id : 0,  // 保存颜色ID
                     main: colorIdOrObject.main, 
                     glow: colorIdOrObject.glow, 
                     core: colorIdOrObject.core 
@@ -477,29 +535,6 @@ const GameData = {
         applyToAllPlayers(players) {
             if (!players) return;
             Object.values(players).forEach(player => this.applyToPlayer(player));
-        }
-    },
-    
-    // ========== 会话数据（临时，页面关闭后消失）==========
-    
-    session: {
-        _key: 'blockgame_session',
-        
-        get() {
-            try {
-                return JSON.parse(sessionStorage.getItem(this._key) || '{}');
-            } catch (e) {
-                return {};
-            }
-        },
-        
-        set(data) {
-            const current = this.get();
-            sessionStorage.setItem(this._key, JSON.stringify({ ...current, ...data }));
-        },
-        
-        clear() {
-            sessionStorage.removeItem(this._key);
         }
     },
     

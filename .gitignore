@@ -1,0 +1,36 @@
+# Rust / Tauri 编译产物
+src-tauri/target/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.Python
+env/
+venv/
+.venv/
+
+# Node.js (如果有)
+node_modules/
+
+# IDE 配置
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 日志文件
+*.log
+src-tauri/server_debug.log
+
+# 临时文件
+*.tmp
+*.temp
+

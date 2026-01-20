@@ -97,17 +97,20 @@ struct BroadcastMessage {
 struct ServerState {
     controllers: RwLock<HashMap<u8, ControllerState>>,
     game_tx: broadcast::Sender<BroadcastMessage>,
+    controller_tx: broadcast::Sender<BroadcastMessage>,  // 向控制器广播的频道
     available_ids: RwLock<Vec<u8>>,
 }
 
-const MAX_CONTROLLERS: u8 = 4;
+const MAX_CONTROLLERS: u8 = 8;
 
 impl ServerState {
     fn new() -> Self {
         let (game_tx, _) = broadcast::channel(100);
+        let (controller_tx, _) = broadcast::channel(100);
         ServerState {
             controllers: RwLock::new(HashMap::new()),
             game_tx,
+            controller_tx,
             available_ids: RwLock::new((1..=MAX_CONTROLLERS).rev().collect()),
         }
     }
@@ -134,6 +137,10 @@ impl ServerState {
 
     fn broadcast_to_games(&self, message: &str) {
         let _ = self.game_tx.send(BroadcastMessage { content: message.to_string() });
+    }
+    
+    fn broadcast_to_controllers(&self, message: &str) {
+        let _ = self.controller_tx.send(BroadcastMessage { content: message.to_string() });
     }
 }
 
@@ -197,68 +204,91 @@ async fn handle_controller(socket: WebSocket, state: AppState) {
     });
     state.broadcast_to_games(&join_msg.to_string());
 
+    // 订阅控制器广播频道（用于接收游戏发来的消息）
+    let mut ctrl_rx = state.controller_tx.subscribe();
+
     // 处理消息
-    while let Some(msg) = receiver.next().await {
-        match msg {
-            Ok(Message::Text(text)) => {
-                if let Ok(client_msg) = serde_json::from_str::<ClientMessage>(&text) {
-                    match client_msg {
-                        ClientMessage::State { joystick, buttons } => {
-                            {
-                                let mut controllers = state.controllers.write().await;
-                                if let Some(ctrl) = controllers.get_mut(&controller_id) {
-                                    ctrl.joystick = joystick.clone();
-                                    ctrl.buttons = buttons.clone();
-                                }
+    loop {
+        tokio::select! {
+            // 接收来自游戏的广播消息
+            Ok(broadcast_msg) = ctrl_rx.recv() => {
+                // 解析消息，只处理属于自己的
+                if let Ok(json_msg) = serde_json::from_str::<serde_json::Value>(&broadcast_msg.content) {
+                    if let Some(target_id) = json_msg.get("controller_id").and_then(|c| c.as_u64()) {
+                        if target_id == controller_id as u64 {
+                            // 转发给这个控制器
+                            if sender.send(Message::Text(broadcast_msg.content)).await.is_err() {
+                                break;
                             }
-                            let forward_msg = json!({
-                                "type": "state",
-                                "controller_id": controller_id,
-                                "joystick": joystick,
-                                "buttons": buttons
-                            });
-                            state.broadcast_to_games(&forward_msg.to_string());
-                        }
-                        ClientMessage::Ping { timestamp } => {
-                            let pong_msg = json!({
-                                "type": "pong",
-                                "timestamp": timestamp
-                            });
-                            let _ = sender.send(Message::Text(pong_msg.to_string())).await;
-                        }
-                        ClientMessage::Joystick { x, y } => {
-                            let forward_msg = json!({
-                                "type": "joystick",
-                                "controller_id": controller_id,
-                                "x": x,
-                                "y": y
-                            });
-                            state.broadcast_to_games(&forward_msg.to_string());
-                        }
-                        ClientMessage::JoystickRelease => {
-                            let forward_msg = json!({
-                                "type": "joystick_release",
-                                "controller_id": controller_id
-                            });
-                            state.broadcast_to_games(&forward_msg.to_string());
-                            log_to_file(&format!("[P{} 摇杆] 释放", controller_id));
-                        }
-                        ClientMessage::Button { button, action } => {
-                            let forward_msg = json!({
-                                "type": "button",
-                                "controller_id": controller_id,
-                                "button": button,
-                                "action": action
-                            });
-                            state.broadcast_to_games(&forward_msg.to_string());
-                            log_to_file(&format!("[P{} 按钮] {} {}", controller_id, button, action));
                         }
                     }
                 }
             }
-            Ok(Message::Close(_)) => break,
-            Err(_) => break,
-            _ => {}
+            // 接收来自控制器的消息
+            Some(msg) = receiver.next() => {
+                match msg {
+                    Ok(Message::Text(text)) => {
+                        if let Ok(client_msg) = serde_json::from_str::<ClientMessage>(&text) {
+                            match client_msg {
+                                ClientMessage::State { joystick, buttons } => {
+                                    {
+                                        let mut controllers = state.controllers.write().await;
+                                        if let Some(ctrl) = controllers.get_mut(&controller_id) {
+                                            ctrl.joystick = joystick.clone();
+                                            ctrl.buttons = buttons.clone();
+                                        }
+                                    }
+                                    let forward_msg = json!({
+                                        "type": "state",
+                                        "controller_id": controller_id,
+                                        "joystick": joystick,
+                                        "buttons": buttons
+                                    });
+                                    state.broadcast_to_games(&forward_msg.to_string());
+                                }
+                                ClientMessage::Ping { timestamp } => {
+                                    let pong_msg = json!({
+                                        "type": "pong",
+                                        "timestamp": timestamp
+                                    });
+                                    let _ = sender.send(Message::Text(pong_msg.to_string())).await;
+                                }
+                                ClientMessage::Joystick { x, y } => {
+                                    let forward_msg = json!({
+                                        "type": "joystick",
+                                        "controller_id": controller_id,
+                                        "x": x,
+                                        "y": y
+                                    });
+                                    state.broadcast_to_games(&forward_msg.to_string());
+                                }
+                                ClientMessage::JoystickRelease => {
+                                    let forward_msg = json!({
+                                        "type": "joystick_release",
+                                        "controller_id": controller_id
+                                    });
+                                    state.broadcast_to_games(&forward_msg.to_string());
+                                    log_to_file(&format!("[P{} 摇杆] 释放", controller_id));
+                                }
+                                ClientMessage::Button { button, action } => {
+                                    let forward_msg = json!({
+                                        "type": "button",
+                                        "controller_id": controller_id,
+                                        "button": button,
+                                        "action": action
+                                    });
+                                    state.broadcast_to_games(&forward_msg.to_string());
+                                    log_to_file(&format!("[P{} 按钮] {} {}", controller_id, button, action));
+                                }
+                            }
+                        }
+                    }
+                    Ok(Message::Close(_)) => break,
+                    Err(_) => break,
+                    _ => {}
+                }
+            }
+            else => break,
         }
     }
 
@@ -352,6 +382,26 @@ async fn handle_game(socket: WebSocket, state: AppState, local_ip: String) {
                                         "message": result.err().unwrap_or_else(|| "加载成功".to_string())
                                     });
                                     let _ = sender.send(Message::Text(response.to_string())).await;
+                                }
+                                Some("exit_app") => {
+                                    // 退出应用
+                                    log_to_file("[WebSocket] 收到退出请求，正在关闭应用...");
+                                    std::process::exit(0);
+                                }
+                                Some("update_player_id") => {
+                                    // 游戏通知控制器更新玩家编号
+                                    if let (Some(controller_id), Some(player_id)) = (
+                                        json_msg.get("controller_id").and_then(|c| c.as_u64()),
+                                        json_msg.get("player_id").and_then(|p| p.as_u64())
+                                    ) {
+                                        log_to_file(&format!("[WebSocket] 更新玩家编号: 控制器{} -> P{}", controller_id, player_id));
+                                        let update_msg = json!({
+                                            "type": "player_id_updated",
+                                            "controller_id": controller_id,
+                                            "player_id": player_id
+                                        });
+                                        state.broadcast_to_controllers(&update_msg.to_string());
+                                    }
                                 }
                                 _ => {}
                             }
