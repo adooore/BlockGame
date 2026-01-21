@@ -349,12 +349,30 @@ const GameData = {
         },
         
         /**
+         * 获取显示模式
+         * @returns {'windowed'|'fullscreen'} 默认 'fullscreen'（首次安装默认全屏）
+         */
+        getDisplayMode() {
+            return this._getSync().displayMode || 'fullscreen';
+        },
+        
+        /**
+         * 设置显示模式
+         * @param {'windowed'|'fullscreen'} mode
+         */
+        setDisplayMode(mode) {
+            this._setSync({ displayMode: mode });
+            console.log('[GameData] 显示模式:', mode);
+        },
+        
+        /**
          * 获取所有设置
          */
         getAll() {
             return {
                 controllerMode: this.getControllerMode(),
                 difficulty: this.getDifficulty(),
+                displayMode: this.getDisplayMode(),
                 volume: this.getVolume()
             };
         },
@@ -485,8 +503,8 @@ const GameData = {
             }
             // 默认：玩家ID对应颜色ID
             return this.getColorById(parseInt(playerId)) || ALL_PLAYER_COLORS[0];
-        },
-        
+    },
+    
         /**
          * 设置单个玩家的颜色
          */
@@ -503,7 +521,7 @@ const GameData = {
                         glow: color.glow, 
                         core: color.core 
                     };
-                }
+            }
             } else if (colorIdOrObject && colorIdOrObject.main) {
                 // 传入颜色对象 - 尝试找到对应的ID
                 const preset = this.getColorByMain(colorIdOrObject.main);

@@ -135,7 +135,9 @@ const GameUtils = (function() {
         function setup(containerId, buttonSelector = '.menu-btn') {
             const container = document.getElementById(containerId);
             if (container) {
-                buttons = Array.from(container.querySelectorAll(buttonSelector));
+                // 只选择可见的按钮（排除 display: none 的按钮）
+                buttons = Array.from(container.querySelectorAll(buttonSelector))
+                    .filter(btn => btn.style.display !== 'none' && getComputedStyle(btn).display !== 'none');
                 selectedIndex = 0;
                 updateSelection();
             }
@@ -166,17 +168,29 @@ const GameUtils = (function() {
                     updateSelection();
                     moveThrottle = true;
                     setTimeout(() => moveThrottle = false, 200);
+                    // 播放切换音效
+                    if (typeof SoundManager !== 'undefined') {
+                        SoundManager.playClick();
+                    }
                 } else if (joystick.y > 0.5) {
                     selectedIndex = (selectedIndex + 1) % buttons.length;
                     updateSelection();
                     moveThrottle = true;
                     setTimeout(() => moveThrottle = false, 200);
+                    // 播放切换音效
+                    if (typeof SoundManager !== 'undefined') {
+                        SoundManager.playClick();
+                    }
                 }
             }
             
             // 确认按钮
             if (btns[confirmButton] && !confirmPressed) {
                 confirmPressed = true;
+                // 播放确认音效
+                if (typeof SoundManager !== 'undefined') {
+                    SoundManager.playClick();
+                }
                 buttons[selectedIndex]?.click();
             } else if (!btns[confirmButton]) {
                 confirmPressed = false;
@@ -190,6 +204,10 @@ const GameUtils = (function() {
             if (buttons.length === 0) return;
             selectedIndex = (selectedIndex - 1 + buttons.length) % buttons.length;
             updateSelection();
+            // 播放切换音效
+            if (typeof SoundManager !== 'undefined') {
+                SoundManager.playClick();
+            }
         }
         
         /**
@@ -199,12 +217,20 @@ const GameUtils = (function() {
             if (buttons.length === 0) return;
             selectedIndex = (selectedIndex + 1) % buttons.length;
             updateSelection();
+            // 播放切换音效
+            if (typeof SoundManager !== 'undefined') {
+                SoundManager.playClick();
+            }
         }
         
         /**
          * 确认选中
          */
         function confirm() {
+            // 播放确认音效
+            if (typeof SoundManager !== 'undefined') {
+                SoundManager.playClick();
+            }
             buttons[selectedIndex]?.click();
         }
         
@@ -435,7 +461,7 @@ const GameUtils = (function() {
                     color: white;
                     transform-origin: center center;
                 }
-                .game-screen h1 { margin: 0 0 16px 0; font-size: 2.25rem; font-weight: 900; }
+                .game-screen h1 { margin: 0 0 16px 0; font-size: 2.25rem; font-weight: 900; text-align: center; width: 100%; }
                 .game-screen .time-label { font-size: 14px; letter-spacing: 4px; opacity: 0.8; margin-bottom: 8px; }
                 .game-screen .time-value { font-size: 3rem; font-weight: 900; margin-bottom: 8px; }
                 .game-screen .time-detail { font-size: 12px; margin-bottom: 24px; display: flex; justify-content: center; gap: 20px; }
@@ -498,6 +524,83 @@ const GameUtils = (function() {
                 .game-screen .neon-pink { color: #ff00ff; text-shadow: 0 0 10px #ff00ff, 0 0 20px #ff00ff; }
                 .game-screen .neon-cyan { color: #00f2ff; text-shadow: 0 0 10px #00f2ff, 0 0 20px #00f2ff; }
                 .game-screen .neon-gold { color: #ffd700; text-shadow: 0 0 20px #ffd700, 0 0 40px #ff8c00; }
+                
+                /* 星级评价样式 */
+                .star-rating {
+                    display: flex;
+                    justify-content: center;
+                    gap: 8px;
+                    margin: 16px 0;
+                }
+                .star-rating .star {
+                    font-size: 2.5rem;
+                    transition: all 0.3s ease;
+                    opacity: 0;
+                    transform: scale(0);
+                }
+                .star-rating .star.empty {
+                    color: #333;
+                    text-shadow: none;
+                    opacity: 1;
+                    transform: scale(1);
+                }
+                .star-rating .star.filled {
+                    color: #ffd700;
+                    text-shadow: 0 0 15px #ffd700, 0 0 30px #ff8c00;
+                    animation: starBounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards,
+                               starGlow 1.5s ease-in-out 0.6s infinite;
+                }
+                .star-rating .star.filled:nth-child(1) { animation-delay: 0.4s, 1.0s; }
+                .star-rating .star.filled:nth-child(2) { animation-delay: 0.9s, 1.5s; }
+                .star-rating .star.filled:nth-child(3) { animation-delay: 1.4s, 2.0s; }
+                @keyframes starBounceIn {
+                    0% { 
+                        opacity: 0; 
+                        transform: scale(0) rotate(-180deg); 
+                    }
+                    50% { 
+                        transform: scale(1.3) rotate(10deg); 
+                    }
+                    70% { 
+                        transform: scale(0.9) rotate(-5deg); 
+                    }
+                    100% { 
+                        opacity: 1; 
+                        transform: scale(1) rotate(0deg); 
+                    }
+                }
+                @keyframes starGlow {
+                    0%, 100% { 
+                        transform: scale(1); 
+                        text-shadow: 0 0 15px #ffd700, 0 0 30px #ff8c00;
+                    }
+                    50% { 
+                        transform: scale(1.15); 
+                        text-shadow: 0 0 25px #ffd700, 0 0 50px #ff8c00, 0 0 70px #ffd700;
+                    }
+                }
+                .rating-text {
+                    font-size: 14px;
+                    letter-spacing: 2px;
+                    margin-bottom: 8px;
+                    opacity: 0.8;
+                }
+                .rating-text.rating-3 { color: #ffd700; text-shadow: 0 0 10px #ffd700; }
+                .rating-text.rating-2 { color: #c0c0c0; text-shadow: 0 0 10px #c0c0c0; }
+                .rating-text.rating-1 { color: #cd7f32; text-shadow: 0 0 10px #cd7f32; }
+                .rating-text.rating-0 { color: #666; }
+                .rating-standards {
+                    display: flex;
+                    justify-content: center;
+                    gap: 16px;
+                    font-size: 10px;
+                    opacity: 0.5;
+                    margin-bottom: 16px;
+                }
+                .rating-standards .std { letter-spacing: 1px; }
+                .rating-standards .std-3 { color: #ffd700; }
+                .rating-standards .std-2 { color: #c0c0c0; }
+                .rating-standards .std-1 { color: #cd7f32; }
             `;
             document.head.appendChild(style);
         }
@@ -522,7 +625,7 @@ const GameUtils = (function() {
                 <p class="best-time">最快记录: <span id="gs-final-best-time">--:--</span></p>
                 <div class="screen-buttons" id="gs-gameover-buttons">
                     <button class="btn-cyber menu-btn" data-action="restart">重新开始</button>
-                    ${onRevive ? '<button class="btn-cyber menu-btn" data-action="revive">复活 <span style="font-size: 10px; opacity: 0.7;">(+1分钟)</span></button>' : ''}
+                    ${onRevive ? '<button class="btn-cyber menu-btn" id="gs-revive-btn" data-action="revive">复活 <span style="font-size: 10px; opacity: 0.7;">(+1分钟)</span></button>' : ''}
                     <button class="btn-cyber menu-btn" data-action="back">返回主菜单</button>
                 </div>
                 <div class="menu-hints">
@@ -542,15 +645,25 @@ const GameUtils = (function() {
             
             const nextLevelText = gameType === 'redline' ? '红线危机' : '颜色收集';
             victoryScreen.innerHTML = `
-                <h1 class="neon-gold">通关成功！</h1>
+                <h1 class="neon-gold">通关成功</h1>
+                <div class="star-rating" id="gs-star-rating">
+                    <span class="star empty">★</span>
+                    <span class="star empty">★</span>
+                    <span class="star empty">★</span>
+                </div>
+                <p class="rating-text" id="gs-rating-text">评价中...</p>
+                <div class="rating-standards">
+                    <span class="std std-3">★★★ &lt;2:30</span>
+                    <span class="std std-2">★★ &lt;5:00</span>
+                    <span class="std std-1">★ &lt;10:00</span>
+                </div>
                 <p class="time-label">通关用时</p>
                 <p class="time-value neon-cyan" id="gs-victory-time">00:00</p>
                 <div class="time-detail">
                     <span style="color: #4ade80;">游戏时间: <span id="gs-victory-play-time">00:00</span></span>
                     <span style="color: #ff6b6b;">惩罚时间: <span id="gs-victory-penalty-time">+0s</span></span>
                 </div>
-                <p class="best-time" style="margin-bottom: 16px;">全部波次已通过</p>
-                <p class="best-time">最快记录: <span id="gs-victory-best-time">--:--</span></p>
+                <p class="best-time" style="margin-bottom: 8px;">最快记录: <span id="gs-victory-best-time">--:--</span></p>
                 <div class="screen-buttons" id="gs-victory-buttons">
                     ${onNextLevel && currentLevel < maxLevel ? `<button class="btn-cyber menu-btn" data-action="next">${nextLevelText} 第${currentLevel + 1}关</button>` : ''}
                     <button class="btn-cyber menu-btn" data-action="replay">再玩一次</button>
@@ -609,10 +722,25 @@ const GameUtils = (function() {
         function showGameOver(data = {}) {
             const { totalTime = 0, playTime = 0, penaltyTime = 0, bestTime = 0 } = data;
             
+            // 播放失败音效
+            if (typeof SoundManager !== 'undefined') {
+                SoundManager.playLose();
+            }
+            
             document.getElementById('gs-final-time').textContent = formatTime(totalTime);
             document.getElementById('gs-final-play-time').textContent = formatTime(playTime);
             document.getElementById('gs-final-penalty-time').textContent = `+${penaltyTime}s`;
             document.getElementById('gs-final-best-time').textContent = formatBestTime(bestTime);
+            
+            // 根据难度设置显示/隐藏复活按钮
+            // Easy 模式显示复活按钮，Normal 模式隐藏
+            const reviveBtn = document.getElementById('gs-revive-btn');
+            if (reviveBtn) {
+                const difficulty = (typeof GameData !== 'undefined' && GameData.gameSettings) 
+                    ? GameData.gameSettings.getDifficulty() 
+                    : 'normal';
+                reviveBtn.style.display = (difficulty === 'easy') ? 'block' : 'none';
+            }
             
             gameoverScreen.style.display = 'block';
             victoryScreen.style.display = 'none';
@@ -626,16 +754,67 @@ const GameUtils = (function() {
         }
         
         /**
+         * 计算星级评价
+         * @param {number} totalTime - 总用时（秒）
+         * @returns {Object} { stars: 0-3, text: 评价文字 }
+         */
+        function calculateRating(totalTime) {
+            if (totalTime < 150) {        // < 2.5 分钟
+                return { stars: 3, text: '完美通关！', className: 'rating-3' };
+            } else if (totalTime < 300) { // < 5 分钟
+                return { stars: 2, text: '优秀表现！', className: 'rating-2' };
+            } else if (totalTime < 600) { // < 10 分钟
+                return { stars: 1, text: '顺利通关', className: 'rating-1' };
+            } else {                       // >= 10 分钟
+                return { stars: 0, text: '艰难通关...', className: 'rating-0' };
+            }
+        }
+        
+        /**
          * 显示 Victory 界面
          * @param {Object} data - 显示数据
          */
         function showVictory(data = {}) {
             const { totalTime = 0, playTime = 0, penaltyTime = 0, bestTime = 0 } = data;
             
+            // 播放胜利音效
+            if (typeof SoundManager !== 'undefined') {
+                SoundManager.playWin();
+            }
+            
             document.getElementById('gs-victory-time').textContent = formatTime(totalTime);
             document.getElementById('gs-victory-play-time').textContent = formatTime(playTime);
             document.getElementById('gs-victory-penalty-time').textContent = `+${penaltyTime}s`;
             document.getElementById('gs-victory-best-time').textContent = formatBestTime(bestTime);
+            
+            // 计算并显示星级评价
+            const rating = calculateRating(totalTime);
+            const starContainer = document.getElementById('gs-star-rating');
+            const ratingText = document.getElementById('gs-rating-text');
+            
+            // 更新星星
+            const stars = starContainer.querySelectorAll('.star');
+            stars.forEach((star, index) => {
+                if (index < rating.stars) {
+                    star.className = 'star filled';
+                    // 延迟播放星星音效（与动画同步，每颗星不同音效）
+                    const starNum = index + 1;
+                    const delays = [400, 900, 1400]; // 0.4s, 0.9s, 1.4s
+                    setTimeout(() => {
+                        if (typeof SoundManager !== 'undefined') {
+                            if (starNum === 1) SoundManager.playStar1();
+                            else if (starNum === 2) SoundManager.playStar2();
+                            else if (starNum === 3) SoundManager.playStar3();
+                        }
+                    }, delays[index]);
+                } else {
+                    star.className = 'star empty';
+                }
+            });
+            
+            // 更新评价文字
+            ratingText.textContent = rating.text;
+            ratingText.className = `rating-text ${rating.className}`;
             
             victoryScreen.style.display = 'block';
             gameoverScreen.style.display = 'none';

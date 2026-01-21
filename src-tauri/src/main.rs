@@ -19,6 +19,7 @@ use tower_http::cors::CorsLayer;
 use futures_util::{StreamExt, SinkExt};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use tauri::Manager;
 
 // ============== 日志工具 ==============
 
@@ -226,66 +227,66 @@ async fn handle_controller(socket: WebSocket, state: AppState) {
             }
             // 接收来自控制器的消息
             Some(msg) = receiver.next() => {
-                match msg {
-                    Ok(Message::Text(text)) => {
-                        if let Ok(client_msg) = serde_json::from_str::<ClientMessage>(&text) {
-                            match client_msg {
-                                ClientMessage::State { joystick, buttons } => {
-                                    {
-                                        let mut controllers = state.controllers.write().await;
-                                        if let Some(ctrl) = controllers.get_mut(&controller_id) {
-                                            ctrl.joystick = joystick.clone();
-                                            ctrl.buttons = buttons.clone();
-                                        }
-                                    }
-                                    let forward_msg = json!({
-                                        "type": "state",
-                                        "controller_id": controller_id,
-                                        "joystick": joystick,
-                                        "buttons": buttons
-                                    });
-                                    state.broadcast_to_games(&forward_msg.to_string());
-                                }
-                                ClientMessage::Ping { timestamp } => {
-                                    let pong_msg = json!({
-                                        "type": "pong",
-                                        "timestamp": timestamp
-                                    });
-                                    let _ = sender.send(Message::Text(pong_msg.to_string())).await;
-                                }
-                                ClientMessage::Joystick { x, y } => {
-                                    let forward_msg = json!({
-                                        "type": "joystick",
-                                        "controller_id": controller_id,
-                                        "x": x,
-                                        "y": y
-                                    });
-                                    state.broadcast_to_games(&forward_msg.to_string());
-                                }
-                                ClientMessage::JoystickRelease => {
-                                    let forward_msg = json!({
-                                        "type": "joystick_release",
-                                        "controller_id": controller_id
-                                    });
-                                    state.broadcast_to_games(&forward_msg.to_string());
-                                    log_to_file(&format!("[P{} 摇杆] 释放", controller_id));
-                                }
-                                ClientMessage::Button { button, action } => {
-                                    let forward_msg = json!({
-                                        "type": "button",
-                                        "controller_id": controller_id,
-                                        "button": button,
-                                        "action": action
-                                    });
-                                    state.broadcast_to_games(&forward_msg.to_string());
-                                    log_to_file(&format!("[P{} 按钮] {} {}", controller_id, button, action));
+        match msg {
+            Ok(Message::Text(text)) => {
+                if let Ok(client_msg) = serde_json::from_str::<ClientMessage>(&text) {
+                    match client_msg {
+                        ClientMessage::State { joystick, buttons } => {
+                            {
+                                let mut controllers = state.controllers.write().await;
+                                if let Some(ctrl) = controllers.get_mut(&controller_id) {
+                                    ctrl.joystick = joystick.clone();
+                                    ctrl.buttons = buttons.clone();
                                 }
                             }
+                            let forward_msg = json!({
+                                "type": "state",
+                                "controller_id": controller_id,
+                                "joystick": joystick,
+                                "buttons": buttons
+                            });
+                            state.broadcast_to_games(&forward_msg.to_string());
+                        }
+                        ClientMessage::Ping { timestamp } => {
+                            let pong_msg = json!({
+                                "type": "pong",
+                                "timestamp": timestamp
+                            });
+                            let _ = sender.send(Message::Text(pong_msg.to_string())).await;
+                        }
+                        ClientMessage::Joystick { x, y } => {
+                            let forward_msg = json!({
+                                "type": "joystick",
+                                "controller_id": controller_id,
+                                "x": x,
+                                "y": y
+                            });
+                            state.broadcast_to_games(&forward_msg.to_string());
+                        }
+                        ClientMessage::JoystickRelease => {
+                            let forward_msg = json!({
+                                "type": "joystick_release",
+                                "controller_id": controller_id
+                            });
+                            state.broadcast_to_games(&forward_msg.to_string());
+                            log_to_file(&format!("[P{} 摇杆] 释放", controller_id));
+                        }
+                        ClientMessage::Button { button, action } => {
+                            let forward_msg = json!({
+                                "type": "button",
+                                "controller_id": controller_id,
+                                "button": button,
+                                "action": action
+                            });
+                            state.broadcast_to_games(&forward_msg.to_string());
+                            log_to_file(&format!("[P{} 按钮] {} {}", controller_id, button, action));
                         }
                     }
-                    Ok(Message::Close(_)) => break,
-                    Err(_) => break,
-                    _ => {}
+                }
+            }
+            Ok(Message::Close(_)) => break,
+            Err(_) => break,
+            _ => {}
                 }
             }
             else => break,
@@ -656,6 +657,30 @@ fn load_game_data_internal() -> Result<String, String> {
     Ok(json_str)
 }
 
+// 读取显示模式设置（用于启动时决定是否全屏）
+// 默认值为全屏模式，这样首次安装打开就是全屏
+fn get_display_mode_from_save() -> String {
+    match load_game_data_internal() {
+        Ok(json_str) => {
+            if let Ok(data) = serde_json::from_str::<serde_json::Value>(&json_str) {
+                if let Some(mode) = data.get("gameSettings")
+                    .and_then(|s| s.get("displayMode"))
+                    .and_then(|m| m.as_str()) 
+                {
+                    log_to_file(&format!("[启动] 读取到显示模式: {}", mode));
+                    return mode.to_string();
+                }
+            }
+            log_to_file("[启动] 未找到显示模式设置，使用默认全屏模式");
+            "fullscreen".to_string()
+        }
+        Err(_) => {
+            log_to_file("[启动] 无法读取存档，使用默认全屏模式");
+            "fullscreen".to_string()
+        }
+    }
+}
+
 // ============== Tauri 命令 ==============
 
 #[tauri::command]
@@ -704,7 +729,22 @@ fn main() {
         });
     });
 
+    // 启动前读取显示模式设置
+    let display_mode = get_display_mode_from_save();
+    let should_fullscreen = display_mode == "fullscreen";
+    log_to_file(&format!("[启动] 显示模式: {}, 全屏: {}", display_mode, should_fullscreen));
+
     tauri::Builder::default()
+        .setup(move |app| {
+            // 获取主窗口并设置全屏
+            if should_fullscreen {
+                if let Some(window) = app.get_webview_window("main") {
+                    log_to_file("[启动] 设置窗口为全屏模式");
+                    let _ = window.set_fullscreen(true);
+                }
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![get_server_info, save_game_data, load_game_data])
         .run(tauri::generate_context!())
         .expect("启动应用失败");

@@ -307,12 +307,6 @@
     <!-- 主界面内容 -->
     <main id="main-content" class="h-screen flex flex-col items-center justify-center relative px-4 pt-16" style="transform-origin: center center;">
         
-        <!-- 装饰性元素 -->
-        <div class="absolute top-10 left-10 flex flex-col gap-2 opacity-50">
-            <div class="h-1 w-20 bg-cyan-400"></div>
-            <div class="h-1 w-10 bg-purple-500"></div>
-        </div>
-
         <!-- 标题区域 -->
         <div id="title-section" class="text-center mb-6 relative transition-all duration-300">
             <h2 class="text-xl tracking-[0.5em] text-cyan-400 font-light mb-2 opacity-80 uppercase">Minimalist Geometric Action</h2>
@@ -491,27 +485,12 @@
             </div>
 
             <!-- 控制器连接状态 -->
-            <div class="mt-6 pt-6 border-t border-white/10">
-                <p class="text-[10px] text-white/40 uppercase tracking-widest mb-3 text-center">已连接设备</p>
-                <div id="controller-slots" class="flex justify-center gap-4">
-                    <div id="p1-slot" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 opacity-30">
-                        <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
-                        <span class="text-sm font-bold text-cyan-400">P1</span>
-                    </div>
-                    <div id="p2-slot" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 opacity-30">
-                        <span class="w-2 h-2 rounded-full bg-purple-500"></span>
-                        <span class="text-sm font-bold text-purple-500">P2</span>
-                    </div>
-                    <div id="p3-slot" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 opacity-30">
-                        <span class="w-2 h-2 rounded-full bg-green-400"></span>
-                        <span class="text-sm font-bold text-green-400">P3</span>
-                    </div>
-                    <div id="p4-slot" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 opacity-30">
-                        <span class="w-2 h-2 rounded-full bg-yellow-400"></span>
-                        <span class="text-sm font-bold text-yellow-400">P4</span>
-                    </div>
+            <div class="mt-4 pt-4 border-t border-white/10">
+                <div class="flex items-center justify-center gap-2">
+                    <p class="text-[10px] text-white/40 uppercase tracking-widest">当前玩家</p>
+                    <span id="player-count" class="text-xl font-bold text-cyan-400" style="text-shadow: 0 0 10px rgba(0, 242, 255, 0.6);">0</span>
                 </div>
-                <p id="connection-hint" class="text-[10px] text-white/30 uppercase tracking-widest mt-4 text-center">Awaiting Device Handshake...</p>
+                <p id="connection-hint" class="text-[10px] text-white/30 uppercase tracking-widest mt-2 text-center">P1 键盘控制 | 等待手柄连接...</p>
             </div>
         </div>
     </div>
@@ -541,6 +520,10 @@
                 <button class="settings-tab flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2" data-tab="game">
                     <i data-lucide="swords" class="w-4 h-4"></i>
                     <span>游戏</span>
+                </button>
+                <button class="settings-tab flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2" data-tab="display">
+                    <i data-lucide="monitor" class="w-4 h-4"></i>
+                    <span>画面</span>
                 </button>
                 <button class="settings-tab flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2" data-tab="language">
                     <i data-lucide="globe" class="w-4 h-4"></i>
@@ -665,6 +648,45 @@
                     </div>
                 </div>
 
+                <!-- 画面设置 -->
+                <div class="settings-panel" data-panel="display" style="display: none;">
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+                                <i data-lucide="monitor" class="w-5 h-5 text-indigo-400"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-white">显示模式</h4>
+                                <p class="text-xs text-white/50">选择窗口或全屏</p>
+                            </div>
+                        </div>
+
+                        <!-- 显示模式选项 -->
+                        <div class="space-y-3">
+                            <button id="display-windowed" class="display-option active w-full flex items-center gap-4 p-4 rounded-xl bg-white/5 border-2 border-cyan-500 transition-all" onclick="setDisplayMode('windowed')">
+                                <div class="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                                    <i data-lucide="app-window" class="w-5 h-5 text-cyan-400"></i>
+                                </div>
+                                <div class="flex-1 text-left">
+                                    <div class="font-bold text-white">窗口模式</div>
+                                    <div class="text-xs text-white/50">在窗口中运行游戏</div>
+                                </div>
+                                <i data-lucide="check" class="w-5 h-5 text-cyan-400 display-check"></i>
+                            </button>
+                            <button id="display-fullscreen" class="display-option w-full flex items-center gap-4 p-4 rounded-xl bg-white/5 border-2 border-transparent transition-all" onclick="setDisplayMode('fullscreen')">
+                                <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                                    <i data-lucide="maximize" class="w-5 h-5 text-purple-400"></i>
+                                </div>
+                                <div class="flex-1 text-left">
+                                    <div class="font-bold text-white">全屏模式</div>
+                                    <div class="text-xs text-white/50">全屏显示游戏</div>
+                                </div>
+                                <i data-lucide="check" class="w-5 h-5 text-cyan-400 display-check" style="display: none;"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 语言设置 -->
                 <div class="settings-panel" data-panel="language" style="display: none;">
                     <div class="space-y-4">
@@ -713,17 +735,48 @@
     <script src="js/player.js"></script>
     <script src="js/wsClient.js"></script>
     <script src="js/gameData.js"></script>
+    <script src="js/loadingAnimations.js"></script>
+    <script src="js/gameUtils.js"></script>
     <script src="js/controlHint.js"></script>
     <script src="js/controllerManager.js"></script>
     <script src="js/soundManager.js"></script>
     
     <script>
+        // ==================== 开场动画（仅首次进入） ====================
+        const hasPlayedIntro = sessionStorage.getItem('intro_played');
+        
+        if (!hasPlayedIntro) {
+            // 首次进入，播放开场动画
+            const introScreen = LoadingAnimations.createIntro({
+                title: '方寸枢机',
+                subtitle: 'BLOCK GAME',
+                duration: 2000,
+                onComplete: () => {
+                    console.log('[Intro] 开场动画完成');
+                    sessionStorage.setItem('intro_played', 'true');
+                    // 开场动画结束后播放背景音乐
+                    SoundManager.playMainBGM();
+                    SoundManager.initBGMAutoplay();
+                }
+            });
+        } else {
+            // 非首次进入（从游戏返回），直接播放背景音乐
+            console.log('[Intro] 跳过开场动画');
+            SoundManager.playMainBGM();
+            SoundManager.initBGMAutoplay();
+        }
+        
+        
         // 初始化图标
         lucide.createIcons();
-
-        // ==================== 背景音乐（使用 SoundManager 统一管理）====================
-        SoundManager.playMainBGM();
-        SoundManager.initBGMAutoplay();
+        
+        // ==================== 全局按钮点击音效 ====================
+        document.addEventListener('click', (e) => {
+            const target = e.target.closest('button, .btn-glitch, .btn-cyber, .menu-btn, .glass-panel[onclick]');
+            if (target) {
+                SoundManager.playClick();
+            }
+        });
 
         // ==================== 真实二维码生成 ====================
         let serverInfo = { ip: null, port: 8088 };
@@ -1048,7 +1101,15 @@
             }
         }
         
+        let uiUpdateCounter = 0;
         function previewGameLoop() {
+            // 定期更新控制器 UI（每 30 帧约 0.5 秒）
+            uiUpdateCounter++;
+            if (uiUpdateCounter >= 30) {
+                uiUpdateCounter = 0;
+                updateControllerUI();
+            }
+            
             // 更新所有玩家
             Object.keys(players).forEach(id => {
                 // 记录输入处理前的状态（用于检测冲刺开始）
@@ -1104,32 +1165,38 @@
         }
         
         // ===== 输入处理（通过 ControllerManager 抽象层）=====
-        // 初始化 ControllerManager
-        ControllerManager.init({
-            enableKeyboard: true,
-            onPlayerCreate: (id) => {
-                // 创建新玩家
-                initPlayer(id);
-                console.log(`[Main] 创建玩家 P${id}`);
-                return players[id];
-            },
-            onPlayerRemove: (id) => {
-                // 移除玩家
-                if (players[id]) {
-                    delete players[id];
-                    delete playerColors[id];
-                    console.log(`[Main] 移除玩家 P${id}`);
-                }
-            },
-            onUpdate: () => {
-                // 有输入变化时显示控制提示
-                ControlHint.onInput();
-            }
-        });
+        // ControllerManager 初始化延迟到配置加载完成后
+        let controllerInitialized = false;
         
-        // P1 始终存在（键盘默认控制）
-        if (!players[1]) {
-            initPlayer(1);
+        function initControllerAfterConfig() {
+            if (controllerInitialized) return;
+            controllerInitialized = true;
+            
+            const keyboardEnabled = GameData.gameSettings.getKeyboardEnabled();
+            console.log('[Main] 配置加载完成，键盘控制:', keyboardEnabled ? '启用' : '禁用');
+            
+            ControllerManager.init({
+                enableKeyboard: keyboardEnabled,
+                onPlayerCreate: (id) => {
+                    initPlayer(id);
+                    console.log(`[Main] 创建玩家 P${id}`);
+                    updateControllerUI(); // 更新控制器显示
+                    return players[id];
+                },
+                onPlayerRemove: (id) => {
+                    if (players[id]) {
+                        delete players[id];
+                        delete playerColors[id];
+                        console.log(`[Main] 移除玩家 P${id}`);
+                        updateControllerUI(); // 更新控制器显示
+                    }
+                },
+                onUpdate: () => {
+                    ControlHint.onInput();
+                }
+            });
+            
+            updateControllerUI();
         }
         
         // ==================== 音效（使用 SoundManager 统一管理）====================
@@ -1149,39 +1216,37 @@
         previewGameLoop();
         
         function updateControllerUI() {
-            for (let i = 1; i <= 4; i++) {
-                const slot = document.getElementById(`p${i}-slot`);
-                const colorObj = slotColors[i];
-                const color = colorObj ? colorObj.main : '#fff';
-                
-                // P1 始终显示为活跃（键盘默认控制）
-                if (i === 1) {
-                    slot.style.opacity = '1';
-                    slot.style.borderColor = color;
-                    slot.style.boxShadow = connectedControllers[i] ? `0 0 20px ${color}` : `0 0 8px ${color}`;
-                    // 确保 P1 角色存在
-                    if (!players[1]) initPlayer(1);
-                } else {
-                if (connectedControllers[i]) {
-                    slot.style.opacity = '1';
-                    slot.style.borderColor = color;
-                    slot.style.boxShadow = `0 0 15px ${color}`;
-                } else {
-                    slot.style.opacity = '0.3';
-                    slot.style.borderColor = 'rgba(255,255,255,0.1)';
-                    slot.style.boxShadow = 'none';
-                    }
+            const keyboardEnabled = ControllerManager.isKeyboardEnabled();
+            const playerCountEl = document.getElementById('player-count');
+            const hint = document.getElementById('connection-hint');
+            
+            // 统计已连接的玩家数量
+            let playerCount = 0;
+            for (let i = 1; i <= 8; i++) {
+                if (ControllerManager.hasPlayer(i)) {
+                    playerCount++;
                 }
             }
             
+            // 更新数字显示
+            playerCountEl.textContent = playerCount;
+            
             // 更新提示文字
-            const hint = document.getElementById('connection-hint');
-            const count = Object.keys(connectedControllers).length;
-            if (count === 0) {
-                hint.textContent = 'P1 键盘控制 | 等待手柄连接...';
-                hint.style.color = 'rgba(0, 242, 255, 0.5)';
+            const controllerCount = Object.keys(connectedControllers).length;
+            
+            if (playerCount === 0) {
+                hint.textContent = '等待控制器连接...';
+                hint.style.color = 'rgba(255, 255, 255, 0.5)';
+            } else if (keyboardEnabled) {
+                if (controllerCount === 0) {
+                    hint.textContent = 'P1 键盘控制 | 等待手柄连接...';
+                    hint.style.color = 'rgba(0, 242, 255, 0.5)';
+                } else {
+                    hint.textContent = `${controllerCount} 手柄已连接`;
+                    hint.style.color = 'rgba(0, 242, 255, 0.8)';
+                }
             } else {
-                hint.textContent = `${count} 手柄已连接 | P1 键盘/手柄`;
+                hint.textContent = `${controllerCount} 手柄已连接`;
                 hint.style.color = 'rgba(0, 242, 255, 0.8)';
             }
         }
@@ -1225,15 +1290,18 @@
                             GameData.initFromServer(data.game_data);
                             GameData.setWebSocket(gameWs);
                             console.log('[GameData] 从服务器加载存档完成');
-                            
-                            // 重新应用颜色到已存在的玩家
-                            Object.keys(players).forEach(id => {
-                                const savedColor = GameData.playerColors.getPlayerColor(id);
-                                playerColors[id] = savedColor.id || parseInt(id);
-                                GameData.playerColors.applyToPlayer(players[id]);
-                            });
-                            updateWardrobeUI();
                         }
+                        
+                        // 配置加载完成，现在初始化控制器
+                        initControllerAfterConfig();
+                        
+                        // 应用颜色到玩家
+                        Object.keys(players).forEach(id => {
+                            const savedColor = GameData.playerColors.getPlayerColor(id);
+                            playerColors[id] = savedColor.id || parseInt(id);
+                            GameData.playerColors.applyToPlayer(players[id]);
+                        });
+                        updateWardrobeUI();
                         
                         // 获取服务器 IP
                         if (data.server_ip) {
@@ -1245,14 +1313,14 @@
                         } else {
                             console.log('没有 server_ip 字段！');
                         }
-                        // 初始化已连接的控制器
+                        
+                        // 处理已连接的 Web 控制器
                         if (data.controllers) {
                             connectedControllers = {};
                             data.controllers.forEach(c => {
                                 connectedControllers[c.id] = true;
                                 const actualPlayerId = ControllerManager.onControllerConnected(c.id);
                                 if (actualPlayerId !== null) {
-                                    initPlayer(actualPlayerId);  // 用实际的 playerId 创建角色
                                     // 通知 Web Controller 实际的玩家编号
                                     WsClient.send({
                                         type: 'update_player_id',
@@ -1263,6 +1331,9 @@
                             });
                             updateControllerUI();
                         }
+                        
+                        // 配置加载完成（开场动画会自动结束）
+                        console.log('[Main] 配置加载完成');
                     }
                     else if (data.type === 'controller_joined') {
                         connectedControllers[data.controller_id] = true;
@@ -1375,7 +1446,7 @@
                     console.log('Tauri 命令失败，等待 WebSocket:', e);
                 }
             }
-            // 同时启动 WebSocket 连接（用于控制器消息转发）
+            // 启动 WebSocket 连接（Tauri 环境下是进程内通信，必然成功）
             initWebSocket();
         }
         init();
@@ -1608,8 +1679,18 @@
             // 声音设置
             loadAudioSettingsUI();
             
+            // 显示模式
+            loadDisplaySettingsUI();
+            
             // 初始化标签页
             initSettingsTabs();
+        }
+        
+        // 加载显示模式设置到UI
+        function loadDisplaySettingsUI() {
+            const displayMode = GameData.gameSettings.getDisplayMode();
+            // 使用 false 参数避免重复保存
+            setDisplayMode(displayMode, false);
         }
         
         // 初始化标签页切换
@@ -1733,6 +1814,85 @@
             });
             lucide.createIcons();
         }
+        
+        // 设置显示模式
+        function setDisplayMode(mode, saveToStorage = true) {
+            const windowedBtn = document.getElementById('display-windowed');
+            const fullscreenBtn = document.getElementById('display-fullscreen');
+            
+            if (mode === 'fullscreen') {
+                // 进入全屏
+                const elem = document.documentElement;
+                if (elem.requestFullscreen) {
+                    elem.requestFullscreen();
+                } else if (elem.webkitRequestFullscreen) {
+                    elem.webkitRequestFullscreen();
+                } else if (elem.msRequestFullscreen) {
+                    elem.msRequestFullscreen();
+                }
+                // 更新UI
+                windowedBtn.classList.remove('active');
+                windowedBtn.classList.remove('border-cyan-500');
+                windowedBtn.classList.add('border-transparent');
+                windowedBtn.querySelector('.display-check').style.display = 'none';
+                
+                fullscreenBtn.classList.add('active');
+                fullscreenBtn.classList.remove('border-transparent');
+                fullscreenBtn.classList.add('border-cyan-500');
+                fullscreenBtn.querySelector('.display-check').style.display = 'block';
+            } else {
+                // 退出全屏
+                if (document.exitFullscreen) {
+                    document.exitFullscreen().catch(() => {});
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+                // 更新UI
+                fullscreenBtn.classList.remove('active');
+                fullscreenBtn.classList.remove('border-cyan-500');
+                fullscreenBtn.classList.add('border-transparent');
+                fullscreenBtn.querySelector('.display-check').style.display = 'none';
+                
+                windowedBtn.classList.add('active');
+                windowedBtn.classList.remove('border-transparent');
+                windowedBtn.classList.add('border-cyan-500');
+                windowedBtn.querySelector('.display-check').style.display = 'block';
+            }
+            
+            // 保存到 GameData
+            if (saveToStorage && typeof GameData !== 'undefined') {
+                GameData.gameSettings.setDisplayMode(mode);
+            }
+            
+            lucide.createIcons();
+        }
+        
+        // 监听全屏状态变化，更新UI
+        document.addEventListener('fullscreenchange', () => {
+            const isFullscreen = !!document.fullscreenElement;
+            const windowedBtn = document.getElementById('display-windowed');
+            const fullscreenBtn = document.getElementById('display-fullscreen');
+            
+            if (windowedBtn && fullscreenBtn) {
+                if (isFullscreen) {
+                    windowedBtn.classList.remove('active', 'border-cyan-500');
+                    windowedBtn.classList.add('border-transparent');
+                    windowedBtn.querySelector('.display-check').style.display = 'none';
+                    fullscreenBtn.classList.add('active', 'border-cyan-500');
+                    fullscreenBtn.classList.remove('border-transparent');
+                    fullscreenBtn.querySelector('.display-check').style.display = 'block';
+                } else {
+                    fullscreenBtn.classList.remove('active', 'border-cyan-500');
+                    fullscreenBtn.classList.add('border-transparent');
+                    fullscreenBtn.querySelector('.display-check').style.display = 'none';
+                    windowedBtn.classList.add('active', 'border-cyan-500');
+                    windowedBtn.classList.remove('border-transparent');
+                    windowedBtn.querySelector('.display-check').style.display = 'block';
+                }
+            }
+        });
         
         // 键盘控制切换
         function onKeyboardToggle(enabled) {

@@ -14,8 +14,9 @@ const WaveSystem = (function() {
         const config = {
             maxWaves: options.maxWaves || 12,           // 最大波数
             initialTarget: options.initialTarget || 8,   // 初始目标方块数
-            targetDecrement: options.targetDecrement || 1,  // 每波减少的目标数量
+            targetDecrement: options.targetDecrement || 1,  // 每波变化的目标数量（正数递减，负数递增）
             minTarget: options.minTarget || 3,           // 最少目标方块数
+            maxTarget: options.maxTarget || 30,          // 最多目标方块数（递增模式使用）
             initialDanger: options.initialDanger || 5,   // 初始危险方块数
             dangerIncrement: options.dangerIncrement || 2,  // 每波增加的危险数量
             maxDanger: options.maxDanger || 25,          // 危险方块上限
@@ -30,10 +31,20 @@ const WaveSystem = (function() {
          * @returns {Object} { targetCount, dangerCount }
          */
         function getWaveConfig() {
-            const targetCount = Math.max(
-                config.initialTarget - (waveNumber - 1) * config.targetDecrement,
-                config.minTarget
-            );
+            let targetCount;
+            if (config.targetDecrement >= 0) {
+                // 递减模式：方块逐渐减少
+                targetCount = Math.max(
+                    config.initialTarget - (waveNumber - 1) * config.targetDecrement,
+                    config.minTarget
+                );
+            } else {
+                // 递增模式：方块逐渐增加（targetDecrement 为负数）
+                targetCount = Math.min(
+                    config.initialTarget + (waveNumber - 1) * Math.abs(config.targetDecrement),
+                    config.maxTarget
+                );
+            }
             
             const dangerCount = Math.min(
                 config.initialDanger + (waveNumber - 1) * config.dangerIncrement,

@@ -463,11 +463,13 @@ const ControllerManager = (function() {
                 }
             } else {
                 // 禁用键盘：移除 P1（除非有手柄也控制 P1）
-                const hasControllerOnP1 = Object.values(nativeGamepads).includes(1);
-                if (!hasControllerOnP1 && players[1]) {
+                const hasNativeGamepadOnP1 = Object.values(nativeGamepads).includes(1);
+                const hasWebControllerOnP1 = Object.values(webControllerToPlayer).includes(1);
+                if (!hasNativeGamepadOnP1 && !hasWebControllerOnP1 && players[1]) {
                     if (playerRemoveCallback) playerRemoveCallback(1);
                     delete players[1];
                     delete controllerInputs[1];
+                    console.log('[ControllerManager] 键盘禁用，移除 P1');
                 }
             }
             if (onUpdateCallback) onUpdateCallback();

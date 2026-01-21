@@ -175,6 +175,7 @@
     <script src="js/gameData.js"></script>
     <script src="js/gridSystem.js"></script>
     <script src="js/waveSystem.js"></script>
+    <script src="js/loadingAnimations.js"></script>
     <script src="js/gameUtils.js"></script>
     <script src="js/player.js"></script>
     <script src="js/controllerManager.js"></script>
@@ -261,6 +262,29 @@
     <canvas id="gameCanvas"></canvas>
 
     <script>
+        // ==================== 获取关卡信息 ====================
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentLevel = parseInt(urlParams.get('level')) || 1;
+        
+        // 关卡模式名称配置
+        const LEVEL_MODES = {
+            1: '单线追击',
+            2: '双线夹击',
+            3: '十字封锁'
+        };
+        
+        // ==================== 加载界面 ====================
+        const loadingScreen = LoadingAnimations.create({
+            title: `红线危机 · ${LEVEL_MODES[currentLevel] || '单线追击'}`,
+            subtitle: '游戏正在加载...',
+            minDuration: 1000,
+            onComplete: () => {
+                // 加载动画结束后播放游戏BGM
+                SoundManager.playRedlineBGM();
+                SoundManager.initBGMAutoplay();
+            }
+        });
+        
         // ==================== 游戏配置 ====================
         const config = {
             gridSize: 12,
@@ -274,9 +298,10 @@
             gravity: 1.0,
             trailLength: 6,
             maxWaves: 12,
-            initialCyan: 12,
-            cyanDecrement: 1,
+            initialCyan: 6,
+            cyanDecrement: -1,   // 负数表示递增
             minCyan: 6,
+            maxCyan: 18,         // 递增模式的上限
             initialPink: 5,
             pinkIncrement: 2,
             maxPink: 25,
@@ -293,8 +318,7 @@
         };
         
         // ==================== 关卡配置 ====================
-        const urlParams = new URLSearchParams(window.location.search);
-        const levelMode = parseInt(urlParams.get('level')) || 1;
+        // currentLevel 和 urlParams 已在上方定义
         
         const levelNames = { 1: '红线追击 I', 2: '红线追击 II', 3: '红线追击 III' };
         const levelSubtitles = {
@@ -368,10 +392,10 @@
         function initRedLines() {
             redLines = [];
             
-            if (levelMode === 1) {
+            if (currentLevel === 1) {
                 // 第一关：单条从上往下的红线
                 redLines.push(createRedLine('down'));
-            } else if (levelMode === 2) {
+            } else if (currentLevel === 2) {
                 // 第二关：两条红线，一条从上往下，一条从下往上
                 redLines.push(createRedLine('down'));
                 redLines.push(createRedLine('up'));
@@ -556,6 +580,7 @@
             initialTarget: config.initialCyan,
             targetDecrement: config.cyanDecrement,
             minTarget: config.minCyan,
+            maxTarget: config.maxCyan,
             initialDanger: config.initialPink,
             dangerIncrement: config.pinkIncrement,
             maxDanger: config.maxPink
@@ -590,11 +615,16 @@
          * 创建游戏玩家对象（由 ControllerManager 调用）
          */
         function createGamePlayer(id) {
-            const colorIndex = (id - 1) % GAME_PLAYER_COLORS.length;
+            // 从 GameData 读取保存的颜色，没有则使用默认
+            const savedColor = GameData.playerColors.getPlayerColor(id);
+            const colorData = savedColor || GAME_PLAYER_COLORS[(id - 1) % GAME_PLAYER_COLORS.length];
+            
             const p = {
                 id: id,
                 x: 0, y: 0, z: 0, vz: 0, width: 0, height: 0, vx: 0, vy: 0,
-                trail: [], colors: GAME_PLAYER_COLORS[colorIndex], isJumping: false, isJumpHeld: false,
+                trail: [], 
+                colors: { main: colorData.main, glow: colorData.glow, core: colorData.core },
+                isJumping: false, isJumpHeld: false,
                 dashTimer: 0, dashCooldown: 0, ghostMarker: null
             };
             // 设置初始大小
@@ -602,7 +632,7 @@
             p.width = tileSize * config.playerSizeRatio;
             p.height = tileSize * config.playerSizeRatio;
             resetPlayerPosition(p, id);
-            console.log(`[Game] 玩家 ${id} 加入游戏`);
+            console.log(`[Game] 玩家 ${id} 加入游戏，颜色:`, colorData.name || colorData.main);
             
             // 更新兼容引用
             if (id === 1) player = p;
@@ -633,16 +663,18 @@
                 const inputSource = ControllerManager.getInputSource(i);
                 const color = uiColors[i - 1];
                 
-                if (i === 1) {
-                    // P1 始终活跃（键盘控制），有手柄时显示双图标
-                    statusEl.style.opacity = '1';
-                    statusEl.style.color = color;
-                    statusEl.style.textShadow = hasController ? `0 0 15px ${color}` : `0 0 5px ${color}`;
-                    statusEl.textContent = inputSource === 'both' ? '● P1 ⌨🎮' : '● P1 ⌨';
-                } else {
-                    statusEl.style.opacity = hasPlayer ? '1' : '0.3';
-                    statusEl.style.color = hasPlayer ? color : '';
-                    statusEl.style.textShadow = hasPlayer ? `0 0 10px ${color}` : 'none';
+                // 根据是否有玩家来决定显示状态
+                statusEl.style.opacity = hasPlayer ? '1' : '0.3';
+                statusEl.style.color = hasPlayer ? color : '';
+                statusEl.style.textShadow = hasPlayer ? `0 0 10px ${color}` : 'none';
+                
+                // 根据输入源显示不同图标
+                if (hasPlayer) {
+                    let icon = '';
+                    if (inputSource === 'both') icon = '⌨🎮';
+                    else if (inputSource === 'keyboard') icon = '⌨';
+                    else if (inputSource === 'controller') icon = '🎮';
+                    statusEl.textContent = `● P${i} ${icon}`;
                 }
             }
         }
@@ -683,11 +715,18 @@
                             const records = GameData._cache?.records?.eatAndAvoid;
                             if (records?.bestTime) { bestTime = records.bestTime; bestTimeElement.textContent = GameUtils.formatBestTime(bestTime); }
                         }
-                        // 通知 ControllerManager 已连接的控制器
+                        
+                        // 配置加载完成，现在初始化控制器
+                        initControllerAfterConfig();
+                        
+                        // 通知 ControllerManager 已连接的 Web 控制器
                         (data.controllers || []).forEach(c => {
                             ControllerManager.onControllerConnected(c.id);
                         });
                         updateControllerUI();
+                        
+                        // 标记配置加载完成，隐藏加载界面
+                        loadingScreen.setConfigLoaded();
                     }
                     else if (data.type === 'controller_joined') {
                         ControllerManager.onControllerConnected(controllerId);
@@ -716,6 +755,7 @@
             };
         }
         
+        // 启动 WebSocket 连接（Tauri 环境下是进程内通信，必然成功）
         initWebSocket();
 
         // ==================== 玩家颜色加载 ====================
@@ -762,7 +802,7 @@
         }
         
         function initLevelUI() {
-            document.getElementById('level-title').textContent = `${levelNames[levelMode]} - ${levelSubtitles[levelMode]}`;
+            document.getElementById('level-title').textContent = `${levelNames[currentLevel]} - ${levelSubtitles[currentLevel]}`;
             // 红线模式：显示红线警告框
             const dangerBox = document.getElementById('danger-color-box');
             dangerBox.style.display = 'inline-block';
@@ -772,7 +812,7 @@
             document.getElementById('danger-color-name').textContent = '红线';
             document.getElementById('danger-color-name').style.color = '#ff4444';
             document.querySelector('#danger-color-box > div:first-child').textContent = '⚠ 移动红线';
-            console.log(`[Game] 关卡模式: ${levelMode} - ${levelNames[levelMode]}`);
+            console.log(`[Game] 关卡模式: ${currentLevel} - ${levelNames[currentLevel]}`);
         }
         
         function updateDebugInfo() {
@@ -963,9 +1003,8 @@
                 }
             }
             
-            // 确认按钮 (西键 = 确认，南键也可以确认)
-            const confirmPressed = (input.buttons.W && !prevMenuInput.buttons.W) || 
-                                   (input.buttons.S && !prevMenuInput.buttons.S);
+            // 确认按钮 (只有西键 = 确认，避免跳跃键误触)
+            const confirmPressed = (input.buttons.W && !prevMenuInput.buttons.W);
             if (confirmPressed) {
                 menuSystem.confirm();
             }
@@ -1334,7 +1373,7 @@
         // 初始化游戏结束屏幕（使用抽象层，支持复用）
         gameScreens = GameUtils.createGameScreens({
             gameType: 'redline',
-            currentLevel: levelMode,
+            currentLevel: currentLevel,
             maxLevel: 3,
             onRestart: () => {
                 gameScreens.hide();
@@ -1356,8 +1395,8 @@
                 });
                 invincibleTimer = INVINCIBLE_DURATION;
             },
-            onNextLevel: levelMode < 3 ? () => {
-                window.location.href = `gameRedLine.html?level=${levelMode + 1}`;
+            onNextLevel: currentLevel < 3 ? () => {
+                window.location.href = `gameRedLine.html?level=${currentLevel + 1}`;
             } : null,
             onBackToMenu: () => {
                 window.location.href = 'index.html';
@@ -1365,28 +1404,47 @@
         });
         gameScreens.bindMenuSystem(menuSystem);
         
-        // 初始化 ControllerManager（统一管理键盘和手柄输入）
-        ControllerManager.init({
-            onPlayerCreate: createGamePlayer,
-            onPlayerRemove: removeGamePlayer,
-            onUpdate: () => {
-                updateControllerUI();
-                // 检查 waiting 状态下的任意输入（统一处理所有输入源）
-                if (gameState === 'waiting' && ControllerManager.hasAnyInput()) {
-                    startGame();
-                }
-            },
-            enableKeyboard: true
-        });
+        // ControllerManager 初始化延迟到 WebSocket 连接成功后
+        // 这样可以先加载配置，再根据配置创建玩家，避免先创建再删除
+        let controllerInitialized = false;
+        
+        function initControllerAfterConfig() {
+            if (controllerInitialized) return;
+            controllerInitialized = true;
+            
+            const keyboardEnabled = GameData.gameSettings.getKeyboardEnabled();
+            console.log('[Game] 配置加载完成，键盘控制:', keyboardEnabled ? '启用' : '禁用');
+            
+            ControllerManager.init({
+                onPlayerCreate: createGamePlayer,
+                onPlayerRemove: removeGamePlayer,
+                onUpdate: () => {
+                    updateControllerUI();
+                    if (gameState === 'waiting' && ControllerManager.hasAnyInput()) {
+                        startGame();
+                    }
+                },
+                enableKeyboard: keyboardEnabled
+            });
+            
+            loadPlayerColors();
+            updateControllerUI();
+        }
         
         resize();
-        loadPlayerColors();
         resetGame();
-        updateControllerUI();
         draw();
         
         // ==================== 音频（使用 SoundManager 统一管理）====================
         SoundManager.preload();
+        
+        // 全局按钮点击音效
+        document.addEventListener('click', (e) => {
+            const target = e.target.closest('button, .btn-cyber, .menu-btn');
+            if (target) {
+                SoundManager.playClick();
+            }
+        });
         
         // 加载保存的音量设置
         (function applyVolumeSettings() {
@@ -1396,8 +1454,7 @@
             SoundManager.setSFXVolume(volumes.sfx);
         })();
         
-        SoundManager.playGameBGM();
-        SoundManager.initBGMAutoplay();
+        // BGM 已在加载动画 onComplete 中播放
     </script>
 </body>
 </html>

@@ -14,6 +14,14 @@ const SoundManager = (function() {
         jump: 'source/jump_effect.wav',       // 起跳
         land: 'source/fall_effect.wav',       // 落地
         score: 'source/score_effect.wav',     // 得分
+        click: 'source/click_effect.wav',     // 按钮点击
+        opengame: 'source/opengame_effect.wav', // 开场动画
+        star1: 'source/starPickUp1_effect.wav',     // 第一颗星
+        star2: 'source/starPickUp2_effect.wav',     // 第二颗星
+        star3: 'source/starPickUp3_effect.wav',     // 第三颗星
+        win: 'source/win_effect.wav',               // 胜利
+        lose: 'source/lose_effect.ogg',             // 失败
+        error: 'source/error_effect.wav',           // 错误/干扰
         
         // 可扩展更多音效
         // hit: 'source/hit_effect.wav',
@@ -24,7 +32,8 @@ const SoundManager = (function() {
     // 背景音乐配置
     const BGM_CONFIG = {
         main: 'source/main_bgm.wav',              // 主页背景音乐
-        game: 'source/eat_and_avoid_bgm.wav',     // 游戏背景音乐
+        game: 'source/eat_and_avoid_bgm.wav',     // 颜色收集游戏背景音乐
+        redline: 'source/redline_bgm.wav',        // 红线追击游戏背景音乐
         
         // 可扩展更多BGM
         // boss: 'source/boss_bgm.wav',
@@ -39,12 +48,21 @@ const SoundManager = (function() {
             jump: 0.5,
             land: 0.3,
             score: 0.5,
+            click: 0.6,
+            opengame: 0.8,
+            star1: 0.7,
+            star2: 0.7,
+            star3: 0.7,
+            win: 0.7,
+            lose: 0.8,
+            error: 0.6,
             default: 0.5
         },
         // BGM音量
         bgm: {
             main: 0.5,
             game: 1.0,
+            redline: 0.6,
             default: 0.5
         }
     };
@@ -451,10 +469,19 @@ const SoundManager = (function() {
         playJump: () => playSFX('jump'),
         playLand: () => playSFX('land'),
         playScore: () => playSFX('score'),
+        playClick: () => playSFX('click'),
+        playOpenGame: () => playSFX('opengame'),
+        playStar1: () => playSFX('star1'),
+        playStar2: () => playSFX('star2'),
+        playStar3: () => playSFX('star3'),
+        playWin: () => playSFX('win'),
+        playLose: () => playSFX('lose'),
+        playError: () => playSFX('error'),
         
         // 便捷方法（直接播放常用BGM）
         playMainBGM: () => playBGM('main'),
         playGameBGM: () => playBGM('game'),
+        playRedlineBGM: () => playBGM('redline'),
         
         // 暴露配置（只读）
         get sfxConfig() { return { ...SFX_CONFIG }; },
