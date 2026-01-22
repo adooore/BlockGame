@@ -116,15 +116,30 @@
         .menu-container {
             transition: all 0.5s ease;
         }
+        .menu-container {
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
         .hidden-menu {
-            display: none !important;
             opacity: 0;
             transform: translateY(20px);
+            pointer-events: none;
+            position: absolute;
+            visibility: hidden;
         }
         .visible-menu {
-            display: flex !important;
             opacity: 1;
             transform: translateY(0);
+            pointer-events: auto;
+            position: relative;
+            visibility: visible;
+        }
+        .menu-fade-out {
+            opacity: 0;
+            transform: translateY(-15px);
+        }
+        .menu-fade-in {
+            opacity: 0;
+            transform: translateY(20px);
         }
 
         /* 扫码弹窗 */
@@ -347,8 +362,35 @@
             </div>
         </div>
 
-        <!-- 菜单区域：关卡选择菜单 -->
-        <div id="mode-menu" class="menu-container flex flex-col gap-3 w-full max-w-md hidden-menu" style="margin-top: -100px;">
+        <!-- 菜单区域：游戏模式选择（合作/对抗） -->
+        <div id="game-mode-menu" class="menu-container flex flex-col gap-6 w-full max-w-xs hidden-menu">
+            <button class="btn-glitch group !border-cyan-400" onclick="showCoopLevels()">
+                <span class="flex flex-col items-center justify-center py-2">
+                    <span class="flex items-center gap-2 text-lg">
+                        <i data-lucide="users" class="w-5 h-5"></i>
+                        合作模式
+                    </span>
+                    <span class="text-[10px] opacity-50 mt-1">携手共进 · 团队挑战</span>
+                </span>
+            </button>
+            
+            <button class="btn-glitch group !border-purple-500 hover:!bg-purple-500" onclick="showVersusLevels()">
+                <span class="flex flex-col items-center justify-center py-2">
+                    <span class="flex items-center gap-2 text-lg">
+                        <i data-lucide="swords" class="w-5 h-5"></i>
+                        对抗模式
+                    </span>
+                    <span class="text-[10px] opacity-50 mt-1">激烈角逐 · 敬请期待</span>
+                </span>
+            </button>
+
+            <button class="flex items-center justify-center gap-2 text-white/40 hover:text-white transition text-xs uppercase tracking-tighter mt-3" onclick="backToMain()">
+                <i data-lucide="arrow-left" class="w-3 h-3"></i> 返回
+            </button>
+        </div>
+
+        <!-- 菜单区域：合作模式关卡选择 -->
+        <div id="coop-menu" class="menu-container flex flex-col gap-3 w-full max-w-md hidden-menu" style="margin-top: -100px;">
             
             <!-- 颜色收集 -->
             <div class="text-center text-sm opacity-60 mb-1">🎨 颜色收集</div>
@@ -401,7 +443,119 @@
                 </button>
             </div>
 
-            <button class="flex items-center justify-center gap-2 text-white/40 hover:text-white transition text-xs uppercase tracking-tighter mt-3" onclick="backToMain()">
+            <!-- 分隔线 -->
+            <div class="flex items-center gap-3 my-2">
+                <div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+            </div>
+            
+            <!-- 危险通道 -->
+            <div class="text-center text-sm opacity-60 mb-1">⚠️ 危险通道</div>
+            <div class="flex gap-2">
+                <button class="btn-glitch group !border-amber-500 hover:!bg-amber-500 flex-1" onclick="selectLevel('dangerousPassage', 1)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 I</span>
+                        <span class="text-[9px] opacity-50 font-game">基础通道</span>
+                    </span>
+                </button>
+                <button class="btn-glitch group !border-yellow-500 hover:!bg-yellow-500 flex-1" onclick="selectLevel('dangerousPassage', 2)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 II</span>
+                        <span class="text-[9px] opacity-50 font-game">双重封锁</span>
+                    </span>
+                </button>
+                <button class="btn-glitch group !border-orange-400 hover:!bg-orange-400 flex-1" onclick="selectLevel('dangerousPassage', 3)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 III</span>
+                        <span class="text-[9px] opacity-50 font-game">极限穿越</span>
+                    </span>
+                </button>
+            </div>
+
+            <button class="flex items-center justify-center gap-2 text-white/40 hover:text-white transition text-xs uppercase tracking-tighter mt-3" onclick="backToModeSelection()">
+                <i data-lucide="arrow-left" class="w-3 h-3"></i> 返回
+            </button>
+        </div>
+
+        <!-- 菜单区域：对抗模式关卡选择 -->
+        <div id="versus-menu" class="menu-container flex flex-col gap-3 w-full max-w-md hidden-menu" style="margin-top: -50px;">
+            
+            <!-- 竞技颜色收集 -->
+            <div class="text-center text-sm opacity-60 mb-1">🏆 竞技颜色收集</div>
+            <div class="flex gap-2">
+                <button class="btn-glitch group !border-fuchsia-400 flex-1" onclick="selectLevel('competeColor', 1)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 I</span>
+                        <span class="text-[9px] opacity-50 font-game">基础模式</span>
+                    </span>
+                </button>
+                <button class="btn-glitch group !border-fuchsia-500 hover:!bg-fuchsia-500 flex-1" onclick="selectLevel('competeColor', 2)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 II</span>
+                        <span class="text-[9px] opacity-50 font-game">动态目标</span>
+                    </span>
+                </button>
+                <button class="btn-glitch group !border-fuchsia-600 hover:!bg-fuchsia-600 flex-1" onclick="selectLevel('competeColor', 3)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 III</span>
+                        <span class="text-[9px] opacity-50 font-game">极限模式</span>
+                    </span>
+                </button>
+            </div>
+            
+            <!-- 分隔线 -->
+            <div class="flex items-center gap-3 my-3">
+                <div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+                <span class="text-[10px] text-white/30 uppercase tracking-widest">更多竞技模式</span>
+                <div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+            </div>
+            
+            <!-- 竞技红线危机 -->
+            <div class="text-center text-sm opacity-60 mb-1">⚡ 竞技红线危机</div>
+            <div class="flex gap-2">
+                <button class="btn-glitch group !border-red-400 flex-1" onclick="selectLevel('competeRedLine', 1)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 I</span>
+                        <span class="text-[9px] opacity-50 font-game">单线追击</span>
+                    </span>
+                </button>
+                <button class="btn-glitch group !border-red-500 hover:!bg-red-500 flex-1" onclick="selectLevel('competeRedLine', 2)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 II</span>
+                        <span class="text-[9px] opacity-50 font-game">双线夹击</span>
+                    </span>
+                </button>
+                <button class="btn-glitch group !border-red-600 hover:!bg-red-600 flex-1" onclick="selectLevel('competeRedLine', 3)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 III</span>
+                        <span class="text-[9px] opacity-50 font-game">十字封锁</span>
+                    </span>
+                </button>
+            </div>
+            
+            <!-- 竞技危险通道 -->
+            <div class="text-center text-sm opacity-60 mb-1 mt-3">🚧 竞技危险通道</div>
+            <div class="flex gap-2">
+                <button class="btn-glitch group !border-orange-400 flex-1" onclick="selectLevel('competeDangerousPassage', 1)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 I</span>
+                        <span class="text-[9px] opacity-50 font-game">基础通道</span>
+                    </span>
+                </button>
+                <button class="btn-glitch group !border-orange-500 hover:!bg-orange-500 flex-1" onclick="selectLevel('competeDangerousPassage', 2)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 II</span>
+                        <span class="text-[9px] opacity-50 font-game">双重封锁</span>
+                    </span>
+                </button>
+                <button class="btn-glitch group !border-orange-600 hover:!bg-orange-600 flex-1" onclick="selectLevel('competeDangerousPassage', 3)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 III</span>
+                        <span class="text-[9px] opacity-50 font-game">极限穿越</span>
+                    </span>
+                </button>
+            </div>
+
+            <button class="flex items-center justify-center gap-2 text-white/40 hover:text-white transition text-xs uppercase tracking-tighter mt-2" onclick="backToModeSelection()">
                 <i data-lucide="arrow-left" class="w-3 h-3"></i> 返回
             </button>
         </div>
@@ -1193,6 +1347,18 @@
                 },
                 onUpdate: () => {
                     ControlHint.onInput();
+                },
+                onReassign: (webControllerMapping) => {
+                    // 键盘开关后重新分配了 playerId，通知所有 Web 控制器更新显示
+                    console.log('[Main] 设备重新分配，通知 Web 控制器更新 playerId:', webControllerMapping);
+                    Object.entries(webControllerMapping).forEach(([controllerId, playerId]) => {
+                        WsClient.send({
+                            type: 'update_player_id',
+                            controller_id: parseInt(controllerId),
+                            player_id: playerId
+                        });
+                    });
+                    updateControllerUI();
                 }
             });
             
@@ -1486,53 +1652,116 @@
             }
         }
 
-        // 菜单切换逻辑
-        function showModeSelection() {
-            const mainMenu = document.getElementById('main-menu');
-            const modeMenu = document.getElementById('mode-menu');
+        // 菜单切换动画（单入单出，更丝滑）
+        const MENU_FADE_OUT = 180;  // 淡出时长
+        const MENU_FADE_IN = 220;   // 淡入时长
+        
+        function switchMenu(fromMenu, toMenu, options = {}) {
+            const { hideTitle = false, showTitle = false } = options;
             const titleSection = document.getElementById('title-section');
             
-            mainMenu.classList.remove('visible-menu');
-            mainMenu.classList.add('hidden-menu');
+            // 1. 淡出当前菜单（向上飘出）
+            if (fromMenu) {
+                fromMenu.classList.add('menu-fade-out');
+            }
             
-            // 隐藏标题
-            if (titleSection) {
+            // 同步隐藏标题
+            if (hideTitle && titleSection) {
+                titleSection.style.transition = `opacity ${MENU_FADE_OUT}ms ease, transform ${MENU_FADE_OUT}ms ease`;
                 titleSection.style.opacity = '0';
-                titleSection.style.transform = 'translateY(-30px)';
+                titleSection.style.transform = 'translateY(-20px)';
                 titleSection.style.pointerEvents = 'none';
             }
             
+            // 2. 等淡出完成后再淡入新菜单
             setTimeout(() => {
-                modeMenu.classList.remove('hidden-menu');
-                modeMenu.classList.add('visible-menu');
-                if (titleSection) titleSection.style.display = 'none';
-                updateControlHints();
-            }, 300);
+                // 完全隐藏旧菜单
+                if (fromMenu) {
+                    fromMenu.classList.remove('menu-fade-out', 'visible-menu');
+                    fromMenu.classList.add('hidden-menu');
+                }
+                if (hideTitle && titleSection) {
+                    titleSection.style.display = 'none';
+                }
+                
+                // 准备显示标题
+                if (showTitle && titleSection) {
+                    titleSection.style.display = '';
+                    titleSection.style.opacity = '0';
+                    titleSection.style.transform = 'translateY(15px)';
+                }
+                
+                // 3. 新菜单准备淡入（从下方）
+                if (toMenu) {
+                    toMenu.classList.remove('hidden-menu');
+                    toMenu.style.opacity = '0';
+                    toMenu.style.transform = 'translateY(25px)';
+                    
+                    // 强制重绘
+                    toMenu.offsetHeight;
+                    
+                    // 淡入动画
+                    toMenu.style.transition = `opacity ${MENU_FADE_IN}ms ease-out, transform ${MENU_FADE_IN}ms ease-out`;
+                    toMenu.style.opacity = '1';
+                    toMenu.style.transform = 'translateY(0)';
+                    toMenu.classList.add('visible-menu');
+                    
+                    // 标题同步淡入
+                    if (showTitle && titleSection) {
+                        titleSection.style.transition = `opacity ${MENU_FADE_IN}ms ease-out, transform ${MENU_FADE_IN}ms ease-out`;
+                        titleSection.style.opacity = '1';
+                        titleSection.style.transform = 'translateY(0)';
+                        titleSection.style.pointerEvents = '';
+                    }
+                    
+                    // 动画结束后清理 inline style
+                    setTimeout(() => {
+                        toMenu.style.transition = '';
+                        toMenu.style.opacity = '';
+                        toMenu.style.transform = '';
+                        if (showTitle && titleSection) {
+                            titleSection.style.transition = '';
+                        }
+                    }, MENU_FADE_IN);
+                    
+                    lucide.createIcons();
+                    updateControlHints();
+                }
+            }, MENU_FADE_OUT);
+        }
+        
+        function showModeSelection() {
+            const mainMenu = document.getElementById('main-menu');
+            const gameModeMenu = document.getElementById('game-mode-menu');
+            switchMenu(mainMenu, gameModeMenu, { hideTitle: true });
+        }
+        
+        function showCoopLevels() {
+            const gameModeMenu = document.getElementById('game-mode-menu');
+            const coopMenu = document.getElementById('coop-menu');
+            switchMenu(gameModeMenu, coopMenu);
+        }
+        
+        function showVersusLevels() {
+            const gameModeMenu = document.getElementById('game-mode-menu');
+            const versusMenu = document.getElementById('versus-menu');
+            switchMenu(gameModeMenu, versusMenu);
+        }
+        
+        function backToModeSelection() {
+            const coopMenu = document.getElementById('coop-menu');
+            const versusMenu = document.getElementById('versus-menu');
+            const gameModeMenu = document.getElementById('game-mode-menu');
+            
+            // 找出当前显示的菜单
+            const activeMenu = coopMenu.classList.contains('visible-menu') ? coopMenu : versusMenu;
+            switchMenu(activeMenu, gameModeMenu);
         }
 
         function backToMain() {
             const mainMenu = document.getElementById('main-menu');
-            const modeMenu = document.getElementById('mode-menu');
-            const titleSection = document.getElementById('title-section');
-            
-            modeMenu.classList.remove('visible-menu');
-            modeMenu.classList.add('hidden-menu');
-            
-            // 显示标题
-            if (titleSection) {
-                titleSection.style.display = '';
-                setTimeout(() => {
-                    titleSection.style.opacity = '1';
-                    titleSection.style.transform = 'translateY(0)';
-                    titleSection.style.pointerEvents = '';
-                }, 50);
-            }
-            
-            setTimeout(() => {
-                mainMenu.classList.remove('hidden-menu');
-                mainMenu.classList.add('visible-menu');
-                updateControlHints();
-            }, 300);
+            const gameModeMenu = document.getElementById('game-mode-menu');
+            switchMenu(gameModeMenu, mainMenu, { showTitle: true });
         }
 
         async function exitGame() {
@@ -1562,14 +1791,35 @@
             // 关卡配置
             const games = {
                 color: {
-                1: { name: '颜色收集 I', file: 'gameColorCollect.html' },
-                2: { name: '颜色收集 II', file: 'gameColorCollect.html' },
-                3: { name: '颜色收集 III', file: 'gameColorCollect.html' },
+                    1: { name: '颜色收集 I', file: 'gameColorCollect.html' },
+                    2: { name: '颜色收集 II', file: 'gameColorCollect.html' },
+                    3: { name: '颜色收集 III', file: 'gameColorCollect.html' },
                 },
                 redline: {
                     1: { name: '红线危机 I', file: 'gameRedLine.html' },
                     2: { name: '红线危机 II', file: 'gameRedLine.html' },
                     3: { name: '红线危机 III', file: 'gameRedLine.html' },
+                },
+                dangerousPassage: {
+                    1: { name: '危险通道 I', file: 'gameDangerousPassage.html' },
+                    2: { name: '危险通道 II', file: 'gameDangerousPassage.html' },
+                    3: { name: '危险通道 III', file: 'gameDangerousPassage.html' },
+                },
+                // 竞技模式
+                competeColor: {
+                    1: { name: '竞技颜色收集 I', file: 'competeColorCollect.html' },
+                    2: { name: '竞技颜色收集 II', file: 'competeColorCollect.html' },
+                    3: { name: '竞技颜色收集 III', file: 'competeColorCollect.html' },
+                },
+                competeRedLine: {
+                    1: { name: '竞技红线危机 I', file: 'competeRedLine.html' },
+                    2: { name: '竞技红线危机 II', file: 'competeRedLine.html' },
+                    3: { name: '竞技红线危机 III', file: 'competeRedLine.html' },
+                },
+                competeDangerousPassage: {
+                    1: { name: '竞技危险通道 I', file: 'competeDangerousPassage.html' },
+                    2: { name: '竞技危险通道 II', file: 'competeDangerousPassage.html' },
+                    3: { name: '竞技危险通道 III', file: 'competeDangerousPassage.html' },
                 }
             };
             
@@ -1925,7 +2175,9 @@
         function handleBack() {
             const qrModal = document.getElementById('qr-modal');
             const settingsModal = document.getElementById('settings-modal');
-            const modeMenu = document.getElementById('mode-menu');
+            const gameModeMenu = document.getElementById('game-mode-menu');
+            const coopMenu = document.getElementById('coop-menu');
+            const versusMenu = document.getElementById('versus-menu');
             
             // 优先关闭二维码弹窗
             if (qrModal.classList.contains('active')) {
@@ -1939,8 +2191,14 @@
                 return;
             }
             
+            // 如果在关卡选择菜单，返回模式选择
+            if (coopMenu.classList.contains('visible-menu') || versusMenu.classList.contains('visible-menu')) {
+                backToModeSelection();
+                return;
+            }
+            
             // 如果在模式选择菜单，返回主菜单
-            if (modeMenu.classList.contains('visible-menu')) {
+            if (gameModeMenu.classList.contains('visible-menu')) {
                 backToMain();
                 return;
             }
@@ -1951,7 +2209,9 @@
         function updateControlHints() {
             const qrModal = document.getElementById('qr-modal');
             const settingsModal = document.getElementById('settings-modal');
-            const modeMenu = document.getElementById('mode-menu');
+            const gameModeMenu = document.getElementById('game-mode-menu');
+            const coopMenu = document.getElementById('coop-menu');
+            const versusMenu = document.getElementById('versus-menu');
             
             if (qrModal.classList.contains('active')) {
                 // 二维码弹窗
@@ -1969,8 +2229,16 @@
                     E: null,
                     W: null
                 });
-            } else if (modeMenu.classList.contains('visible-menu')) {
-                // 模式选择菜单
+            } else if (coopMenu.classList.contains('visible-menu') || versusMenu.classList.contains('visible-menu')) {
+                // 关卡选择菜单
+                ControlHint.update({
+                    N: '返回',
+                    S: '跳跃',
+                    E: '冲刺',
+                    W: '选择'
+                });
+            } else if (gameModeMenu.classList.contains('visible-menu')) {
+                // 游戏模式选择菜单
                 ControlHint.update({
                     N: '返回',
                     S: '跳跃',

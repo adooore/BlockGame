@@ -21,6 +21,7 @@ const SoundManager = (function() {
         star3: 'source/starPickUp3_effect.wav',     // 第三颗星
         win: 'source/win_effect.wav',               // 胜利
         lose: 'source/lose_effect.ogg',             // 失败
+        lose2: 'source/lose2_effect.wav',             // 失败后续音效
         error: 'source/error_effect.wav',           // 错误/干扰
         
         // 可扩展更多音效
@@ -34,6 +35,7 @@ const SoundManager = (function() {
         main: 'source/main_bgm.wav',              // 主页背景音乐
         game: 'source/eat_and_avoid_bgm.wav',     // 颜色收集游戏背景音乐
         redline: 'source/redline_bgm.wav',        // 红线追击游戏背景音乐
+        dangerous: 'source/dangeours_bgm.wav',    // 危险通道游戏背景音乐
         
         // 可扩展更多BGM
         // boss: 'source/boss_bgm.wav',
@@ -55,14 +57,16 @@ const SoundManager = (function() {
             star3: 0.7,
             win: 0.7,
             lose: 0.8,
-            error: 0.6,
+            lose2: 0.8,
+            error: 0.9,
             default: 0.5
         },
         // BGM音量
         bgm: {
             main: 0.5,
             game: 1.0,
-            redline: 0.6,
+            redline: 0.5,
+            dangerous: 0.5,
             default: 0.5
         }
     };
@@ -230,6 +234,7 @@ const SoundManager = (function() {
             bgmCache[currentBGM].currentTime = 0;
         }
         currentBGM = null;
+        pendingBGM = null;  // 清除待播放的BGM，防止被自动重播
         bgmStarted = false;
     }
     
@@ -242,6 +247,7 @@ const SoundManager = (function() {
             audio.currentTime = 0;
         });
         currentBGM = null;
+        pendingBGM = null;  // 清除待播放的BGM，防止被自动重播
         bgmStarted = false;
     }
     
@@ -475,13 +481,18 @@ const SoundManager = (function() {
         playStar2: () => playSFX('star2'),
         playStar3: () => playSFX('star3'),
         playWin: () => playSFX('win'),
-        playLose: () => playSFX('lose'),
+        playLose: () => {
+            // 播放 lose 音效，0.5秒后接着播放 lose2
+            playSFX('lose');
+            setTimeout(() => playSFX('lose2'), 500);
+        },
         playError: () => playSFX('error'),
         
         // 便捷方法（直接播放常用BGM）
         playMainBGM: () => playBGM('main'),
         playGameBGM: () => playBGM('game'),
         playRedlineBGM: () => playBGM('redline'),
+        playDangerousBGM: () => playBGM('dangerous'),
         
         // 暴露配置（只读）
         get sfxConfig() { return { ...SFX_CONFIG }; },

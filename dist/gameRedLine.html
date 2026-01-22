@@ -221,22 +221,8 @@
             </div>
         </div>
         
-        <div class="mt-4 text-[10px] tracking-widest opacity-60">[WASD] 移动 | [J] 跳跃 | [K] 冲刺 | [I] 静步</div>
-        <div class="mt-1 text-[10px] tracking-widest opacity-70" style="display: flex; align-items: center; gap: 6px;">
-            <span>[摇杆] 移动</span>
-            <span style="color: rgba(255,255,255,0.4);">|</span>
-            <span style="display: inline-flex; align-items: center; gap: 2px;"><span style="width: 16px; height: 16px; border: 1.5px solid #4ade80; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-family: 'Zhi Mang Xing', cursive; font-size: 11px; color: #4ade80;">南</span> 跳跃</span>
-            <span style="color: rgba(255,255,255,0.4);">|</span>
-            <span style="display: inline-flex; align-items: center; gap: 2px;"><span style="width: 16px; height: 16px; border: 1.5px solid #f87171; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-family: 'Zhi Mang Xing', cursive; font-size: 11px; color: #f87171;">东</span> 冲刺</span>
-            <span style="color: rgba(255,255,255,0.4);">|</span>
-            <span style="display: inline-flex; align-items: center; gap: 2px;"><span style="width: 16px; height: 16px; border: 1.5px solid #facc15; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-family: 'Zhi Mang Xing', cursive; font-size: 11px; color: #facc15;">北</span> 静步</span>
-        </div>
-        <div id="controller-status" class="mt-4 text-xs tracking-widest">
-            <span id="p1-status" class="opacity-30">● P1</span>
-            <span id="p2-status" class="ml-3 opacity-30">● P2</span>
-            <span id="p3-status" class="ml-3 opacity-30">● P3</span>
-            <span id="p4-status" class="ml-3 opacity-30">● P4</span>
-        </div>
+        <!-- 操作提示和玩家状态由 JS 动态生成 -->
+        <div id="game-ui-container"></div>
         <!-- 调试信息 -->
         <div id="debug-info" class="mt-4 text-xs tracking-widest" style="font-family: 'JetBrains Mono', monospace;">
             <div>波次: <span id="wave-num" class="neon-text-cyan">0</span></div>
@@ -278,10 +264,12 @@
             title: `红线危机 · ${LEVEL_MODES[currentLevel] || '单线追击'}`,
             subtitle: '游戏正在加载...',
             minDuration: 1000,
+            showControls: true,
             onComplete: () => {
-                // 加载动画结束后播放游戏BGM
+                // 加载动画结束后播放游戏BGM并开始游戏
                 SoundManager.playRedlineBGM();
                 SoundManager.initBGMAutoplay();
+                startGame();
             }
         });
         
@@ -590,7 +578,6 @@
         const debugLog = GameUtils.createDebugLog('logContent', 20);
         
         // 游戏界面（使用抽象层）
-        let startOverlay = null;  // 开始蒙版
         let gameScreens = null;   // 游戏结束屏幕
         
         // 基准 tileSize（用于速度缩放）
@@ -653,30 +640,14 @@
         /**
          * 更新控制器 UI 显示
          */
+        /**
+         * 更新控制器 UI 显示（P1-P8）
+         */
+        // 游戏内 UI（操作提示 + 玩家状态）
+        const gameUI = GameUtils.createGameUI(document.getElementById('game-ui-container'));
+        
         function updateControllerUI() {
-            const uiColors = ['#00f2ff', '#ff00ff', '#4ade80', '#facc15'];
-            
-            for (let i = 1; i <= 4; i++) {
-                const statusEl = document.getElementById(`p${i}-status`);
-                const hasController = ControllerManager.hasController(i);
-                const hasPlayer = ControllerManager.hasPlayer(i);
-                const inputSource = ControllerManager.getInputSource(i);
-                const color = uiColors[i - 1];
-                
-                // 根据是否有玩家来决定显示状态
-                statusEl.style.opacity = hasPlayer ? '1' : '0.3';
-                statusEl.style.color = hasPlayer ? color : '';
-                statusEl.style.textShadow = hasPlayer ? `0 0 10px ${color}` : 'none';
-                
-                // 根据输入源显示不同图标
-                if (hasPlayer) {
-                    let icon = '';
-                    if (inputSource === 'both') icon = '⌨🎮';
-                    else if (inputSource === 'keyboard') icon = '⌨';
-                    else if (inputSource === 'controller') icon = '🎮';
-                    statusEl.textContent = `● P${i} ${icon}`;
-                }
-            }
+            gameUI.updateControllerUI(ControllerManager);
         }
 
         // ==================== 远程控制器 (WebSocket) ====================
@@ -938,7 +909,6 @@
             if (gameState === 'waiting') {
                 gameState = 'playing';
                 gameStartTime = Date.now();
-                startOverlay.hide();
                 invincibleTimer = INVINCIBLE_DURATION;
                 console.log('[Game] 游戏开始计时！');
             }
@@ -1280,6 +1250,8 @@
         // ==================== 游戏结束/胜利 ====================
         function gameOver() {
             gameState = 'gameover';
+            ControllerManager.vibrateStrong();  // 死亡时强烈震动
+            
             const finalTime = Math.floor(gameTime);
             const finalPlayTime = Math.floor(purePlayTime);
             const finalPenalty = Math.floor(penaltyTime);
@@ -1367,9 +1339,6 @@
         gridSys.initGrid();
         initLevelUI();
         
-        // 初始化开始蒙版（使用抽象层）
-        startOverlay = GameUtils.createStartOverlay();
-        
         // 初始化游戏结束屏幕（使用抽象层，支持复用）
         gameScreens = GameUtils.createGameScreens({
             gameType: 'redline',
@@ -1377,15 +1346,18 @@
             maxLevel: 3,
             onRestart: () => {
                 gameScreens.hide();
-                gameState = 'waiting';
                 resetGame();
-                startOverlay.show();
+                // 重新播放BGM并开始游戏
+                SoundManager.playRedlineBGM();
+                startGame();
             },
             onRevive: () => {
                 gameScreens.hide();
                 gameState = 'playing';
                 penaltyTime += REVIVE_PENALTY;
                 floatingText.show(`+${REVIVE_PENALTY}秒复活惩罚`, '#ff6b6b', width/2, height/2 - 50);
+                // 重新播放BGM
+                SoundManager.playRedlineBGM();
                 ControllerManager.resetAllPlayers(p => {
                     resetPlayerPosition(p);
                     p.isJumping = false;
@@ -1395,9 +1367,14 @@
                 });
                 invincibleTimer = INVINCIBLE_DURATION;
             },
-            onNextLevel: currentLevel < 3 ? () => {
-                window.location.href = `gameRedLine.html?level=${currentLevel + 1}`;
-            } : null,
+            onNextLevel: () => {
+                if (currentLevel < 3) {
+                    window.location.href = `gameRedLine.html?level=${currentLevel + 1}`;
+                } else {
+                    // 红线危机第3关完成后进入危险通道第1关
+                    window.location.href = 'gameDangerousPassage.html?level=1';
+                }
+            },
             onBackToMenu: () => {
                 window.location.href = 'index.html';
             }
@@ -1423,6 +1400,21 @@
                     if (gameState === 'waiting' && ControllerManager.hasAnyInput()) {
                         startGame();
                     }
+                },
+                onReassign: (webControllerMapping) => {
+                    // 键盘开关后重新分配了 playerId，通知所有 Web 控制器更新显示
+                    console.log('[Game] 设备重新分配，通知 Web 控制器更新 playerId:', webControllerMapping);
+                    const ws = GameData._ws;
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        Object.entries(webControllerMapping).forEach(([controllerId, playerId]) => {
+                            ws.send(JSON.stringify({
+                                type: 'update_player_id',
+                                controller_id: parseInt(controllerId),
+                                player_id: playerId
+                            }));
+                        });
+                    }
+                    updateControllerUI();
                 },
                 enableKeyboard: keyboardEnabled
             });

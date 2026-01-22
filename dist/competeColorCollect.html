@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>方寸枢机 - 颜色收集</title>
+    <title>方寸枢机 - 竞技颜色收集</title>
     <script src="libs/tailwind.js"></script>
     <link rel="stylesheet" href="fonts/fonts.css">
     <style>
@@ -169,6 +169,7 @@
             0%, 100% { opacity: 0.3; transform: scale(1); }
             50% { opacity: 0.6; transform: scale(1.02); }
         }
+        
     </style>
     <!-- 引入模块 -->
     <script src="js/controlHint.js"></script>
@@ -180,52 +181,54 @@
     <script src="js/player.js"></script>
     <script src="js/controllerManager.js"></script>
     <script src="js/soundManager.js"></script>
+    <script src="js/competeScoreboard.js"></script>
 </head>
 <body>
 
+    <!-- 竞技模式排行榜由 CompeteScoreboard 模块动态创建 -->
+
+    <!-- 左上角游戏信息 -->
     <div id="ui-overlay" class="flicker">
-        <div class="text-3xl font-black mb-2 tracking-widest">用时: <span id="timer">00:00</span></div>
-        <div class="text-sm opacity-70">最快记录: <span id="best-time">--:--</span></div>
-        <div class="mt-2 text-xs" style="opacity: 0.8;">
-            <span style="color: #4ade80;">游戏: <span id="play-time">00:00</span></span>
-            <span class="ml-3" style="color: #ff6b6b;">惩罚: <span id="penalty-time-display">+0s</span></span>
+        <!-- 关卡标题 -->
+        <div id="level-title" class="mb-2" style="font-size: 18px; opacity: 0.9; letter-spacing: 3px; font-weight: bold;">竞技模式 - 颜色收集</div>
+        
+        <!-- 波次信息 -->
+        <div class="mt-2" style="font-size: 14px; opacity: 0.7;">
+            波次: <span id="wave-num" class="neon-text-cyan" style="font-weight: bold;">0</span> / <span id="max-waves">12</span>
         </div>
         
-        <!-- 关卡标题 -->
-        <div id="level-title" class="mb-2" style="font-size: 14px; opacity: 0.6; letter-spacing: 2px;"></div>
-        
         <!-- 颜色指示器容器 -->
-        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-        <!-- 目标颜色指示器 -->
-            <div id="target-color-box" class="mt-2" style="background: rgba(0,0,0,0.8); border: 3px solid #00f2ff; border-radius: 10px; padding: 12px 16px; display: inline-block;">
+        <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 15px;">
+            <!-- 目标颜色指示器 -->
+            <div id="target-color-box" style="background: rgba(0,0,0,0.8); border: 3px solid #00f2ff; border-radius: 10px; padding: 12px 16px; display: inline-block;">
                 <div style="font-size: 10px; opacity: 0.7; margin-bottom: 5px;">收集目标</div>
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <div id="target-color-indicator" style="width: 35px; height: 35px; border-radius: 6px; background: #00f2ff; box-shadow: 0 0 15px #00f2ff;"></div>
-                <div>
+                    <div>
                         <div id="target-color-name" style="font-size: 16px; font-weight: bold;">青色</div>
                         <div id="target-color-count" style="font-size: 10px; opacity: 0.7;">剩余: 0</div>
+                    </div>
                 </div>
             </div>
-        </div>
         
-            <!-- 危险颜色指示器（第三关显示） -->
-            <div id="danger-color-box" class="mt-2" style="background: rgba(0,0,0,0.8); border: 3px solid #ff00ff; border-radius: 10px; padding: 12px 16px; display: none;">
+            <!-- 危险颜色指示器 -->
+            <div id="danger-color-box" style="background: rgba(0,0,0,0.8); border: 3px solid #ff00ff; border-radius: 10px; padding: 12px 16px; display: none;">
                 <div style="font-size: 10px; opacity: 0.7; margin-bottom: 5px;">⚠ 危险障碍</div>
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <div id="danger-color-indicator" style="width: 35px; height: 35px; border-radius: 6px; background: #ff00ff; box-shadow: 0 0 15px #ff00ff;"></div>
                     <div>
                         <div id="danger-color-name" style="font-size: 16px; font-weight: bold; color: #ff00ff;">粉色</div>
                         <div style="font-size: 10px; opacity: 0.7;">触碰即死</div>
-        </div>
+                    </div>
                 </div>
             </div>
         </div>
         
         <!-- 操作提示和玩家状态由 JS 动态生成 -->
         <div id="game-ui-container"></div>
+        
         <!-- 调试信息 -->
         <div id="debug-info" class="mt-4 text-xs tracking-widest" style="font-family: 'JetBrains Mono', monospace;">
-            <div>波次: <span id="wave-num" class="neon-text-cyan">0</span></div>
             <div class="mt-1" id="color-counts">
                 <!-- 动态生成颜色计数 -->
             </div>
@@ -261,8 +264,8 @@
         
         // ==================== 加载界面 ====================
         const loadingScreen = LoadingAnimations.create({
-            title: `颜色收集 · ${LEVEL_MODES[currentLevel] || '基础模式'}`,
-            subtitle: '游戏正在加载...',
+            title: `竞技颜色收集 · ${LEVEL_MODES[currentLevel] || '基础模式'}`,
+            subtitle: '多人对战 · 争夺最高分!',
             minDuration: 1000,
             showControls: true,
             onComplete: () => {
@@ -306,10 +309,14 @@
         
         // ==================== 关卡配置 ====================
         // currentLevel 和 urlParams 已在上方定义
-        const levelNames = { 1: '颜色收集 I', 2: '颜色收集 II', 3: '颜色收集 III' };
+        const levelNames = { 
+            1: '竞技颜色收集 I', 
+            2: '竞技颜色收集 II', 
+            3: '竞技颜色收集 III' 
+        };
         const levelSubtitles = {
-            1: '基础模式 - 固定目标与障碍',
-            2: '进阶模式 - 动态目标颜色',
+            1: '基础模式 - 固定青色目标',
+            2: '进阶模式 - 动态目标 + 干扰项',
             3: '极限模式 - 双重颜色变换'
         };
         
@@ -322,8 +329,6 @@
         // ==================== DOM 元素 ====================
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const timerElement = document.getElementById('timer');
-        const bestTimeElement = document.getElementById('best-time');
 
         // ==================== 游戏状态 ====================
         let gameState = 'waiting';
@@ -336,6 +341,12 @@
         let penaltyTime = 0;  // 惩罚时间（秒）
         let purePlayTime = 0;  // 纯游戏时间（秒）
         let width, height;
+        
+        // ==================== 竞技模式 - 使用 CompeteScoreboard 模块 ====================
+        // 常量快捷引用
+        const CORRECT_SCORE = CompeteScoreboard.CORRECT_SCORE;
+        const WRONG_PENALTY = CompeteScoreboard.WRONG_PENALTY;
+        const DEATH_PENALTY = CompeteScoreboard.DEATH_PENALTY;
         
         // ==================== 初始化模块 ====================
         const gridSys = GridSystem.create({ gridSize: config.gridSize, tileGap: config.tileGap, colors: config.colors });
@@ -387,7 +398,9 @@
                 trail: [], 
                 colors: { main: colorData.main, glow: colorData.glow, core: colorData.core },
                 isJumping: false, isJumpHeld: false,
-                dashTimer: 0, dashCooldown: 0, ghostMarker: null
+                dashTimer: 0, dashCooldown: 0, ghostMarker: null,
+                isDead: false,           // 竞技模式：死亡状态
+                reviveTimer: 0           // 竞技模式：复活倒计时
             };
             // 设置初始大小
             const { tileSize } = gridSys;
@@ -400,6 +413,10 @@
             if (id === 1) player = p;
             if (id === 2) player2 = p;
             
+            // 竞技模式：初始化分数并更新排行榜
+            CompeteScoreboard.initPlayerScore(id);
+            CompeteScoreboard.updateLeaderboard(gameState);
+            
             return p;
         }
         
@@ -410,6 +427,9 @@
             console.log(`[Game] 玩家 ${id} 离开游戏`);
             if (id === 1) player = null;
             if (id === 2) player2 = null;
+            
+            // 竞技模式：移除分数并更新排行榜
+            CompeteScoreboard.removePlayer(id);
         }
         
         /**
@@ -455,8 +475,6 @@
                         GameData.setWebSocket(ws);
                         if (data.game_data) {
                             GameData.initFromServer(data.game_data);
-                            const records = GameData._cache?.records?.eatAndAvoid;
-                            if (records?.bestTime) { bestTime = records.bestTime; bestTimeElement.textContent = GameUtils.formatBestTime(bestTime); }
                         }
                         
                         // 配置加载完成，现在初始化控制器
@@ -506,12 +524,7 @@
             GameData.playerColors.applyToAllPlayers(ControllerManager.getPlayers());
         }
 
-        // ==================== 异步加载最快记录 ====================
-        async function loadBestTime() {
-            bestTime = await GameData.records.getBestTime('eatAndAvoid');
-            bestTimeElement.textContent = GameUtils.formatBestTime(bestTime);
-        }
-        loadBestTime();
+        // ==================== 竞技模式不需要加载最快记录 ====================
             
         // ==================== UI 更新函数 ====================
         function updateTargetColorUI() {
@@ -546,10 +559,11 @@
         
         function initLevelUI() {
             document.getElementById('level-title').textContent = `${levelNames[currentLevel]} - ${levelSubtitles[currentLevel]}`;
+            document.getElementById('max-waves').textContent = config.maxWaves;
             // 所有关卡都显示危险障碍框，UI统一
             document.getElementById('danger-color-box').style.display = 'inline-block';
             updateDangerColorUI();
-            console.log(`[Game] 关卡模式: ${currentLevel} - ${levelNames[currentLevel]}`);
+            console.log(`[Compete] 关卡 ${currentLevel}: ${levelNames[currentLevel]}`);
         }
         
         function updateDebugInfo() {
@@ -852,12 +866,10 @@
         function update() {
             if (gameState !== 'playing') return;
 
+            // 竞技模式不显示时间，只需要更新计分板
             if (gameStartTime > 0) {
                 purePlayTime = (Date.now() - gameStartTime) / 1000;
-                gameTime = purePlayTime + penaltyTime;
-                timerElement.textContent = GameUtils.formatTime(gameTime);
-                document.getElementById('play-time').textContent = GameUtils.formatTime(purePlayTime);
-                document.getElementById('penalty-time-display').textContent = penaltyTime > 0 ? `+${penaltyTime}s` : '+0s';
+                gameTime = purePlayTime;
             }
 
             const deadzone = 0.3;
@@ -865,6 +877,9 @@
 
             // 遍历所有活跃玩家
             Object.values(players).forEach(p => {
+                // 死亡状态下不处理输入
+                if (p.isDead) return;
+                
                 // 从 ControllerManager 获取统一的输入（已合并键盘和手柄）
                 const input = ControllerManager.getInput(p.id);
                 
@@ -874,7 +889,7 @@
                 if (input && (Math.abs(input.joystick.x) > deadzone || Math.abs(input.joystick.y) > deadzone)) {
                     p.vx = input.joystick.x;
                     p.vy = input.joystick.y;
-            }
+                }
             
                 // 处理按钮输入（按下事件）
                 if (input && input.buttons) {
@@ -910,10 +925,23 @@
 
             if (invincibleTimer > 0) invincibleTimer--;
 
-            // 碰撞检测 - 遍历所有玩家
+            // 碰撞检测和复活 - 遍历所有玩家
+            let needLeaderboardUpdate = false;
             Object.values(players).forEach(p => {
                 checkPlayerCollision(p);
+                if (p.isDead) {
+                    updatePlayerRevive(p);
+                    // 更新复活倒计时显示
+                    const reviveEl = document.getElementById(`revive-${p.id}`);
+                    if (reviveEl) {
+                        reviveEl.textContent = Math.ceil(p.reviveTimer / 60);
+                    }
+                    if (p.reviveTimer <= 0) needLeaderboardUpdate = true;
+                }
             });
+            
+            // 有玩家复活时更新排行榜
+            if (needLeaderboardUpdate) CompeteScoreboard.updateLeaderboard(gameState);
 
             gridSys.grid.forEach(t => t.pulse += 0.05);
             updateDebugInfo();
@@ -961,40 +989,92 @@
             }
 
         function checkPlayerCollision(p) {
-            if (p.z >= 1) return;
+            // 跳跃中或死亡中不检测碰撞
+            if (p.z >= 1 || p.isDead) return;
             
             const { gridX, gridY, tileSize } = gridSys;
             const cx = p.x + p.width/2;
             const cy = p.y + p.height/2;
-                const col = Math.floor((cx - gridX) / (tileSize + config.tileGap));
-                const row = Math.floor((cy - gridY) / (tileSize + config.tileGap));
+            const col = Math.floor((cx - gridX) / (tileSize + config.tileGap));
+            const row = Math.floor((cy - gridY) / (tileSize + config.tileGap));
 
-                if (row >= 0 && row < config.gridSize && col >= 0 && col < config.gridSize) {
+            if (row >= 0 && row < config.gridSize && col >= 0 && col < config.gridSize) {
                 const tile = gridSys.grid.find(t => t.row === row && t.col === col);
-                    if (tile && tile.type !== 'none') {
+                if (tile && tile.type !== 'none') {
+                    const pos = gridSys.getTilePosition(row, col);
+                    
                     // 判断是否为危险颜色（当前波次的危险色）
                     if (isDangerColor(tile.type) && invincibleTimer <= 0) {
-                            gameOver();
-                            return;
+                        // 竞技模式：玩家死亡但不结束游戏
+                        handlePlayerDeathCompete(p);
+                        return;
                     } 
                     // 判断是否为可收集颜色（非危险色的所有颜色）
                     else if (!isDangerColor(tile.type) && config.colorHex[tile.type]) {
-                        const pos = gridSys.getTilePosition(row, col);
-                            if (tile.type === targetColor) {
-                                tile.type = 'none';
-                            floatingText.show('+正确', config.colorHex[targetColor], pos.centerX, pos.y);
-                            SoundManager.playScore();  // 播放得分音效
-                            } else {
-                                tile.type = 'none';
-                            penaltyTime += config.wrongColorPenalty;
-                            floatingText.show(`+${config.wrongColorPenalty}秒 颜色错误!`, '#ff6b6b', pos.centerX, pos.y);
-                            SoundManager.playError();  // 播放错误音效
-                            ControllerManager.vibrateLight();  // 手柄震动反馈
-                            }
+                        if (tile.type === targetColor) {
+                            // 正确颜色 +5分 (+连击奖励)
+                            tile.type = 'none';
+                            const streak = CompeteScoreboard.getStreak(p.id);
+                            const bonus = streak > 0 ? ` x${streak + 1}` : '';
+                            CompeteScoreboard.addScore(p.id, CORRECT_SCORE, true);
+                            floatingText.show(`+${CORRECT_SCORE}${bonus}`, config.colorHex[targetColor], pos.centerX, pos.y);
+                            SoundManager.playScore();
+                        } else {
+                            // 错误颜色 -10分
+                            tile.type = 'none';
+                            CompeteScoreboard.addScore(p.id, WRONG_PENALTY, false);
+                            floatingText.show(`${WRONG_PENALTY} 颜色错误!`, '#ff6b6b', pos.centerX, pos.y);
+                            SoundManager.playError();
+                            ControllerManager.vibrateLight();
                         }
                     }
                 }
             }
+        }
+        
+        /**
+         * 竞技模式：玩家死亡处理（不结束游戏，而是暂时死亡后复活）
+         */
+        const REVIVE_COOLDOWN = CompeteScoreboard.REVIVE_COOLDOWN;
+        
+        function handlePlayerDeathCompete(p) {
+            p.isDead = true;
+            p.reviveTimer = REVIVE_COOLDOWN;
+            
+            // 扣分
+            CompeteScoreboard.handleDeath(p.id);
+            
+            // 震动反馈
+            ControllerManager.vibrateStrong();
+            SoundManager.playError();
+            
+            // 显示死亡提示
+            const pos = { x: p.x, y: p.y };
+            floatingText.show(`${DEATH_PENALTY} 死亡!`, '#ff4444', pos.x + p.width/2, pos.y);
+            
+            console.log(`[Compete] 玩家 ${p.id} 死亡，${REVIVE_COOLDOWN/60}秒后复活`);
+        }
+        
+        /**
+         * 更新玩家复活状态
+         */
+        function updatePlayerRevive(p) {
+            if (!p.isDead) return;
+            
+            p.reviveTimer--;
+            if (p.reviveTimer <= 0) {
+                // 复活
+                p.isDead = false;
+                resetPlayerPosition(p, p.id);
+                
+                // 移除死亡状态UI
+                const card = document.getElementById(`score-card-${p.id}`);
+                if (card) card.classList.remove('dead');
+                
+                floatingText.show('复活!', p.colors.main, p.x + p.width/2, p.y);
+                console.log(`[Compete] 玩家 ${p.id} 复活`);
+            }
+        }
             
         // ==================== 绘制 ====================
         function draw() {
@@ -1043,6 +1123,38 @@
         
         function drawPlayer(p) {
             const { tileSize } = gridSys;
+            
+            // 死亡状态：绘制幽灵效果
+            if (p.isDead) {
+                const reviveProgress = 1 - (p.reviveTimer / REVIVE_COOLDOWN);
+                ctx.globalAlpha = 0.2 + reviveProgress * 0.3;
+                
+                // 绘制复活进度圈
+                const cx = p.x + p.width / 2;
+                const cy = p.y + p.height / 2;
+                const radius = p.width * 0.8;
+                
+                ctx.strokeStyle = p.colors.main;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * reviveProgress);
+                ctx.stroke();
+                
+                // 绘制半透明方块
+                ctx.fillStyle = '#444';
+                ctx.fillRect(p.x, p.y, p.width, p.height);
+                
+                // 绘制复活倒计时
+                ctx.globalAlpha = 0.8;
+                ctx.fillStyle = '#fff';
+                ctx.font = `bold ${Math.floor(p.width * 0.5)}px Orbitron`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(Math.ceil(p.reviveTimer / 60).toString(), cx, cy);
+                
+                ctx.globalAlpha = 1.0;
+                return;  // 死亡时不绘制正常外观
+            }
 
             // Ghost Marker
             if (p.ghostMarker) {
@@ -1100,51 +1212,37 @@
             ctx.fillStyle = p.colors.core;
             ctx.fillRect(drawX + drawW*0.25, drawY + drawH*0.25, drawW*0.5, drawH*0.5);
             ctx.shadowBlur = 0;
-                ctx.globalAlpha = 1.0;
-            }
+            ctx.globalAlpha = 1.0;
+        }
 
         // ==================== 游戏结束/胜利 ====================
+        // 竞技模式下不使用传统的 gameOver，而是让玩家复活继续
         function gameOver() {
-            gameState = 'gameover';
-            ControllerManager.vibrateStrong();  // 死亡时强烈震动
-            
-            const finalTime = Math.floor(gameTime);
-            const finalPlayTime = Math.floor(purePlayTime);
-            const finalPenalty = Math.floor(penaltyTime);
-            
-            gameScreens.showGameOver({
-                totalTime: finalTime,
-                playTime: finalPlayTime,
-                penaltyTime: finalPenalty,
-                bestTime: bestTime
-            });
-            
-            ControlHint.hide();
-            resetMenuInputState();
+            // 竞技模式：这个函数不再触发，死亡由 handlePlayerDeathCompete 处理
+            console.log('[Compete] gameOver 被调用但在竞技模式中被忽略');
         }
         
         function victory() {
             gameState = 'victory';
-            const finalTime = Math.floor(gameTime);
-            const finalPlayTime = Math.floor(purePlayTime);
-            const finalPenalty = Math.floor(penaltyTime);
             
-            if (bestTime === 0 || finalTime < bestTime) {
-                bestTime = finalTime;
-                GameData.records.setBestTime('eatAndAvoid', bestTime);
-            }
+            // 计算最终排名
+            const rankings = CompeteScoreboard.getFinalRankings();
             
-            bestTimeElement.textContent = GameUtils.formatBestTime(bestTime);
-            
-            gameScreens.showVictory({
-                totalTime: finalTime,
-                playTime: finalPlayTime,
-                penaltyTime: finalPenalty,
-                bestTime: bestTime
+            // 显示竞技模式结果
+            CompeteScoreboard.showResults({
+                waveInfo: `${waveSys.waveNumber} / ${config.maxWaves}`,
+                currentLevel: currentLevel,
+                maxLevel: 3,
+                nextLevelUrl: `competeColorCollect.html?level=${currentLevel + 1}`,
+                onRestart: () => {
+                    resetCompeteGame();
+                    startGame();
+                },
+                menuSystem: menuSystem
             });
             
             ControlHint.hide();
-            debugLog.add(`<span style="color: #ffd700;">🎉 通关！游戏: ${GameUtils.formatTime(finalPlayTime)} + 惩罚: ${finalPenalty}s = 总计: ${GameUtils.formatTime(finalTime)}</span>`);
+            debugLog.add(`<span style="color: #ffd700;">🎉 竞技结束！冠军: P${rankings[0]?.playerId || 1} (${rankings[0]?.score || 0}分)</span>`);
             resetMenuInputState();
         }
         
@@ -1160,13 +1258,11 @@
         }
         
         function resetGame() {
+            gameState = 'waiting';  // 重置游戏状态
             gameTime = 0;
             gameStartTime = 0;
             penaltyTime = 0;
             purePlayTime = 0;
-            timerElement.textContent = '00:00';
-            document.getElementById('play-time').textContent = '00:00';
-            document.getElementById('penalty-time-display').textContent = '+0s';
             
             waveSys.reset();
             gridSys.clearAll();
@@ -1178,7 +1274,21 @@
                 p.dashTimer = 0;
                 p.dashCooldown = 0;
                 p.ghostMarker = null;
+                p.isDead = false;
+                p.reviveTimer = 0;
             });
+        }
+        
+        /**
+         * 竞技模式：重置游戏（包括分数）
+         */
+        function resetCompeteGame() {
+            resetGame();
+            
+            // 重置所有玩家分数
+            CompeteScoreboard.reset();
+            
+            console.log('[Compete] 竞技游戏重置');
         }
         
         // ==================== 调试按钮 ====================
@@ -1194,6 +1304,11 @@
         window.addEventListener('resize', resize);
         gridSys.initGrid();
         initLevelUI();
+        
+        // 初始化竞技计分板
+        CompeteScoreboard.init({
+            controllerManager: ControllerManager
+        });
         
         // 初始化游戏结束屏幕（使用抽象层，支持复用）
         gameScreens = GameUtils.createGameScreens({

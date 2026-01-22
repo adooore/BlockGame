@@ -27,6 +27,7 @@ const ControllerManager = (function() {
     let playerCreateCallback = null;     // 创建玩家的回调
     let playerRemoveCallback = null;     // 移除玩家的回调
     let onUpdateCallback = null;         // 状态更新回调
+    let onReassignCallback = null;       // 设备重新分配回调（通知外部更新 Web 控制器的 playerId）
     
     let keyboardEnabled = true;          // 是否启用键盘
     let initialized = false;
@@ -76,6 +77,7 @@ const ControllerManager = (function() {
      * @param {function} options.onPlayerCreate - 创建玩家回调 (id) => playerObject
      * @param {function} options.onPlayerRemove - 移除玩家回调 (id) => void
      * @param {function} options.onUpdate - 状态更新回调 () => void
+     * @param {function} options.onReassign - 设备重新分配回调 (webControllerMapping) => void
      * @param {boolean} options.enableKeyboard - 是否启用键盘控制（默认true）
      * @param {boolean} options.enableNativeGamepad - 是否启用原生手柄（默认true）
      */
@@ -85,6 +87,7 @@ const ControllerManager = (function() {
         playerCreateCallback = options.onPlayerCreate;
         playerRemoveCallback = options.onPlayerRemove;
         onUpdateCallback = options.onUpdate;
+        onReassignCallback = options.onReassign;
         keyboardEnabled = options.enableKeyboard !== false;
         nativeGamepadEnabled = options.enableNativeGamepad !== false;
         
@@ -425,6 +428,13 @@ const ControllerManager = (function() {
         }
         
         if (onUpdateCallback) onUpdateCallback();
+        
+        // 通知外部更新 Web 控制器的 playerId（用于同步手机端显示）
+        if (onReassignCallback) {
+            // 复制一份映射传出去，避免外部修改内部状态
+            onReassignCallback({ ...webControllerToPlayer });
+        }
+        
         console.log('[ControllerManager] 设备重新分配完成，当前玩家:', Object.keys(players));
     }
     
@@ -451,7 +461,7 @@ const ControllerManager = (function() {
         
         if (wasEnabled !== enabled) {
             if (enabled) {
-                // 启用键盘：确保 P1 存在
+                // 启用键盘：先确保 P1 存在
                 initKeyboardEvents();
                 ensurePlayer(1);
                 if (!controllerInputs[1]) {
@@ -461,18 +471,9 @@ const ControllerManager = (function() {
                         source: 'keyboard'
                     };
                 }
-            } else {
-                // 禁用键盘：移除 P1（除非有手柄也控制 P1）
-                const hasNativeGamepadOnP1 = Object.values(nativeGamepads).includes(1);
-                const hasWebControllerOnP1 = Object.values(webControllerToPlayer).includes(1);
-                if (!hasNativeGamepadOnP1 && !hasWebControllerOnP1 && players[1]) {
-                    if (playerRemoveCallback) playerRemoveCallback(1);
-                    delete players[1];
-                    delete controllerInputs[1];
-                    console.log('[ControllerManager] 键盘禁用，移除 P1');
-                }
             }
-            if (onUpdateCallback) onUpdateCallback();
+            // 重新分配所有设备的 playerId（会处理键盘禁用时移除 P1 的情况）
+            reassignDevices();
         }
     }
     
@@ -785,6 +786,64 @@ const ControllerManager = (function() {
         };
     }
     
+    /**
+     * 触发手柄震动（仅对原生手柄有效）
+     * @param {number} playerId - 玩家ID（可选，不传则震动所有手柄）
+     * @param {object} options - 震动选项
+     * @param {number} options.duration - 震动时长（毫秒），默认200
+     * @param {number} options.weakMagnitude - 弱震动强度（0-1），默认0.5
+     * @param {number} options.strongMagnitude - 强震动强度（0-1），默认0.8
+     */
+    function vibrate(playerId, options = {}) {
+        const { 
+            duration = 200, 
+            weakMagnitude = 0.5, 
+            strongMagnitude = 0.8 
+        } = options;
+        
+        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+        
+        for (const gamepad of gamepads) {
+            if (!gamepad) continue;
+            
+            // 如果指定了 playerId，只震动对应的手柄
+            if (playerId !== undefined) {
+                const mappedPlayerId = nativeGamepads[gamepad.index];
+                if (mappedPlayerId !== playerId) continue;
+            }
+            
+            // 检查是否支持震动
+            if (gamepad.vibrationActuator) {
+                // 标准 Vibration Actuator API
+                gamepad.vibrationActuator.playEffect('dual-rumble', {
+                    startDelay: 0,
+                    duration: duration,
+                    weakMagnitude: weakMagnitude,
+                    strongMagnitude: strongMagnitude
+                }).catch(() => {
+                    // 某些浏览器可能不支持，静默失败
+                });
+            } else if (gamepad.hapticActuators && gamepad.hapticActuators.length > 0) {
+                // 旧版 Haptic Actuators API（Chrome 旧版本）
+                gamepad.hapticActuators[0].pulse(strongMagnitude, duration).catch(() => {});
+            }
+        }
+    }
+    
+    /**
+     * 触发轻微震动（用于错误提示）
+     */
+    function vibrateLight() {
+        vibrate(undefined, { duration: 150, weakMagnitude: 0.3, strongMagnitude: 0.5 });
+    }
+    
+    /**
+     * 触发强烈震动（用于严重错误/死亡）
+     */
+    function vibrateStrong() {
+        vibrate(undefined, { duration: 300, weakMagnitude: 0.7, strongMagnitude: 1.0 });
+    }
+    
     // 公开 API
     return {
         init,
@@ -806,6 +865,10 @@ const ControllerManager = (function() {
         ensurePlayer,
         getKeyBindings,
         getButtonActions,
+        // 手柄震动
+        vibrate,                // 自定义震动
+        vibrateLight,           // 轻微震动（错误提示）
+        vibrateStrong,          // 强烈震动（死亡）
         // 键盘设置
         setKeyboardEnabled,     // 设置键盘是否启用
         isKeyboardEnabled,      // 获取键盘是否启用

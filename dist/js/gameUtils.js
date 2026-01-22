@@ -446,12 +446,29 @@ const GameUtils = (function() {
             const style = document.createElement('style');
             style.id = styleId;
             style.textContent = `
+                /* 全屏遮罩背景 */
+                .game-screen-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0);
+                    z-index: 999;
+                    pointer-events: none;
+                    transition: background 0.5s ease;
+                }
+                .game-screen-overlay.visible {
+                    background: rgba(0, 0, 0, 0.5);
+                    pointer-events: auto;
+                }
+                
                 .game-screen {
                     position: fixed;
                     top: 50%;
                     left: 50%;
                     transform: translate(-50%, -50%);
-                    background: rgba(0, 0, 0, 0.8);
+                    background: rgba(0, 0, 0, 0.9);
                     border: 2px solid #00f2ff;
                     padding: 30px 40px;
                     text-align: center;
@@ -460,6 +477,253 @@ const GameUtils = (function() {
                     font-family: 'Orbitron', 'Noto Sans SC', sans-serif;
                     color: white;
                     transform-origin: center center;
+                    /* 初始隐藏状态 */
+                    opacity: 0;
+                    visibility: hidden;
+                    /* 限制光芒在菜单内 */
+                    overflow: hidden;
+                }
+                
+                /* 入场动画 - 能量聚集 + 故障闪烁 */
+                .game-screen.animate-in {
+                    animation: screenGlitchIn 0.5s ease-out forwards;
+                }
+                
+                /* 隐藏动画 */
+                .game-screen.animate-out {
+                    animation: screenGlitchOut 0.25s ease-in forwards;
+                }
+                
+                @keyframes screenGlitchIn {
+                    0% {
+                        opacity: 0;
+                        visibility: visible;
+                        transform: translate(-50%, -50%) scale(0.3);
+                        filter: blur(20px) brightness(3);
+                    }
+                    20% {
+                        opacity: 1;
+                        transform: translate(-48%, -50%) scale(1.05);
+                        filter: blur(0) brightness(1.5);
+                    }
+                    25% {
+                        transform: translate(-52%, -50%) scale(1.02);
+                        filter: blur(2px) brightness(1);
+                    }
+                    35% {
+                        transform: translate(-50%, -48%) scale(1);
+                        filter: blur(0) brightness(1.3);
+                    }
+                    45% {
+                        transform: translate(-50%, -52%) scale(1.01);
+                    }
+                    60% {
+                        filter: blur(0) brightness(1);
+                    }
+                    100% {
+                        opacity: 1;
+                        visibility: visible;
+                        transform: translate(-50%, -50%) scale(1);
+                        filter: blur(0) brightness(1);
+                    }
+                }
+                
+                @keyframes screenGlitchOut {
+                    0% {
+                        opacity: 1;
+                        visibility: visible;
+                        transform: translate(-50%, -50%) scale(1);
+                        filter: blur(0);
+                    }
+                    30% {
+                        transform: translate(-48%, -50%) scale(1.02);
+                        filter: blur(2px);
+                    }
+                    100% {
+                        opacity: 0;
+                        visibility: hidden;
+                        transform: translate(-50%, -50%) scale(0.5);
+                        filter: blur(15px) brightness(2);
+                    }
+                }
+                
+                /* 边框发光脉冲效果 */
+                .game-screen.animate-in::before {
+                    content: '';
+                    position: absolute;
+                    top: -2px;
+                    left: -2px;
+                    right: -2px;
+                    bottom: -2px;
+                    background: linear-gradient(90deg, transparent, #00f2ff, transparent);
+                    z-index: -1;
+                    opacity: 0;
+                    animation: borderScan 0.4s ease-out forwards;
+                }
+                
+                @keyframes borderScan {
+                    0% {
+                        opacity: 1;
+                        transform: translateX(-100%);
+                    }
+                    50% {
+                        opacity: 1;
+                    }
+                    100% {
+                        opacity: 0;
+                        transform: translateX(100%);
+                    }
+                }
+                
+                /* 死亡专用动画 - 从零弹出 + 旋转 */
+                .game-screen.death-in {
+                    animation: screenDeathIn 0.5s ease-out forwards;
+                }
+                
+                @keyframes screenDeathIn {
+                    0% {
+                        opacity: 0;
+                        visibility: visible;
+                        transform: translate(-50%, -50%) scale(0) rotate(8deg);
+                        filter: blur(15px) brightness(2);
+                    }
+                    35% {
+                        opacity: 1;
+                        transform: translate(-50%, -50%) scale(1.1) rotate(-2deg);
+                        filter: blur(0) brightness(1.3);
+                    }
+                    55% {
+                        transform: translate(-50%, -50%) scale(0.96) rotate(1deg);
+                        filter: brightness(1.1);
+                    }
+                    75% {
+                        transform: translate(-50%, -50%) scale(1.03) rotate(-0.5deg);
+                        filter: brightness(1);
+                    }
+                    100% {
+                        opacity: 1;
+                        visibility: visible;
+                        transform: translate(-50%, -50%) scale(1) rotate(0deg);
+                        filter: blur(0) brightness(1);
+                    }
+                }
+                
+                /* 胜利专用动画 - 更华丽 */
+                .game-screen.victory-in {
+                    animation: screenVictoryIn 0.6s ease-out forwards;
+                }
+                
+                @keyframes screenVictoryIn {
+                    0% {
+                        opacity: 0;
+                        visibility: visible;
+                        transform: translate(-50%, -50%) scale(0) rotate(-5deg);
+                        filter: blur(20px) brightness(3);
+                    }
+                    40% {
+                        opacity: 1;
+                        transform: translate(-50%, -50%) scale(1.08) rotate(1deg);
+                        filter: blur(0) brightness(1.5);
+                    }
+                    60% {
+                        transform: translate(-50%, -50%) scale(0.98) rotate(-0.5deg);
+                        filter: brightness(1.2);
+                    }
+                    80% {
+                        transform: translate(-50%, -50%) scale(1.02) rotate(0deg);
+                        filter: brightness(1.1);
+                    }
+                    100% {
+                        opacity: 1;
+                        visibility: visible;
+                        transform: translate(-50%, -50%) scale(1) rotate(0deg);
+                        filter: blur(0) brightness(1);
+                    }
+                }
+                
+                /* 胜利边框金色光芒 */
+                .game-screen.victory-in::before {
+                    content: '';
+                    position: absolute;
+                    top: -3px;
+                    left: -3px;
+                    right: -3px;
+                    bottom: -3px;
+                    background: linear-gradient(90deg, transparent, #ffd700, #ff8c00, transparent);
+                    z-index: -1;
+                    opacity: 0;
+                    animation: goldenScan 0.5s ease-out forwards;
+                }
+                
+                @keyframes goldenScan {
+                    0% {
+                        opacity: 1;
+                        transform: translateX(-100%);
+                    }
+                    60% {
+                        opacity: 1;
+                    }
+                    100% {
+                        opacity: 0;
+                        transform: translateX(100%);
+                    }
+                }
+                
+                /* 屏幕闪烁效果 */
+                .screen-flash {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    pointer-events: none;
+                    z-index: 998;
+                    opacity: 0;
+                }
+                
+                /* 死亡红色闪烁 + 震动 */
+                .screen-flash.death {
+                    background: radial-gradient(circle at center, rgba(255, 0, 0, 0.6), rgba(100, 0, 0, 0.3));
+                    animation: deathFlash 0.5s ease-out forwards;
+                }
+                
+                @keyframes deathFlash {
+                    0% { opacity: 0.9; }
+                    15% { opacity: 0.4; }
+                    30% { opacity: 0.7; }
+                    50% { opacity: 0.3; }
+                    70% { opacity: 0.5; }
+                    100% { opacity: 0; }
+                }
+                
+                /* 画面震动效果 */
+                .screen-shake {
+                    animation: screenShake 0.4s ease-out;
+                }
+                
+                @keyframes screenShake {
+                    0%, 100% { transform: translate(0, 0); }
+                    10% { transform: translate(-8px, -5px); }
+                    20% { transform: translate(8px, 5px); }
+                    30% { transform: translate(-6px, 4px); }
+                    40% { transform: translate(6px, -4px); }
+                    50% { transform: translate(-4px, 3px); }
+                    60% { transform: translate(4px, -3px); }
+                    70% { transform: translate(-2px, 2px); }
+                    80% { transform: translate(2px, -2px); }
+                    90% { transform: translate(-1px, 1px); }
+                }
+                
+                /* 胜利金色闪光 */
+                .screen-flash.victory {
+                    background: radial-gradient(circle at center, rgba(255, 215, 0, 0.5), rgba(255, 140, 0, 0.2));
+                    animation: victoryFlash 0.6s ease-out forwards;
+                }
+                
+                @keyframes victoryFlash {
+                    0% { opacity: 0; }
+                    30% { opacity: 0.7; }
+                    100% { opacity: 0; }
                 }
                 .game-screen h1 { margin: 0 0 16px 0; font-size: 2.25rem; font-weight: 900; text-align: center; width: 100%; }
                 .game-screen .time-label { font-size: 14px; letter-spacing: 4px; opacity: 0.8; margin-bottom: 8px; }
@@ -605,15 +869,29 @@ const GameUtils = (function() {
             document.head.appendChild(style);
         }
         
+        // 遮罩层元素
+        let overlayElement = null;
+        // 闪烁效果元素
+        let flashElement = null;
+        
         /**
          * 创建 HTML 结构
          */
         function createHTML() {
+            // 创建遮罩层
+            overlayElement = document.createElement('div');
+            overlayElement.className = 'game-screen-overlay';
+            document.body.appendChild(overlayElement);
+            
+            // 创建闪烁效果元素
+            flashElement = document.createElement('div');
+            flashElement.className = 'screen-flash';
+            document.body.appendChild(flashElement);
+            
             // Game Over 界面
             gameoverScreen = document.createElement('div');
             gameoverScreen.id = 'gameover-screen';
             gameoverScreen.className = 'game-screen';
-            gameoverScreen.style.display = 'none';
             gameoverScreen.innerHTML = `
                 <h1 class="neon-pink">游戏结束</h1>
                 <p class="time-label">本次用时</p>
@@ -643,7 +921,35 @@ const GameUtils = (function() {
             victoryScreen.className = 'game-screen';
             victoryScreen.style.display = 'none';
             
-            const nextLevelText = gameType === 'redline' ? '红线危机' : '颜色收集';
+            const gameTypeNames = {
+                color: '颜色收集',
+                redline: '红线危机',
+                dangerousPassage: '危险通道'
+            };
+            
+            // 计算下一关信息（支持跨游戏连接）
+            // 关卡顺序：颜色收集 1-3 → 红线危机 1-3 → 危险通道 1-3
+            const gameOrder = ['color', 'redline', 'dangerousPassage'];
+            let nextLevelBtnText = '';
+            let hasNextLevel = false;
+            
+            if (onNextLevel) {
+                if (currentLevel < maxLevel) {
+                    // 同游戏下一关
+                    nextLevelBtnText = `${gameTypeNames[gameType]} 第${currentLevel + 1}关`;
+                    hasNextLevel = true;
+                } else {
+                    // 检查是否有下一个游戏
+                    const currentGameIndex = gameOrder.indexOf(gameType);
+                    if (currentGameIndex >= 0 && currentGameIndex < gameOrder.length - 1) {
+                        const nextGameType = gameOrder[currentGameIndex + 1];
+                        nextLevelBtnText = `${gameTypeNames[nextGameType]} 第1关`;
+                        hasNextLevel = true;
+                    }
+                    // 危险通道第3关是最终关，无下一关
+                }
+            }
+            
             victoryScreen.innerHTML = `
                 <h1 class="neon-gold">通关成功</h1>
                 <div class="star-rating" id="gs-star-rating">
@@ -665,7 +971,7 @@ const GameUtils = (function() {
                 </div>
                 <p class="best-time" style="margin-bottom: 8px;">最快记录: <span id="gs-victory-best-time">--:--</span></p>
                 <div class="screen-buttons" id="gs-victory-buttons">
-                    ${onNextLevel && currentLevel < maxLevel ? `<button class="btn-cyber menu-btn" data-action="next">${nextLevelText} 第${currentLevel + 1}关</button>` : ''}
+                    ${hasNextLevel ? `<button class="btn-cyber menu-btn" data-action="next">${nextLevelBtnText}</button>` : ''}
                     <button class="btn-cyber menu-btn" data-action="replay">再玩一次</button>
                     <button class="btn-cyber menu-btn" data-action="back">返回主菜单</button>
                 </div>
@@ -716,24 +1022,62 @@ const GameUtils = (function() {
         }
         
         /**
+         * 触发屏幕效果
+         * @param {string} type - 效果类型 ('death' | 'victory')
+         */
+        function triggerScreenEffect(type) {
+            if (!flashElement) return;
+            
+            // 移除旧动画类
+            flashElement.classList.remove('death', 'victory');
+            
+            // 触发重绘
+            void flashElement.offsetWidth;
+            
+            // 添加新动画类
+            flashElement.classList.add(type);
+            
+            // 震动效果（仅死亡时）
+            if (type === 'death') {
+                const canvas = document.querySelector('canvas');
+                if (canvas) {
+                    canvas.classList.add('screen-shake');
+                    setTimeout(() => {
+                        canvas.classList.remove('screen-shake');
+                    }, 400);
+                }
+            }
+            
+            // 动画结束后移除类
+            setTimeout(() => {
+                flashElement.classList.remove(type);
+            }, type === 'death' ? 500 : 600);
+        }
+        
+        /**
          * 显示 Game Over 界面
          * @param {Object} data - 显示数据
+         * @param {number} data.freezeDelay - 定格延迟时间（毫秒），默认800
          */
         function showGameOver(data = {}) {
-            const { totalTime = 0, playTime = 0, penaltyTime = 0, bestTime = 0 } = data;
+            const { totalTime = 0, playTime = 0, penaltyTime = 0, bestTime = 0, freezeDelay = 800 } = data;
             
-            // 播放失败音效
+            // 先停止背景音乐，再播放失败音效
             if (typeof SoundManager !== 'undefined') {
+                SoundManager.stopAllBGM();
                 SoundManager.playLose();
             }
             
+            // 触发死亡屏幕效果（红色闪烁 + 震动）
+            triggerScreenEffect('death');
+            
+            // 更新数据（立即更新，但不显示）
             document.getElementById('gs-final-time').textContent = formatTime(totalTime);
             document.getElementById('gs-final-play-time').textContent = formatTime(playTime);
             document.getElementById('gs-final-penalty-time').textContent = `+${penaltyTime}s`;
             document.getElementById('gs-final-best-time').textContent = formatBestTime(bestTime);
             
             // 根据难度设置显示/隐藏复活按钮
-            // Easy 模式显示复活按钮，Normal 模式隐藏
             const reviveBtn = document.getElementById('gs-revive-btn');
             if (reviveBtn) {
                 const difficulty = (typeof GameData !== 'undefined' && GameData.gameSettings) 
@@ -742,13 +1086,30 @@ const GameUtils = (function() {
                 reviveBtn.style.display = (difficulty === 'easy') ? 'block' : 'none';
             }
             
-            gameoverScreen.style.display = 'block';
+            // 确保隐藏 victory 界面
             victoryScreen.style.display = 'none';
+            victoryScreen.classList.remove('animate-in', 'animate-out');
             
-            // 设置菜单
-            if (menuSystem) {
-                menuSystem.setup('gs-gameover-buttons', '.menu-btn');
-            }
+            // 定格一段时间后，显示遮罩和动画弹出菜单
+            setTimeout(() => {
+                // 显示遮罩
+                if (overlayElement) {
+                    overlayElement.classList.add('visible');
+                }
+                
+                // 移除旧动画类，重置状态
+                gameoverScreen.classList.remove('animate-in', 'animate-out', 'death-in', 'victory-in');
+                gameoverScreen.style.display = 'block';
+                
+                // 触发重绘后添加死亡专属动画
+                void gameoverScreen.offsetWidth;
+                gameoverScreen.classList.add('death-in');
+                
+                // 设置菜单
+                if (menuSystem) {
+                    menuSystem.setup('gs-gameover-buttons', '.menu-btn');
+                }
+            }, freezeDelay);
             
             return 'gameover';
         }
@@ -773,77 +1134,143 @@ const GameUtils = (function() {
         /**
          * 显示 Victory 界面
          * @param {Object} data - 显示数据
+         * @param {number} data.freezeDelay - 定格延迟时间（毫秒），默认800
          */
         function showVictory(data = {}) {
-            const { totalTime = 0, playTime = 0, penaltyTime = 0, bestTime = 0 } = data;
+            const { totalTime = 0, playTime = 0, penaltyTime = 0, bestTime = 0, freezeDelay = 800 } = data;
             
-            // 播放胜利音效
+            // 先停止背景音乐，再播放胜利音效
             if (typeof SoundManager !== 'undefined') {
+                SoundManager.stopAllBGM();
                 SoundManager.playWin();
             }
             
+            // 触发胜利屏幕效果（金色闪光）
+            triggerScreenEffect('victory');
+            
+            // 更新数据（立即更新，但不显示）
             document.getElementById('gs-victory-time').textContent = formatTime(totalTime);
             document.getElementById('gs-victory-play-time').textContent = formatTime(playTime);
             document.getElementById('gs-victory-penalty-time').textContent = `+${penaltyTime}s`;
             document.getElementById('gs-victory-best-time').textContent = formatBestTime(bestTime);
             
-            // 计算并显示星级评价
+            // 计算星级评价（准备数据）
             const rating = calculateRating(totalTime);
             const starContainer = document.getElementById('gs-star-rating');
             const ratingText = document.getElementById('gs-rating-text');
             
-            // 更新星星
+            // 先重置星星为空状态
             const stars = starContainer.querySelectorAll('.star');
-            stars.forEach((star, index) => {
-                if (index < rating.stars) {
-                    star.className = 'star filled';
-                    // 延迟播放星星音效（与动画同步，每颗星不同音效）
-                    const starNum = index + 1;
-                    const delays = [400, 900, 1400]; // 0.4s, 0.9s, 1.4s
-                    setTimeout(() => {
-                        if (typeof SoundManager !== 'undefined') {
-                            if (starNum === 1) SoundManager.playStar1();
-                            else if (starNum === 2) SoundManager.playStar2();
-                            else if (starNum === 3) SoundManager.playStar3();
-                        }
-                    }, delays[index]);
-                } else {
-                    star.className = 'star empty';
-                }
+            stars.forEach(star => {
+                star.className = 'star empty';
             });
+            ratingText.textContent = '';
             
-            // 更新评价文字
-            ratingText.textContent = rating.text;
-            ratingText.className = `rating-text ${rating.className}`;
-            
-            victoryScreen.style.display = 'block';
+            // 确保隐藏 gameover 界面
             gameoverScreen.style.display = 'none';
+            gameoverScreen.classList.remove('animate-in', 'animate-out');
             
-            // 设置菜单
-            if (menuSystem) {
-                menuSystem.setup('gs-victory-buttons', '.menu-btn');
-            }
+            // 定格一段时间后，显示遮罩和动画弹出菜单
+            setTimeout(() => {
+                // 显示遮罩
+                if (overlayElement) {
+                    overlayElement.classList.add('visible');
+                }
+                
+                // 移除旧动画类，重置状态
+                victoryScreen.classList.remove('animate-in', 'animate-out', 'death-in', 'victory-in');
+                victoryScreen.style.display = 'block';
+                
+                // 触发重绘后添加胜利专属动画
+                void victoryScreen.offsetWidth;
+                victoryScreen.classList.add('victory-in');
+                
+                // 菜单弹出后，延迟显示星星动画（等弹入动画结束后）
+                setTimeout(() => {
+                    stars.forEach((star, index) => {
+                        if (index < rating.stars) {
+                            star.className = 'star filled';
+                            // 播放星星音效
+                            const starNum = index + 1;
+                            const delays = [400, 900, 1400];
+                            setTimeout(() => {
+                                if (typeof SoundManager !== 'undefined') {
+                                    if (starNum === 1) SoundManager.playStar1();
+                                    else if (starNum === 2) SoundManager.playStar2();
+                                    else if (starNum === 3) SoundManager.playStar3();
+                                }
+                            }, delays[index]);
+                        }
+                    });
+                    
+                    // 更新评价文字
+                    ratingText.textContent = rating.text;
+                    ratingText.className = `rating-text ${rating.className}`;
+                }, 200); // 等弹入动画播放一小段后开始星星动画
+                
+                // 设置菜单
+                if (menuSystem) {
+                    menuSystem.setup('gs-victory-buttons', '.menu-btn');
+                }
+            }, freezeDelay);
             
             return 'victory';
         }
         
         /**
          * 隐藏所有界面
+         * @param {boolean} animate - 是否使用动画（默认 false，立即隐藏）
          */
-        function hide() {
-            if (gameoverScreen) gameoverScreen.style.display = 'none';
-            if (victoryScreen) victoryScreen.style.display = 'none';
+        function hide(animate = false) {
+            // 隐藏遮罩
+            if (overlayElement) {
+                overlayElement.classList.remove('visible');
+            }
+            
+            const allAnimClasses = ['animate-in', 'animate-out', 'death-in', 'victory-in'];
+            
+            if (animate) {
+                // 带动画隐藏
+                const hideScreen = (screen) => {
+                    if (screen && screen.style.display !== 'none') {
+                        screen.classList.remove(...allAnimClasses);
+                        screen.classList.add('animate-out');
+                        setTimeout(() => {
+                            screen.style.display = 'none';
+                            screen.classList.remove('animate-out');
+                        }, 250);
+                    }
+                };
+                hideScreen(gameoverScreen);
+                hideScreen(victoryScreen);
+            } else {
+                // 立即隐藏
+                if (gameoverScreen) {
+                    gameoverScreen.style.display = 'none';
+                    gameoverScreen.classList.remove(...allAnimClasses);
+                }
+                if (victoryScreen) {
+                    victoryScreen.style.display = 'none';
+                    victoryScreen.classList.remove(...allAnimClasses);
+                }
+            }
         }
+        
+        // 保存缩放比例，用于动画
+        let currentScale = 1;
         
         /**
          * 设置缩放
          * @param {number} scale - 缩放比例
          */
         function setScale(scale) {
-            if (gameoverScreen) {
+            currentScale = scale;
+            // 注意：由于使用了动画，这里只在非动画状态下设置 transform
+            // 动画会自动处理最终位置
+            if (gameoverScreen && !gameoverScreen.classList.contains('animate-in')) {
                 gameoverScreen.style.transform = `translate(-50%, -50%) scale(${scale})`;
             }
-            if (victoryScreen) {
+            if (victoryScreen && !victoryScreen.classList.contains('animate-in')) {
                 victoryScreen.style.transform = `translate(-50%, -50%) scale(${scale})`;
             }
         }
@@ -1008,6 +1435,84 @@ const GameUtils = (function() {
             : 1 - Math.pow(-2 * t + 2, 3) / 2;
     }
     
+    // ==================== 游戏内 UI 组件 ====================
+    
+    /**
+     * 创建游戏内控制提示和玩家状态 UI
+     * @param {HTMLElement} container - 父容器元素
+     * @returns {Object} UI 控制对象
+     */
+    function createGameUI(container) {
+        // 创建操作提示
+        const controlHints = document.createElement('div');
+        controlHints.className = 'mt-4 opacity-50';
+        controlHints.style.cssText = 'font-size: 10px; line-height: 1.8;';
+        controlHints.innerHTML = `
+            <div>键盘 | [WASD] 移动 · <span style="color: #4ade80;">[J] 跳跃</span> · <span style="color: #f87171;">[K] 冲刺</span> · <span style="color: #facc15;">[I] 静步</span></div>
+            <div style="margin-top: 2px;">手柄 | [摇杆] 移动 · <span style="color: #4ade80;">[A/南] 跳跃</span> · <span style="color: #f87171;">[B/东] 冲刺</span> · <span style="color: #facc15;">[Y/北] 静步</span></div>
+        `;
+        container.appendChild(controlHints);
+        
+        // 创建玩家状态
+        const controllerStatus = document.createElement('div');
+        controllerStatus.id = 'controller-status';
+        controllerStatus.className = 'mt-3';
+        controllerStatus.style.cssText = 'font-size: 12px; display: grid; grid-template-columns: repeat(4, 44px); gap: 4px 8px;';
+        
+        for (let i = 1; i <= 8; i++) {
+            const span = document.createElement('span');
+            span.id = `p${i}-status`;
+            span.className = 'opacity-30';
+            span.textContent = `● P${i}`;
+            controllerStatus.appendChild(span);
+        }
+        container.appendChild(controllerStatus);
+        
+        // 玩家颜色映射
+        const playerColors = {
+            1: '#00ffff',  // 青色
+            2: '#ff6b6b',  // 红色
+            3: '#4ade80',  // 绿色
+            4: '#facc15',  // 黄色
+            5: '#a78bfa',  // 紫色
+            6: '#fb923c',  // 橙色
+            7: '#f472b6',  // 粉色
+            8: '#38bdf8'   // 天蓝
+        };
+        
+        /**
+         * 更新控制器 UI 状态
+         * @param {Object} ControllerManager - 控制器管理器实例
+         */
+        function updateControllerUI(ControllerManager) {
+            if (!ControllerManager) return;
+            
+            for (let i = 1; i <= 8; i++) {
+                const el = document.getElementById(`p${i}-status`);
+                if (!el) continue;
+                
+                const isActive = ControllerManager.hasPlayer(i);
+                const color = playerColors[i];
+                
+                if (isActive) {
+                    el.style.opacity = '1';
+                    el.style.color = color;
+                    el.style.textShadow = `0 0 8px ${color}`;
+                } else {
+                    el.style.opacity = '0.3';
+                    el.style.color = '';
+                    el.style.textShadow = '';
+                }
+            }
+        }
+        
+        return {
+            controlHints,
+            controllerStatus,
+            updateControllerUI
+        };
+    }
+    
     return {
         // 时间
         formatTime,
@@ -1020,6 +1525,7 @@ const GameUtils = (function() {
         createDebugLog,
         createStartOverlay,   // 开始蒙版（按任意键开始）
         createGameScreens,    // 游戏结束屏幕（gameover/victory）
+        createGameUI,         // 游戏内控制提示和玩家状态
         
         // 工具
         shuffle,

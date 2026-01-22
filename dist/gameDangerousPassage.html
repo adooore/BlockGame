@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>方寸枢机 - 颜色收集</title>
+    <title>方寸枢机 - 危险通道</title>
     <script src="libs/tailwind.js"></script>
     <link rel="stylesheet" href="fonts/fonts.css">
     <style>
@@ -212,10 +212,10 @@
             <div id="danger-color-box" class="mt-2" style="background: rgba(0,0,0,0.8); border: 3px solid #ff00ff; border-radius: 10px; padding: 12px 16px; display: none;">
                 <div style="font-size: 10px; opacity: 0.7; margin-bottom: 5px;">⚠ 危险障碍</div>
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <div id="danger-color-indicator" style="width: 35px; height: 35px; border-radius: 6px; background: #ff00ff; box-shadow: 0 0 15px #ff00ff;"></div>
+                    <div id="danger-color-indicator" style="width: 35px; height: 35px; border-radius: 6px; background: #ff4444; box-shadow: 0 0 15px #ff0000;"></div>
                     <div>
-                        <div id="danger-color-name" style="font-size: 16px; font-weight: bold; color: #ff00ff;">粉色</div>
-                        <div style="font-size: 10px; opacity: 0.7;">触碰即死</div>
+                        <div id="danger-color-name" style="font-size: 16px; font-weight: bold; color: #ff4444;">红线</div>
+                        <div id="danger-desc" style="font-size: 10px; opacity: 0.7;">闪避移动</div>
         </div>
                 </div>
             </div>
@@ -254,20 +254,20 @@
         
         // 关卡模式名称配置
         const LEVEL_MODES = {
-            1: '基础模式',
-            2: '动态目标',
-            3: '极限模式'
+            1: '基础通道',
+            2: '双重封锁',
+            3: '极限穿越'
         };
         
         // ==================== 加载界面 ====================
         const loadingScreen = LoadingAnimations.create({
-            title: `颜色收集 · ${LEVEL_MODES[currentLevel] || '基础模式'}`,
+            title: `危险通道 · ${LEVEL_MODES[currentLevel] || '基础通道'}`,
             subtitle: '游戏正在加载...',
             minDuration: 1000,
             showControls: true,
             onComplete: () => {
                 // 加载动画结束后播放游戏BGM并开始游戏
-                SoundManager.playGameBGM();
+                SoundManager.playDangerousBGM();
                 SoundManager.initBGMAutoplay();
                 startGame();
             }
@@ -286,9 +286,10 @@
             gravity: 1.0,
             trailLength: 6,
             maxWaves: 12,
-            initialCyan: 12,
-            cyanDecrement: 1,
-            minCyan: 6,
+            initialCyan: 4,      // 第一关4个方块
+            cyanDecrement: -1,   // 负数表示递增（每波+1）
+            minCyan: 4,
+            maxCyan: 16,         // 递增模式的上限
             initialPink: 5,
             pinkIncrement: 2,
             maxPink: 25,
@@ -306,11 +307,12 @@
         
         // ==================== 关卡配置 ====================
         // currentLevel 和 urlParams 已在上方定义
-        const levelNames = { 1: '颜色收集 I', 2: '颜色收集 II', 3: '颜色收集 III' };
+        
+        const levelNames = { 1: '危险通道 I', 2: '危险通道 II', 3: '危险通道 III' };
         const levelSubtitles = {
-            1: '基础模式 - 固定目标与障碍',
-            2: '进阶模式 - 动态目标颜色',
-            3: '极限模式 - 双重颜色变换'
+            1: '基础模式 - 三格通道',
+            2: '进阶模式 - 双层通道',
+            3: '极限模式 - 多重通道'
         };
         
         let targetColor = 'cyan';
@@ -337,6 +339,348 @@
         let purePlayTime = 0;  // 纯游戏时间（秒）
         let width, height;
         
+        // ==================== 危险通道系统 ====================
+        // 根据关卡配置不同的通道布局
+        // 第一关：单通道居中（静态）
+        // 第二关：双通道（静态）
+        // 第三关：双滚动红线（动态，全图刷方块）
+        
+        const dangerZoneConfig = {
+            color: '#ff4444',
+            glowColor: '#ff0000'
+        };
+        
+        // 根据关卡生成危险区域配置（第一关、第二关使用）
+        function getDangerZones() {
+            if (currentLevel === 1) {
+                // 第一关：单通道，3格高，居中
+                return [{
+                    height: 3,
+                    startRow: 4,
+                    gapWidth: 3,
+                    gapStartCol: 5,
+                    offset: 1
+                }];
+            } else if (currentLevel === 2) {
+                // 第二关：双通道
+                return [
+                    {
+                        height: 3,
+                        startRow: 2,
+                        gapWidth: 3,
+                        gapStartCol: 3,
+                        offset: 1
+                    },
+                    {
+                        height: 3,
+                        startRow: 7,
+                        gapWidth: 3,
+                        gapStartCol: 7,
+                        offset: -1
+                    }
+                ];
+            } else {
+                // 第三关：不使用静态通道，使用滚动红线
+                return [];
+            }
+        }
+        
+        const dangerZones = getDangerZones();
+        
+        // ==================== 第三关：滚动墙壁系统 ====================
+        // 和第二关一样的3行墙壁（带错位缺口），但是整体横向滚动
+        const rollingWalls = [];
+        const rollingWallConfig = {
+            height: 3,           // 墙壁高度（行数）
+            minSpeed: 0.75,      // 最小速度（第一波）
+            maxSpeed: 1.5,       // 最大速度（最终波）
+            gapWidth: 4,         // 缺口宽度（格数）- 4格宽通道
+            offset: 1            // 每行缺口偏移量
+        };
+        
+        // 获取当前波次的滚动速度
+        function getRollingSpeed() {
+            const waveNum = waveSys.waveNumber || 1;
+            const maxWaves = config.maxWaves;
+            // 从 minSpeed 线性增加到 maxSpeed
+            const progress = Math.min((waveNum - 1) / (maxWaves - 1), 1);
+            return rollingWallConfig.minSpeed + (rollingWallConfig.maxSpeed - rollingWallConfig.minSpeed) * progress;
+        }
+        
+        // 初始化滚动墙壁（仅第三关）
+        function initRollingLines() {
+            if (currentLevel !== 3) return;
+            
+            rollingWalls.length = 0;
+            
+            // 第一组墙壁：位于上半部分（行2-4），向右滚动
+            rollingWalls.push({
+                startRow: 2,
+                xOffset: 0,          // 当前横向偏移（像素）
+                direction: 1,        // 1=向右, -1=向左
+                gapStartCol: 3,      // 第一行缺口起始列
+                offset: 1            // 每行缺口向右偏移
+            });
+            
+            // 第二组墙壁：位于下半部分（行7-9），向左滚动
+            rollingWalls.push({
+                startRow: 7,
+                xOffset: 0,
+                direction: -1,
+                gapStartCol: 7,
+                offset: -1           // 每行缺口向左偏移
+            });
+        }
+        
+        // 更新滚动墙壁位置
+        function updateRollingLines() {
+            if (currentLevel !== 3) return;
+            
+            const { tileSize } = gridSys;
+            const totalTileSize = tileSize + config.tileGap;
+            const gridWidth = config.gridSize * totalTileSize;
+            const currentSpeed = getRollingSpeed();
+            
+            rollingWalls.forEach(wall => {
+                // 移动墙壁（速度随波次增加）
+                wall.xOffset += wall.direction * currentSpeed;
+                
+                // 循环滚动（当偏移超过一个格子宽度时重置）
+                if (wall.xOffset > totalTileSize) {
+                    wall.xOffset -= totalTileSize;
+                    // 缺口位置也要移动
+                    wall.gapStartCol = (wall.gapStartCol + 1) % config.gridSize;
+                } else if (wall.xOffset < -totalTileSize) {
+                    wall.xOffset += totalTileSize;
+                    wall.gapStartCol = (wall.gapStartCol - 1 + config.gridSize) % config.gridSize;
+                }
+            });
+        }
+        
+        // 获取滚动墙壁某一行的缺口范围（考虑偏移）
+        function getRollingGapRange(wall, rowIndex) {
+            const baseCol = wall.gapStartCol + rowIndex * wall.offset;
+            // 处理环绕
+            const start = ((baseCol % config.gridSize) + config.gridSize) % config.gridSize;
+            const end = start + rollingWallConfig.gapWidth;
+            return { start, end };
+        }
+        
+        // 绘制滚动墙壁
+        function drawRollingLines() {
+            if (currentLevel !== 3) return;
+            
+            const { gridX, gridY, tileSize, gridTotalDim } = gridSys;
+            const gap = config.tileGap;
+            const totalTileSize = tileSize + gap;
+            
+            // 保存画布状态
+            ctx.save();
+            
+            // 设置裁剪区域，限制在网格范围内
+            ctx.beginPath();
+            ctx.rect(gridX, gridY, gridTotalDim, gridTotalDim);
+            ctx.clip();
+            
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = dangerZoneConfig.glowColor;
+            ctx.fillStyle = dangerZoneConfig.color;
+            
+            rollingWalls.forEach(wall => {
+                // 绘制3行墙壁，每行有错位的缺口
+                for (let i = 0; i < rollingWallConfig.height; i++) {
+                    const row = wall.startRow + i;
+                    const rowY = gridY + row * totalTileSize;
+                    const gapRange = getRollingGapRange(wall, i);
+                    
+                    // 绘制墙壁（跳过缺口），左右各多绘制1格用于裁剪
+                    for (let col = -1; col <= config.gridSize; col++) {
+                        // 使用模运算处理列号，确保缺口判断正确
+                        const normalizedCol = ((col % config.gridSize) + config.gridSize) % config.gridSize;
+                        
+                        // 检查是否在缺口范围内
+                        let inGap = false;
+                        if (gapRange.end <= config.gridSize) {
+                            // 缺口没有环绕
+                            inGap = normalizedCol >= gapRange.start && normalizedCol < gapRange.end;
+                        } else {
+                            // 缺口环绕到另一边
+                            inGap = normalizedCol >= gapRange.start || normalizedCol < (gapRange.end % config.gridSize);
+                        }
+                        
+                        if (!inGap) {
+                            const blockX = gridX + col * totalTileSize + wall.xOffset;
+                            ctx.fillRect(blockX, rowY, tileSize, tileSize);
+                        }
+                    }
+                }
+            });
+            
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
+            
+            // 恢复画布状态（移除裁剪）
+            ctx.restore();
+        }
+        
+        // 检测滚动墙壁碰撞
+        function checkRollingLineCollision(p) {
+            if (currentLevel !== 3) return false;
+            if (p.z >= 1) return false;  // 跳跃中不检测
+            
+            const { gridX, gridY, tileSize } = gridSys;
+            const gap = config.tileGap;
+            const totalTileSize = tileSize + gap;
+            
+            const playerLeft = p.x;
+            const playerRight = p.x + p.width;
+            const playerTop = p.y;
+            const playerBottom = p.y + p.height;
+            
+            for (const wall of rollingWalls) {
+                // 检查每一行
+                for (let i = 0; i < rollingWallConfig.height; i++) {
+                    const row = wall.startRow + i;
+                    const rowY = gridY + row * totalTileSize;
+                    const rowBottom = rowY + tileSize;
+                    
+                    // 检查玩家是否在这一行
+                    if (playerBottom > rowY && playerTop < rowBottom) {
+                        const gapRange = getRollingGapRange(wall, i);
+                        
+                        // 检查每一列
+                        for (let col = 0; col < config.gridSize; col++) {
+                            // 检查是否在缺口范围内
+                            let inGap = false;
+                            if (gapRange.end <= config.gridSize) {
+                                inGap = col >= gapRange.start && col < gapRange.end;
+                            } else {
+                                inGap = col >= gapRange.start || col < (gapRange.end % config.gridSize);
+                            }
+                            
+                            if (!inGap) {
+                                // 这是墙壁，检查碰撞
+                                const blockX = gridX + col * totalTileSize + wall.xOffset;
+                                const blockRight = blockX + tileSize;
+                                
+                                if (playerRight > blockX && playerLeft < blockRight) {
+                                    return true;  // 碰撞！
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return false;
+        }
+        
+        /**
+         * 获取某个通道某一行的缺口范围
+         * @param {object} zone - 危险区域配置
+         * @param {number} rowIndex - 相对于通道起始行的索引 (0, 1, 2...)
+         * @returns {object} { start: 缺口起始列, end: 缺口结束列 }
+         */
+        function getGapRange(zone, rowIndex) {
+            const start = zone.gapStartCol + rowIndex * zone.offset;
+            const end = start + zone.gapWidth;
+            return { 
+                start: Math.max(0, start), 
+                end: Math.min(config.gridSize, end) 
+            };
+        }
+        
+        /**
+         * 绘制所有危险通道（两边墙壁，中间缺口）
+         */
+        function drawDangerZone() {
+            const { gridX, gridY, tileSize } = gridSys;
+            const gap = config.tileGap;
+            const totalTileSize = tileSize + gap;
+            
+            // 绘制发光效果
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = dangerZoneConfig.glowColor;
+            ctx.fillStyle = dangerZoneConfig.color;
+            
+            // 遍历所有危险区域
+            dangerZones.forEach(zone => {
+                // 逐行绘制，每行留出错位的缺口
+                for (let i = 0; i < zone.height; i++) {
+                    const row = zone.startRow + i;
+                    const y = gridY + row * totalTileSize;
+                    const gapRange = getGapRange(zone, i);
+                    
+                    // 绘制左边的墙（从第0列到缺口开始）
+                    if (gapRange.start > 0) {
+                        const leftWidth = gapRange.start * totalTileSize - gap;
+                        ctx.fillRect(gridX, y, leftWidth, tileSize);
+                    }
+                    
+                    // 绘制右边的墙（从缺口结束到最后一列）
+                    if (gapRange.end < config.gridSize) {
+                        const rightX = gridX + gapRange.end * totalTileSize;
+                        const rightWidth = (config.gridSize - gapRange.end) * totalTileSize - gap;
+                        ctx.fillRect(rightX, y, rightWidth, tileSize);
+                    }
+                }
+            });
+            
+            // 重置阴影
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
+        }
+        
+        /**
+         * 检测玩家是否碰到任何危险区域（墙壁或滚动红线）
+         */
+        function checkDangerZoneCollision(p) {
+            if (p.z >= 1) return false;  // 跳跃中不检测
+            
+            // 第三关检测滚动红线
+            if (currentLevel === 3) {
+                return checkRollingLineCollision(p);
+            }
+            
+            // 第一、二关检测静态通道
+            const { gridX, gridY, tileSize } = gridSys;
+            const gap = config.tileGap;
+            const totalTileSize = tileSize + gap;
+            
+            // 玩家边界
+            const playerLeft = p.x;
+            const playerRight = p.x + p.width;
+            const playerTop = p.y;
+            const playerBottom = p.y + p.height;
+            
+            // 检查每个危险区域
+            for (const zone of dangerZones) {
+                // 检查每一行的墙壁
+                for (let i = 0; i < zone.height; i++) {
+                    const row = zone.startRow + i;
+                    const rowY = gridY + row * totalTileSize;
+                    const rowBottom = rowY + tileSize;
+                    
+                    // 检查玩家是否在这一行的垂直范围内
+                    if (playerBottom > rowY && playerTop < rowBottom) {
+                        const gapRange = getGapRange(zone, i);
+                        const gapLeftX = gridX + gapRange.start * totalTileSize;
+                        const gapRightX = gridX + gapRange.end * totalTileSize - gap;
+                        
+                        // 检查玩家是否在缺口内（安全区域）
+                        const inGap = playerLeft >= gapLeftX && playerRight <= gapRightX;
+                        
+                        // 如果不在缺口内，就是碰到墙了
+                        if (!inGap) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            
+            return false;
+        }
+        
         // ==================== 初始化模块 ====================
         const gridSys = GridSystem.create({ gridSize: config.gridSize, tileGap: config.tileGap, colors: config.colors });
         const waveSys = WaveSystem.create({
@@ -344,6 +688,7 @@
             initialTarget: config.initialCyan,
             targetDecrement: config.cyanDecrement,
             minTarget: config.minCyan,
+            maxTarget: config.maxCyan,
             initialDanger: config.initialPink,
             dangerIncrement: config.pinkIncrement,
             maxDanger: config.maxPink
@@ -395,7 +740,7 @@
             p.height = tileSize * config.playerSizeRatio;
             resetPlayerPosition(p, id);
             console.log(`[Game] 玩家 ${id} 加入游戏，颜色:`, colorData.name || colorData.main);
-
+            
             // 更新兼容引用
             if (id === 1) player = p;
             if (id === 2) player2 = p;
@@ -412,6 +757,9 @@
             if (id === 2) player2 = null;
         }
         
+        /**
+         * 更新控制器 UI 显示
+         */
         /**
          * 更新控制器 UI 显示（P1-P8）
          */
@@ -546,43 +894,41 @@
         
         function initLevelUI() {
             document.getElementById('level-title').textContent = `${levelNames[currentLevel]} - ${levelSubtitles[currentLevel]}`;
-            // 所有关卡都显示危险障碍框，UI统一
-            document.getElementById('danger-color-box').style.display = 'inline-block';
-            updateDangerColorUI();
+            // 危险通道模式：显示危险区域警告框
+            const dangerBox = document.getElementById('danger-color-box');
+            dangerBox.style.display = 'inline-block';
+            dangerBox.style.borderColor = '#ff4444';
+            document.getElementById('danger-color-indicator').style.background = '#ff4444';
+            document.getElementById('danger-color-indicator').style.boxShadow = '0 0 15px #ff0000';
+            document.getElementById('danger-color-name').textContent = '危险区';
+            document.getElementById('danger-color-name').style.color = '#ff4444';
+            document.querySelector('#danger-color-box > div:first-child').textContent = '⚠ 危险通道';
             console.log(`[Game] 关卡模式: ${currentLevel} - ${levelNames[currentLevel]}`);
         }
         
         function updateDebugInfo() {
             document.getElementById('wave-num').textContent = waveSys.waveNumber;
             
-            // 动态生成所有颜色的计数
+            // 危险通道模式：显示目标方块数和危险区域状态
             const colorCountsEl = document.getElementById('color-counts');
-            let html = '';
+            const cyanCount = gridSys.countTiles('cyan');
             
-            // 第三关: 所有颜色统一显示
-            // 其他关卡: 分开显示收集色和危险色
-            const colorsToShow = currentLevel >= 3 ? config.allColors : config.collectibleColors;
+            let html = `<span style="color: #00f2ff; text-shadow: 0 0 5px #00f2ff; font-weight: bold;">★</span> ${cyanCount} `;
             
-            colorsToShow.forEach(color => {
-                const count = gridSys.countTiles(color);
-                const hex = config.colorHex[color];
-                const isTarget = color === targetColor;
-                const isDanger = color === dangerColor;
-                let marker = '■';
-                if (isTarget) marker = '★';
-                else if (isDanger) marker = '⚠';
-                html += `<span style="color: ${hex}; text-shadow: 0 0 5px ${hex}; ${isTarget || isDanger ? 'font-weight: bold;' : ''}">${marker}</span> ${count} `;
-            });
-            
-            // 非第三关显示危险色
-            if (currentLevel < 3) {
-                html += '<br>';
-                config.dangerColors.forEach(color => {
-                    const count = gridSys.countTiles(color);
-                    const hex = config.colorHex[color];
-                    const isDanger = color === dangerColor;
-                    const marker = isDanger ? '⚠' : '■';
-                    html += `<span style="color: ${hex}; text-shadow: 0 0 5px ${hex}; ${isDanger ? 'font-weight: bold;' : ''}">${marker}</span> ${count} `;
+            if (currentLevel === 3) {
+                // 第三关：显示滚动墙壁状态
+                html += `<br><span style="color: #ff4444; text-shadow: 0 0 5px #ff0000;">⚠ 滚动墙壁</span> `;
+                html += `<span style="color: #ff4444;">${rollingWalls.length}组</span>`;
+                rollingWalls.forEach((wall, idx) => {
+                    const dir = wall.direction > 0 ? '→右' : '←左';
+                    html += `<br><span style="color: #fb923c;">🔥 ${idx + 1}: 行${wall.startRow + 1}-${wall.startRow + 3} ${dir}</span>`;
+                });
+            } else {
+                // 第一、二关：显示静态通道
+                html += `<br><span style="color: #ff4444; text-shadow: 0 0 5px #ff0000;">⚠ 通道数</span> `;
+                html += `<span style="color: #ff4444;">${dangerZones.length}</span>`;
+                dangerZones.forEach((zone, idx) => {
+                    html += `<br><span style="color: #4ade80;">🚪 ${idx + 1}: 行${zone.startRow + 1}-${zone.startRow + zone.height}</span>`;
                 });
             }
             
@@ -593,109 +939,108 @@
         function isDangerColor(type) { return type === dangerColor; }
 
         // ==================== 波次系统 ====================
+        // 可收集的颜色池
+        const collectibleColors = ['cyan', 'yellow', 'purple', 'orange'];
+        
         function triggerNewWave() {
-            // 关卡3: 所有颜色可互换，目标和危险从同一个池子里选
-            // 关卡1-2: 目标从收集色选，危险固定为粉色
-            let availableColors;
+            // 增加波次计数
+            waveSys.triggerWave(gridSys, {
+                targetColors: collectibleColors,
+                dangerColors: [],
+                currentTarget: targetColor,
+                currentDanger: 'red',
+                players: Object.values(ControllerManager.getPlayers()),
+                dynamicTarget: false,
+                dynamicDanger: false
+            });
             
-            if (currentLevel === 3) {
-                // 第三关：从所有颜色中随机选择目标和危险（不能相同）
-                availableColors = [...config.allColors];
-                targetColor = GameUtils.randomChoice(availableColors);
-                const dangerChoices = availableColors.filter(c => c !== targetColor);
-                dangerColor = GameUtils.randomChoice(dangerChoices);
-                updateDangerColorUI();
-            } else if (currentLevel === 2) {
-                // 第二关：目标颜色变换，危险固定
-                availableColors = config.collectibleColors;
-                targetColor = GameUtils.randomChoice(availableColors);
-                dangerColor = 'pink';
+            const waveNum = waveSys.waveNumber;
+            
+            // ===== 三阶段波次系统 =====
+            // 第一阶段（1-4波）：只刷新青色目标
+            // 第二阶段（5-8波）：青色目标 + 干扰方块
+            // 第三阶段（9-12波）：随机目标颜色 + 干扰方块
+            
+            const phase = waveNum <= 4 ? 1 : (waveNum <= 8 ? 2 : 3);
+            
+            // 第三阶段：随机切换目标颜色
+            if (phase === 3) {
+                targetColor = collectibleColors[Math.floor(Math.random() * collectibleColors.length)];
             } else {
-                // 第一关：固定目标和危险
-                availableColors = config.collectibleColors;
                 targetColor = 'cyan';
-                dangerColor = 'pink';
             }
             
+            dangerColor = 'red';  // 红线颜色标识
             updateTargetColorUI();
             
-            // 使用波次系统生成方块
-            const allPlayers = ControllerManager.getPlayers();
-            const result = waveSys.triggerWave(gridSys, {
-                targetColors: availableColors,
-                dangerColors: [dangerColor],
-                currentTarget: targetColor,
-                currentDanger: dangerColor,
-                players: Object.values(allPlayers),
-                dynamicTarget: currentLevel >= 2,
-                dynamicDanger: currentLevel >= 3,
-                otherColorRatio: 0.6
-            });
-            
-            // 覆盖波次系统的颜色（因为我们自己设置了）
-            // 重新放置方块以使用正确的颜色
+            // 重新放置方块
             gridSys.clearAll();
+            const allPlayers = ControllerManager.getPlayers();
             const occupied = gridSys.getOccupiedTiles(Object.values(allPlayers));
             const availableTiles = gridSys.getAvailableTiles(occupied);
-            const shuffled = GameUtils.shuffle([...availableTiles]);
             
-            const { targetCount, dangerCount } = waveSys.getWaveConfig();
-            // 干扰色比例随波次递增：60% -> 100%
-            // 第1波60%，第12波100%
-            const waveProgress = (waveSys.waveNumber - 1) / (config.maxWaves - 1);
-            const otherColorRatio = 0.6 + waveProgress * 0.4;  // 0.6 ~ 1.0
-            const otherColorCount = Math.max(1, Math.floor(targetCount * otherColorRatio));
+            // 第三关：全图都可以刷方块
+            // 第一、二关：过滤掉危险区域的墙壁格子，但保留缺口处的格子
+            let safeTiles;
+            if (currentLevel === 3) {
+                // 第三关全图刷方块
+                safeTiles = availableTiles;
+            } else {
+                safeTiles = availableTiles.filter(tile => {
+                    // 检查每个危险区域
+                    for (const zone of dangerZones) {
+                        if (tile.row >= zone.startRow && tile.row < zone.startRow + zone.height) {
+                            // 在危险区域的行内，检查是否在缺口中
+                            const rowIndex = tile.row - zone.startRow;
+                            const gapRange = getGapRange(zone, rowIndex);
+                            // 如果在缺口内，是安全的
+                            if (tile.col >= gapRange.start && tile.col < gapRange.end) {
+                                return true;
+                            }
+                            return false;
+                        }
+                    }
+                    return true;
+                });
+            }
+            
+            console.log(`[Wave] 关卡${currentLevel} 可用格子: ${availableTiles.length}, 安全格子: ${safeTiles.length}`);
+            
+            const shuffled = GameUtils.shuffle([...safeTiles]);
+            const { targetCount } = waveSys.getWaveConfig();
             
             let idx = 0;
-            const collectibleTiles = [];
+            let actualTarget = 0;
             
-            // 放置目标颜色方块
-            const actualTarget = Math.min(targetCount, shuffled.length - idx);
-            for (let i = 0; i < actualTarget && idx < shuffled.length; i++, idx++) {
-                shuffled[idx].type = targetColor;
-                shuffled[idx].pulse = 0;
-                collectibleTiles.push(shuffled[idx]);
-            }
-            
-            // 放置其他颜色方块（干扰项）- 排除目标色和危险色
-            if (currentLevel >= 2) {
-                const otherColors = availableColors.filter(c => c !== targetColor && c !== dangerColor);
-            otherColors.forEach(color => {
-                const count = Math.min(otherColorCount, shuffled.length - idx);
-                for (let i = 0; i < count && idx < shuffled.length; i++, idx++) {
-                    shuffled[idx].type = color;
-                    shuffled[idx].pulse = 0;
-                    collectibleTiles.push(shuffled[idx]);
-                }
-            });
-            }
-            
-            // 安全区
-            const safeZone = new Set();
-            const directions = [[-1,0], [1,0], [0,-1], [0,1]];
-            collectibleTiles.forEach(tile => {
-                directions.forEach(([dr, dc]) => {
-                    const nr = tile.row + dr;
-                    const nc = tile.col + dc;
-                    if (nr >= 0 && nr < config.gridSize && nc >= 0 && nc < config.gridSize) {
-                        safeZone.add(`${nr},${nc}`);
+            if (phase >= 2) {
+                // 阶段2、3：所有颜色均匀分布，每种颜色4个
+                const perColorCount = 4;  // 每种颜色固定4个
+                
+                // 打乱颜色顺序，增加随机性
+                const shuffledColors = GameUtils.shuffle([...collectibleColors]);
+                
+                shuffledColors.forEach(color => {
+                    for (let i = 0; i < perColorCount && idx < shuffled.length; i++, idx++) {
+                        shuffled[idx].type = color;
+                        shuffled[idx].pulse = 0;
+                        if (color === targetColor) actualTarget++;
                     }
                 });
-            });
-            
-            // 放置危险方块
-            let dangerPlaced = 0;
-            for (let i = idx; i < shuffled.length && dangerPlaced < dangerCount; i++) {
-                const tile = shuffled[i];
-                if (!safeZone.has(`${tile.row},${tile.col}`)) {
-                    tile.type = dangerColor;
-                    tile.pulse = 0;
-                    dangerPlaced++;
+            } else {
+                // 阶段1：只放目标颜色（青色），固定4个
+                actualTarget = Math.min(4, shuffled.length);
+                for (let i = 0; i < actualTarget && idx < shuffled.length; i++, idx++) {
+                    shuffled[idx].type = targetColor;
+                    shuffled[idx].pulse = 0;
                 }
             }
             
-            console.log(`[Wave ${waveSys.waveNumber}] 目标: ${targetColor}, 目标数: ${actualTarget}, 粉色: ${dangerPlaced}`);
-            debugLog.logWave(waveSys.waveNumber, actualTarget, dangerPlaced);
+            // 日志
+            const phaseNames = { 1: '基础', 2: '均衡混淆', 3: '变色混淆' };
+            const totalBlocks = idx;
+            console.log(`[Wave ${waveNum}] 阶段${phase}(${phaseNames[phase]}) 目标: ${targetColor}, 目标数: ${actualTarget}, 总数: ${totalBlocks}`);
+            debugLog.logWave(waveNum, actualTarget, 0);
+            debugLog.add(`<span style="color: #facc15;">阶段 ${phase}: ${phaseNames[phase]}模式</span>`);
             
             invincibleTimer = INVINCIBLE_DURATION;
         }
@@ -714,7 +1059,7 @@
                 }
             }
         }
-
+        
         // ==================== 窗口调整 ====================
         const BASE_UI_WIDTH = 1280;  // UI设计基准宽度
         
@@ -770,7 +1115,6 @@
         function resetMenuInputState() {
             menuInputLocked = true;
             menuInputThrottle = true;
-            console.log('[Menu] 菜单输入已锁定，等待松开所有按键');
         }
         
         /**
@@ -778,10 +1122,7 @@
          */
         function checkMenuInput() {
             const input = ControllerManager.getInput(1);
-            if (!input) {
-                console.log('[Menu] 没有获取到输入');
-                return;
-            }
+            if (!input) return;
             
             const deadzone = 0.3;
             
@@ -793,17 +1134,12 @@
             
             // 如果菜单被锁定，等待所有按键松开才解锁
             if (menuInputLocked) {
-                console.log('[Menu] 锁定中, hasAnyInput:', hasAnyInput, 
-                    'joystick:', input.joystick.x.toFixed(2), input.joystick.y.toFixed(2),
-                    'buttons:', input.buttons);
                 if (!hasAnyInput) {
-                    console.log('[Menu] 检测到全部松开，解锁菜单！');
                     menuInputLocked = false;
                     menuInputThrottle = false;
-                    // 重置 prevMenuInput 为全部松开状态
                     prevMenuInput = { joystick: { x: 0, y: 0 }, buttons: { N: false, S: false, E: false, W: false } };
                 }
-                return;  // 锁定期间不处理菜单输入
+                return;
             }
             
             // 检测摇杆移动（有死区的方向变化）
@@ -814,23 +1150,20 @@
             
             if (!menuInputThrottle) {
                 if (newUp && !oldUp) {
-                    console.log('[Menu] 触发 moveUp');
-                        menuSystem.moveUp();
+                    menuSystem.moveUp();
                     menuInputThrottle = true;
                     setTimeout(() => menuInputThrottle = false, 150);
-                    }
-                if (newDown && !oldDown) {
-                    console.log('[Menu] 触发 moveDown');
-                        menuSystem.moveDown();
-                    menuInputThrottle = true;
-                    setTimeout(() => menuInputThrottle = false, 150);
-                    }
                 }
+                if (newDown && !oldDown) {
+                    menuSystem.moveDown();
+                    menuInputThrottle = true;
+                    setTimeout(() => menuInputThrottle = false, 150);
+                }
+            }
             
             // 确认按钮 (只有西键 = 确认，避免跳跃键误触)
             const confirmPressed = (input.buttons.W && !prevMenuInput.buttons.W);
             if (confirmPressed) {
-                console.log('[Menu] 触发 confirm');
                 menuSystem.confirm();
             }
             
@@ -851,6 +1184,9 @@
         // ==================== 游戏更新 ====================
         function update() {
             if (gameState !== 'playing') return;
+            
+            // 第三关：更新滚动红线
+            updateRollingLines();
 
             if (gameStartTime > 0) {
                 purePlayTime = (Date.now() - gameStartTime) / 1000;
@@ -874,8 +1210,8 @@
                 if (input && (Math.abs(input.joystick.x) > deadzone || Math.abs(input.joystick.y) > deadzone)) {
                     p.vx = input.joystick.x;
                     p.vy = input.joystick.y;
-            }
-            
+                }
+                
                 // 处理按钮输入（按下事件）
                 if (input && input.buttons) {
                     const prevState = prevButtonStates[p.id] || { S: false, E: false };
@@ -909,9 +1245,15 @@
             });
 
             if (invincibleTimer > 0) invincibleTimer--;
-
+            
             // 碰撞检测 - 遍历所有玩家
             Object.values(players).forEach(p => {
+                // 检测危险区域碰撞
+                if (invincibleTimer <= 0 && checkDangerZoneCollision(p)) {
+                    gameOver();
+                    return;
+                }
+                // 检测方块碰撞（收集得分方块）
                 checkPlayerCollision(p);
             });
 
@@ -961,40 +1303,35 @@
             }
 
         function checkPlayerCollision(p) {
-            if (p.z >= 1) return;
+            if (p.z >= 1) return;  // 跳跃中不检测方块碰撞
             
             const { gridX, gridY, tileSize } = gridSys;
             const cx = p.x + p.width/2;
             const cy = p.y + p.height/2;
-                const col = Math.floor((cx - gridX) / (tileSize + config.tileGap));
-                const row = Math.floor((cy - gridY) / (tileSize + config.tileGap));
+            const col = Math.floor((cx - gridX) / (tileSize + config.tileGap));
+            const row = Math.floor((cy - gridY) / (tileSize + config.tileGap));
 
-                if (row >= 0 && row < config.gridSize && col >= 0 && col < config.gridSize) {
+            if (row >= 0 && row < config.gridSize && col >= 0 && col < config.gridSize) {
                 const tile = gridSys.grid.find(t => t.row === row && t.col === col);
-                    if (tile && tile.type !== 'none') {
-                    // 判断是否为危险颜色（当前波次的危险色）
-                    if (isDangerColor(tile.type) && invincibleTimer <= 0) {
-                            gameOver();
-                            return;
-                    } 
-                    // 判断是否为可收集颜色（非危险色的所有颜色）
-                    else if (!isDangerColor(tile.type) && config.colorHex[tile.type]) {
-                        const pos = gridSys.getTilePosition(row, col);
-                            if (tile.type === targetColor) {
-                                tile.type = 'none';
-                            floatingText.show('+正确', config.colorHex[targetColor], pos.centerX, pos.y);
-                            SoundManager.playScore();  // 播放得分音效
-                            } else {
-                                tile.type = 'none';
-                            penaltyTime += config.wrongColorPenalty;
-                            floatingText.show(`+${config.wrongColorPenalty}秒 颜色错误!`, '#ff6b6b', pos.centerX, pos.y);
-                            SoundManager.playError();  // 播放错误音效
-                            ControllerManager.vibrateLight();  // 手柄震动反馈
-                            }
-                        }
+                if (tile && tile.type !== 'none') {
+                    const pos = gridSys.getTilePosition(row, col);
+                    
+                    if (tile.type === targetColor) {
+                        // 正确颜色：得分
+                        tile.type = 'none';
+                        floatingText.show('+1', config.colorHex[targetColor], pos.centerX, pos.y);
+                        SoundManager.playScore();
+                    } else if (collectibleColors.includes(tile.type)) {
+                        // 干扰颜色：惩罚5秒
+                        tile.type = 'none';
+                        penaltyTime += config.wrongColorPenalty;
+                        floatingText.show(`+${config.wrongColorPenalty}秒`, '#ff6b6b', pos.centerX, pos.y);
+                        SoundManager.playError();
+                        ControllerManager.vibrateLight();  // 手柄震动反馈
                     }
                 }
             }
+        }
             
         // ==================== 绘制 ====================
         function draw() {
@@ -1015,13 +1352,22 @@
             gridSys.drawTiles(ctx, (tile) => {
                 // 所有颜色都从统一的 colorHex 获取
                 const color = config.colorHex[tile.type] || config.colors.cyan;
-                // 目标色高亮，危险色用不同的渲染风格
+                // 目标色高亮
                 return { 
                     color, 
                     isHighlight: tile.type === targetColor,
-                    isDanger: isDangerColor(tile.type)
+                    isDanger: false  // 红线模式没有危险方块
                 };
             });
+            
+            // 绘制危险区域
+            if (currentLevel === 3) {
+                // 第三关：绘制滚动红线
+                drawRollingLines();
+            } else {
+                // 第一、二关：绘制静态通道
+                drawDangerZone();
+            }
 
             // 绘制玩家 - 遍历所有玩家
             const players = ControllerManager.getPlayers();
@@ -1150,11 +1496,21 @@
         
         function resetPlayerPosition(p, playerId) {
             p.trail = [];
-            // 根据玩家ID设置不同的初始位置
+            // 玩家刷新在地图底部
+            const { gridX, gridY, gridTotalDim, tileSize } = gridSys;
+            const gap = config.tileGap;
+            const totalTileSize = tileSize + gap;
+            
+            // 根据玩家ID设置不同的水平位置（底部一排横向排列）
             const id = playerId || p.id || 1;
-            const offset = SPAWN_OFFSETS[(id - 1) % SPAWN_OFFSETS.length];
-            p.x = width / 2 - p.width / 2 + offset.x * gridSys.tileSize * 1.5;
-            p.y = height / 2 - p.height / 2 + offset.y * gridSys.tileSize * 1.5;
+            const bottomY = gridY + gridTotalDim - p.height - totalTileSize * 0.5;  // 底部倒数第一行
+            const centerX = gridX + gridTotalDim / 2;
+            const spacing = tileSize * 1.5;
+            
+            // 玩家横向排列：P1在中偏左，P2在中偏右，P3更左，P4更右
+            const xOffsets = [-0.5, 0.5, -1.5, 1.5];
+            p.x = centerX - p.width / 2 + xOffsets[(id - 1) % 4] * spacing;
+            p.y = bottomY;
             p.z = 0;
             p.vz = 0;
         }
@@ -1170,6 +1526,9 @@
             
             waveSys.reset();
             gridSys.clearAll();
+            
+            // 第三关：初始化滚动红线
+            initRollingLines();
             
             // 重置所有玩家
             ControllerManager.resetAllPlayers(p => {
@@ -1197,14 +1556,14 @@
         
         // 初始化游戏结束屏幕（使用抽象层，支持复用）
         gameScreens = GameUtils.createGameScreens({
-            gameType: 'color',
+            gameType: 'dangerousPassage',
             currentLevel: currentLevel,
             maxLevel: 3,
             onRestart: () => {
                 gameScreens.hide();
                 resetGame();
                 // 重新播放BGM并开始游戏
-                SoundManager.playGameBGM();
+                SoundManager.playDangerousBGM();
                 startGame();
             },
             onRevive: () => {
@@ -1213,7 +1572,7 @@
                 penaltyTime += REVIVE_PENALTY;
                 floatingText.show(`+${REVIVE_PENALTY}秒复活惩罚`, '#ff6b6b', width/2, height/2 - 50);
                 // 重新播放BGM
-                SoundManager.playGameBGM();
+                SoundManager.playDangerousBGM();
                 ControllerManager.resetAllPlayers(p => {
                     resetPlayerPosition(p);
                     p.isJumping = false;
@@ -1223,14 +1582,9 @@
                 });
                 invincibleTimer = INVINCIBLE_DURATION;
             },
-            onNextLevel: () => {
-                if (currentLevel < 3) {
-                    window.location.href = `gameColorCollect.html?level=${currentLevel + 1}`;
-                } else {
-                    // 颜色收集第3关完成后进入红线危机第1关
-                    window.location.href = 'gameRedLine.html?level=1';
-                }
-            },
+            onNextLevel: currentLevel < 3 ? () => {
+                window.location.href = `gameDangerousPassage.html?level=${currentLevel + 1}`;
+            } : null,  // 危险通道第3关是最终关，无下一关
             onBackToMenu: () => {
                 window.location.href = 'index.html';
             }

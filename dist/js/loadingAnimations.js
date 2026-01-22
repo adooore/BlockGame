@@ -32,10 +32,17 @@ const LoadingAnimations = (function() {
             title = '加载中',        // 标题文字
             subtitle = '',           // 副标题
             waitForInput = true,     // 是否等待用户输入才结束
-            inputHint = '按任意键继续', // 等待输入时的提示
+            inputHint = '按任意键开始', // 等待输入时的提示
             tips = DEFAULT_TIPS,     // 小提示数组
             tipInterval = 5000,      // 提示切换间隔（毫秒）
-            onComplete = null        // 加载完成回调
+            onComplete = null,       // 加载完成回调
+            showControls = true,     // 是否显示操作提示
+            controls = [             // 操作提示配置（web手柄/Xbox/键盘）
+                { webKey: '南', xboxKey: 'A', kbKey: 'J', label: '跳跃', hint: '长按滞空', color: '#4ade80' },
+                { webKey: '东', xboxKey: 'B', kbKey: 'K', label: '冲刺', hint: '快速移动', color: '#f87171' },
+                { webKey: '北', xboxKey: 'Y', kbKey: 'I', label: '静步', hint: '按住减速', color: '#facc15' }
+            ],
+            keyboardHint = '移动: WASD / 左摇杆'
         } = options;
         
         let overlay = null;
@@ -204,6 +211,72 @@ const LoadingAnimations = (function() {
                     opacity: 1;
                     transform: translateX(-50%) translateY(0);
                 }
+                /* 操作提示 */
+                .loading-controls {
+                    display: flex;
+                    gap: 6vmin;
+                    margin-top: 5vmin;
+                    opacity: 0;
+                    transition: opacity 0.5s ease;
+                }
+                .loading-controls.visible {
+                    opacity: 1;
+                }
+                .loading-control-item {
+                    text-align: center;
+                    color: rgba(255, 255, 255, 0.7);
+                    font-size: 1.8vmin;
+                }
+                .loading-control-btns {
+                    display: flex;
+                    gap: 1vmin;
+                    justify-content: center;
+                    margin-bottom: 1.2vmin;
+                }
+                .loading-control-btn {
+                    width: 5vmin;
+                    height: 5vmin;
+                    border: 0.25vmin solid currentColor;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 2.2vmin;
+                    box-shadow: 0 0 0.8vmin currentColor;
+                }
+                .loading-control-btn.web-btn {
+                    font-family: 'Zhi Mang Xing', cursive;
+                    font-size: 2.8vmin;
+                }
+                .loading-control-btn.xbox-btn {
+                    font-family: 'Orbitron', sans-serif;
+                    font-weight: 700;
+                    font-size: 2vmin;
+                }
+                .loading-control-btn.kb-btn {
+                    font-family: 'Orbitron', sans-serif;
+                    font-size: 2vmin;
+                    border-radius: 0.8vmin;
+                }
+                .loading-control-label {
+                    font-size: 2vmin;
+                    margin-bottom: 0.3vmin;
+                }
+                .loading-control-hint {
+                    font-size: 1.4vmin;
+                    opacity: 0.5;
+                }
+                .loading-keyboard-hint {
+                    margin-top: 3vmin;
+                    color: rgba(255, 255, 255, 0.5);
+                    font-size: 1.6vmin;
+                    letter-spacing: 0.15vmin;
+                    opacity: 0;
+                    transition: opacity 0.5s ease;
+                }
+                .loading-keyboard-hint.visible {
+                    opacity: 1;
+                }
             `;
             document.head.appendChild(style);
         }
@@ -214,6 +287,25 @@ const LoadingAnimations = (function() {
         function createHTML() {
             overlay = document.createElement('div');
             overlay.className = 'loading-screen';
+            
+            // 构建操作提示 HTML（显示三种输入方式）
+            const controlsHTML = showControls && controls.length > 0 ? `
+                <div class="loading-controls">
+                    ${controls.map(ctrl => `
+                        <div class="loading-control-item">
+                            <div class="loading-control-btns" style="color: ${ctrl.color};">
+                                <div class="loading-control-btn web-btn">${ctrl.webKey}</div>
+                                <div class="loading-control-btn xbox-btn">${ctrl.xboxKey}</div>
+                                <div class="loading-control-btn kb-btn">${ctrl.kbKey}</div>
+                            </div>
+                            <div class="loading-control-label">${ctrl.label}</div>
+                            <div class="loading-control-hint">${ctrl.hint}</div>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="loading-keyboard-hint">${keyboardHint}</div>
+            ` : '';
+            
             overlay.innerHTML = `
                 <div class="loading-logo">
                     <div class="loading-cube"></div>
@@ -229,6 +321,7 @@ const LoadingAnimations = (function() {
                     <div class="loading-dot"></div>
                 </div>
                 <div class="loading-hint" style="display: none;">${inputHint}</div>
+                ${controlsHTML}
                 <div class="loading-tip"></div>
             `;
             document.body.appendChild(overlay);
@@ -428,10 +521,15 @@ const LoadingAnimations = (function() {
             const hintEl = overlay?.querySelector('.loading-hint');
             const dotsEl = overlay?.querySelector('.loading-dots');
             const subtitleEl = overlay?.querySelector('.loading-subtitle');
+            const controlsEl = overlay?.querySelector('.loading-controls');
+            const keyboardHintEl = overlay?.querySelector('.loading-keyboard-hint');
             
             if (hintEl) hintEl.style.display = 'block';
             if (dotsEl) dotsEl.style.display = 'none';
             if (subtitleEl) subtitleEl.style.display = 'none';
+            // 显示操作提示
+            if (controlsEl) controlsEl.classList.add('visible');
+            if (keyboardHintEl) keyboardHintEl.classList.add('visible');
         }
         
         /**
