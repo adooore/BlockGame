@@ -26,7 +26,11 @@
     "targets": "all",
     "resources": {
       "../dist/controller.html": "web/controller.html",
-      "../dist/js/*": "web/js/"
+      "../dist/fonts/fonts.css": "web/fonts/fonts.css",
+      "../dist/fonts/Orbitron-Regular.ttf": "web/fonts/Orbitron-Regular.ttf",
+      "../dist/fonts/Orbitron-Bold.ttf": "web/fonts/Orbitron-Bold.ttf",
+      "../dist/fonts/Orbitron-Black.ttf": "web/fonts/Orbitron-Black.ttf",
+      "../dist/fonts/ZhiMangXing-Regular.ttf": "web/fonts/ZhiMangXing-Regular.ttf"
     },
     "icon": [
       "icons/32x32.png",
