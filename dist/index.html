@@ -380,7 +380,7 @@
                         <i data-lucide="swords" class="w-5 h-5"></i>
                         对抗模式
                     </span>
-                    <span class="text-[10px] opacity-50 mt-1">激烈角逐 · 敬请期待</span>
+                    <span class="text-[10px] opacity-50 mt-1">激烈角逐 · 分数争霸</span>
                 </span>
             </button>
 
@@ -1443,10 +1443,10 @@
             };
             
             gameWs.onmessage = (event) => {
-                console.log('收到 WebSocket 消息:', event.data);
+                // console.log('收到 WebSocket 消息:', event.data);  // 调试时打开
                 try {
                     const data = JSON.parse(event.data);
-                    console.log('解析后的数据:', data);
+                    // console.log('解析后的数据:', data);  // 调试时打开
                     
                     if (data.type === 'connected') {
                         console.log('连接消息，server_ip:', data.server_ip);
@@ -2065,51 +2065,27 @@
             lucide.createIcons();
         }
         
-        // 设置显示模式
-        function setDisplayMode(mode, saveToStorage = true) {
+        // 设置显示模式（通过 WebSocket 发送给 Rust）
+        async function setDisplayMode(mode, saveToStorage = true) {
             const windowedBtn = document.getElementById('display-windowed');
             const fullscreenBtn = document.getElementById('display-fullscreen');
             
-            if (mode === 'fullscreen') {
-                // 进入全屏
-                const elem = document.documentElement;
-                if (elem.requestFullscreen) {
-                    elem.requestFullscreen();
-                } else if (elem.webkitRequestFullscreen) {
-                    elem.webkitRequestFullscreen();
-                } else if (elem.msRequestFullscreen) {
-                    elem.msRequestFullscreen();
-                }
-                // 更新UI
-                windowedBtn.classList.remove('active');
-                windowedBtn.classList.remove('border-cyan-500');
-                windowedBtn.classList.add('border-transparent');
-                windowedBtn.querySelector('.display-check').style.display = 'none';
-                
-                fullscreenBtn.classList.add('active');
-                fullscreenBtn.classList.remove('border-transparent');
-                fullscreenBtn.classList.add('border-cyan-500');
-                fullscreenBtn.querySelector('.display-check').style.display = 'block';
+            console.log('[Display] 设置显示模式:', mode);
+            
+            // 通过 WebSocket 发送全屏请求给 Rust 后端
+            if (gameWs && gameWs.readyState === WebSocket.OPEN) {
+                const message = {
+                    type: 'set_fullscreen',
+                    fullscreen: mode === 'fullscreen'
+                };
+                gameWs.send(JSON.stringify(message));
+                console.log('[Display] 已发送全屏请求:', message);
             } else {
-                // 退出全屏
-                if (document.exitFullscreen) {
-                    document.exitFullscreen().catch(() => {});
-                } else if (document.webkitExitFullscreen) {
-                    document.webkitExitFullscreen();
-                } else if (document.msExitFullscreen) {
-                    document.msExitFullscreen();
-                }
-                // 更新UI
-                fullscreenBtn.classList.remove('active');
-                fullscreenBtn.classList.remove('border-cyan-500');
-                fullscreenBtn.classList.add('border-transparent');
-                fullscreenBtn.querySelector('.display-check').style.display = 'none';
-                
-                windowedBtn.classList.add('active');
-                windowedBtn.classList.remove('border-transparent');
-                windowedBtn.classList.add('border-cyan-500');
-                windowedBtn.querySelector('.display-check').style.display = 'block';
+                console.error('[Display] WebSocket 未连接，无法设置全屏');
             }
+            
+            // 更新 UI
+            updateDisplayModeUI(mode === 'fullscreen');
             
             // 保存到 GameData
             if (saveToStorage && typeof GameData !== 'undefined') {
@@ -2119,30 +2095,36 @@
             lucide.createIcons();
         }
         
-        // 监听全屏状态变化，更新UI
-        document.addEventListener('fullscreenchange', () => {
-            const isFullscreen = !!document.fullscreenElement;
+        // 更新显示模式 UI
+        function updateDisplayModeUI(isFullscreen) {
             const windowedBtn = document.getElementById('display-windowed');
             const fullscreenBtn = document.getElementById('display-fullscreen');
             
-            if (windowedBtn && fullscreenBtn) {
-                if (isFullscreen) {
-                    windowedBtn.classList.remove('active', 'border-cyan-500');
-                    windowedBtn.classList.add('border-transparent');
-                    windowedBtn.querySelector('.display-check').style.display = 'none';
-                    fullscreenBtn.classList.add('active', 'border-cyan-500');
-                    fullscreenBtn.classList.remove('border-transparent');
-                    fullscreenBtn.querySelector('.display-check').style.display = 'block';
-                } else {
-                    fullscreenBtn.classList.remove('active', 'border-cyan-500');
-                    fullscreenBtn.classList.add('border-transparent');
-                    fullscreenBtn.querySelector('.display-check').style.display = 'none';
-                    windowedBtn.classList.add('active', 'border-cyan-500');
-                    windowedBtn.classList.remove('border-transparent');
-                    windowedBtn.querySelector('.display-check').style.display = 'block';
-                }
+            if (!windowedBtn || !fullscreenBtn) return;
+            
+            if (isFullscreen) {
+                windowedBtn.classList.remove('active', 'border-cyan-500');
+                windowedBtn.classList.add('border-transparent');
+                windowedBtn.querySelector('.display-check').style.display = 'none';
+                
+                fullscreenBtn.classList.add('active');
+                fullscreenBtn.classList.remove('border-transparent');
+                fullscreenBtn.classList.add('border-cyan-500');
+                fullscreenBtn.querySelector('.display-check').style.display = 'block';
+            } else {
+                fullscreenBtn.classList.remove('active', 'border-cyan-500');
+                fullscreenBtn.classList.add('border-transparent');
+                fullscreenBtn.querySelector('.display-check').style.display = 'none';
+                
+                windowedBtn.classList.add('active');
+                windowedBtn.classList.remove('border-transparent');
+                windowedBtn.classList.add('border-cyan-500');
+                windowedBtn.querySelector('.display-check').style.display = 'block';
             }
-        });
+        }
+        
+        // 注意：使用 Tauri 应用级全屏，不需要监听浏览器的 fullscreenchange 事件
+        // UI 更新由 setDisplayMode 函数直接处理
         
         // 键盘控制切换
         function onKeyboardToggle(enabled) {

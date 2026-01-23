@@ -31,6 +31,7 @@ const LoadingAnimations = (function() {
             minDuration = 1000,      // 最小显示时间（毫秒）
             title = '加载中',        // 标题文字
             subtitle = '',           // 副标题
+            subtitle2 = '',          // 第二副标题（如"⚔ 竞技模式"，用特殊样式）
             waitForInput = true,     // 是否等待用户输入才结束
             inputHint = '按任意键开始', // 等待输入时的提示
             tips = DEFAULT_TIPS,     // 小提示数组
@@ -143,10 +144,19 @@ const LoadingAnimations = (function() {
                     margin-bottom: 2vmin;
                 }
                 .loading-subtitle {
+                    font-family: 'Orbitron', 'Noto Sans SC', sans-serif;
+                    font-size: 2.8vmin;
+                    color: #fbbf24;
+                    letter-spacing: 0.8vmin;
+                    text-shadow: 0 0 1.5vmin rgba(251, 191, 36, 0.6), 0 0 3vmin rgba(251, 191, 36, 0.3);
+                    font-weight: 700;
+                }
+                .loading-subtitle2 {
                     font-family: 'Noto Sans SC', sans-serif;
-                    font-size: 3vmin;
+                    font-size: 2.4vmin;
                     color: rgba(255, 255, 255, 0.6);
                     letter-spacing: 0.6vmin;
+                    margin-top: 1.5vmin;
                     text-shadow: 0 0 1vmin rgba(255, 255, 255, 0.3);
                 }
                 .loading-dots {
@@ -315,6 +325,7 @@ const LoadingAnimations = (function() {
                 </div>
                 <div class="loading-title">${title}</div>
                 ${subtitle ? `<div class="loading-subtitle">${subtitle}</div>` : ''}
+                ${subtitle2 ? `<div class="loading-subtitle2">${subtitle2}</div>` : ''}
                 <div class="loading-dots">
                     <div class="loading-dot"></div>
                     <div class="loading-dot"></div>
@@ -411,6 +422,14 @@ const LoadingAnimations = (function() {
             // 隐藏加载界面
             hide();
             if (onComplete) onComplete();
+        }
+        
+        /**
+         * 处理外部输入（供 Web 控制器等外部输入源调用）
+         * 用于在 WebSocket 收到按钮输入时触发加载界面完成
+         */
+        function handleExternalInput() {
+            handleInput(null);
         }
         
         /**
@@ -520,13 +539,14 @@ const LoadingAnimations = (function() {
         function showInputHint() {
             const hintEl = overlay?.querySelector('.loading-hint');
             const dotsEl = overlay?.querySelector('.loading-dots');
-            const subtitleEl = overlay?.querySelector('.loading-subtitle');
+            const subtitle2El = overlay?.querySelector('.loading-subtitle2');
             const controlsEl = overlay?.querySelector('.loading-controls');
             const keyboardHintEl = overlay?.querySelector('.loading-keyboard-hint');
             
             if (hintEl) hintEl.style.display = 'block';
             if (dotsEl) dotsEl.style.display = 'none';
-            if (subtitleEl) subtitleEl.style.display = 'none';
+            // subtitle1（模式标识）保持显示，subtitle2 消失
+            if (subtitle2El) subtitle2El.style.display = 'none';
             // 显示操作提示
             if (controlsEl) controlsEl.classList.add('visible');
             if (keyboardHintEl) keyboardHintEl.classList.add('visible');
@@ -593,7 +613,8 @@ const LoadingAnimations = (function() {
             hide,
             forceHide,
             setTitle,
-            setSubtitle
+            setSubtitle,
+            handleExternalInput  // 供外部（Web 控制器）触发输入
         };
     }
     

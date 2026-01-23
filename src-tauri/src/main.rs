@@ -20,6 +20,11 @@ use futures_util::{StreamExt, SinkExt};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tauri::Manager;
+use std::sync::OnceLock;
+use tauri::AppHandle;
+
+// 全局 AppHandle，用于 WebSocket 访问窗口
+static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
 
 // ============== 日志工具 ==============
 
@@ -59,11 +64,13 @@ struct ButtonState {
     e: bool,
     #[serde(rename = "W", default)]
     w: bool,
+    #[serde(rename = "Start", default)]
+    start: bool,
 }
 
 impl Default for ButtonState {
     fn default() -> Self {
-        ButtonState { n: false, s: false, e: false, w: false }
+        ButtonState { n: false, s: false, e: false, w: false, start: false }
     }
 }
 
@@ -213,14 +220,19 @@ async fn handle_controller(socket: WebSocket, state: AppState) {
         tokio::select! {
             // 接收来自游戏的广播消息
             Ok(broadcast_msg) = ctrl_rx.recv() => {
-                // 解析消息，只处理属于自己的
+                // 解析消息，判断是否转发
                 if let Ok(json_msg) = serde_json::from_str::<serde_json::Value>(&broadcast_msg.content) {
-                    if let Some(target_id) = json_msg.get("controller_id").and_then(|c| c.as_u64()) {
-                        if target_id == controller_id as u64 {
-                            // 转发给这个控制器
-                            if sender.send(Message::Text(broadcast_msg.content)).await.is_err() {
-                                break;
-                            }
+                    let should_forward = if let Some(target_id) = json_msg.get("controller_id").and_then(|c| c.as_u64()) {
+                        // 有 controller_id 的消息：只转发给目标控制器
+                        target_id == controller_id as u64
+                    } else {
+                        // 没有 controller_id 的消息（如 game_state）：转发给所有控制器
+                        true
+                    };
+                    
+                    if should_forward {
+                        if sender.send(Message::Text(broadcast_msg.content)).await.is_err() {
+                            break;
                         }
                     }
                 }
@@ -311,7 +323,7 @@ async fn handle_controller(socket: WebSocket, state: AppState) {
         "type": "state",
         "controller_id": controller_id,
         "joystick": {"x": 0, "y": 0},
-        "buttons": {"N": false, "S": false, "E": false, "W": false}
+        "buttons": {"N": false, "S": false, "E": false, "W": false, "Start": false}
     });
     state.broadcast_to_games(&reset_msg.to_string());
 
@@ -326,6 +338,7 @@ async fn handle_game(socket: WebSocket, state: AppState, local_ip: String) {
 
     // 发送连接成功消息（同时发送已保存的游戏数据）
     let saved_data = load_game_data_internal().unwrap_or_else(|_| "{}".to_string());
+    let is_debug = cfg!(debug_assertions);  // debug 模式为 true，release 模式为 false
     let connect_msg = json!({
         "type": "connected",
         "message": "游戏已连接！",
@@ -333,7 +346,8 @@ async fn handle_game(socket: WebSocket, state: AppState, local_ip: String) {
         "controllers": state.get_controller_list().await,
         "server_ip": local_ip,
         "server_port": 8088,
-        "game_data": saved_data
+        "game_data": saved_data,
+        "is_debug": is_debug
     });
     let _ = sender.send(Message::Text(connect_msg.to_string())).await;
 
@@ -402,6 +416,67 @@ async fn handle_game(socket: WebSocket, state: AppState, local_ip: String) {
                                             "player_id": player_id
                                         });
                                         state.broadcast_to_controllers(&update_msg.to_string());
+                                    }
+                                }
+                                Some("vibrate") => {
+                                    // 游戏请求控制器振动
+                                    if let Some(controller_id) = json_msg.get("controller_id").and_then(|c| c.as_u64()) {
+                                        let duration = json_msg.get("duration").and_then(|d| d.as_u64()).unwrap_or(200);
+                                        log_to_file(&format!("[WebSocket] 振动指令: 控制器{}, {}ms", controller_id, duration));
+                                        let vibrate_msg = json!({
+                                            "type": "vibrate",
+                                            "controller_id": controller_id,
+                                            "duration": duration
+                                        });
+                                        state.broadcast_to_controllers(&vibrate_msg.to_string());
+                                    }
+                                }
+                                Some("game_state") => {
+                                    // 游戏状态变化，通知所有控制器
+                                    if let Some(game_state) = json_msg.get("state").and_then(|s| s.as_str()) {
+                                        log_to_file(&format!("[WebSocket] 游戏状态: {}", game_state));
+                                        let state_msg = json!({
+                                            "type": "game_state",
+                                            "state": game_state
+                                        });
+                                        state.broadcast_to_controllers(&state_msg.to_string());
+                                    }
+                                }
+                                Some("set_fullscreen") => {
+                                    // 设置全屏（通过 WebSocket 调用）
+                                    if let Some(fullscreen) = json_msg.get("fullscreen").and_then(|f| f.as_bool()) {
+                                        log_to_file(&format!("[WebSocket] 设置全屏: {}", fullscreen));
+                                        
+                                        // 使用全局 AppHandle 访问窗口
+                                        if let Some(app_handle) = APP_HANDLE.get() {
+                                            if let Some(window) = app_handle.get_webview_window("main") {
+                                                match window.set_fullscreen(fullscreen) {
+                                                    Ok(_) => {
+                                                        log_to_file(&format!("[WebSocket] 全屏设置成功: {}", fullscreen));
+                                                        // 发送成功响应
+                                                        let response = json!({
+                                                            "type": "fullscreen_result",
+                                                            "success": true,
+                                                            "fullscreen": fullscreen
+                                                        });
+                                                        let _ = sender.send(Message::Text(response.to_string())).await;
+                                                    }
+                                                    Err(e) => {
+                                                        log_to_file(&format!("[WebSocket] 全屏设置失败: {}", e));
+                                                        let response = json!({
+                                                            "type": "fullscreen_result",
+                                                            "success": false,
+                                                            "error": e.to_string()
+                                                        });
+                                                        let _ = sender.send(Message::Text(response.to_string())).await;
+                                                    }
+                                                }
+                                            } else {
+                                                log_to_file("[WebSocket] 找不到主窗口");
+                                            }
+                                        } else {
+                                            log_to_file("[WebSocket] AppHandle 未初始化");
+                                        }
                                     }
                                 }
                                 _ => {}
@@ -691,6 +766,18 @@ fn get_server_info() -> serde_json::Value {
     })
 }
 
+#[tauri::command]
+fn set_fullscreen(window: tauri::Window, fullscreen: bool) -> Result<bool, String> {
+    log_to_file(&format!("[全屏] 设置全屏: {}", fullscreen));
+    window.set_fullscreen(fullscreen).map_err(|e| e.to_string())?;
+    Ok(fullscreen)
+}
+
+#[tauri::command]
+fn is_fullscreen(window: tauri::Window) -> Result<bool, String> {
+    window.is_fullscreen().map_err(|e| e.to_string())
+}
+
 // ============== 主函数 ==============
 
 fn main() {
@@ -736,6 +823,10 @@ fn main() {
 
     tauri::Builder::default()
         .setup(move |app| {
+            // 保存 AppHandle 到全局变量，供 WebSocket 使用
+            let _ = APP_HANDLE.set(app.handle().clone());
+            log_to_file("[启动] AppHandle 已保存到全局变量");
+            
             // 获取主窗口并设置全屏
             if should_fullscreen {
                 if let Some(window) = app.get_webview_window("main") {
@@ -745,7 +836,7 @@ fn main() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_server_info, save_game_data, load_game_data])
+        .invoke_handler(tauri::generate_handler![get_server_info, save_game_data, load_game_data, set_fullscreen, is_fullscreen])
         .run(tauri::generate_context!())
         .expect("启动应用失败");
 }

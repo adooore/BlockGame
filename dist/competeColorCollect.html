@@ -96,28 +96,7 @@
             box-shadow: 0 0 30px var(--neon-cyan);
         }
 
-        /* 调试日志面板 */
-        .debug-log {
-            position: fixed;
-            bottom: 30px;
-            left: 30px;
-            width: 280px;
-            max-height: 200px;
-            background: rgba(0, 0, 0, 0.85);
-            border: 1px solid #333;
-            border-radius: 4px;
-            padding: 10px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 10px;
-            color: #888;
-            overflow-y: auto;
-            z-index: 50;
-        }
-        .debug-log-title { color: #00ff00; font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 4px; }
-        .debug-log-item { padding: 3px 0; border-bottom: 1px solid #222; }
-        .debug-log-item:last-child { border-bottom: none; }
-        .log-wave { color: #00f2ff; }
-        .log-cyan { color: #00f2ff; }
+        /* 调试面板样式由 debugPanel.js 模块注入 */
         .log-pink { color: #ff00ff; }
 
         /* 菜单操作提示样式 */
@@ -182,6 +161,9 @@
     <script src="js/controllerManager.js"></script>
     <script src="js/soundManager.js"></script>
     <script src="js/competeScoreboard.js"></script>
+    <script src="js/pauseMenu.js"></script>
+    <script src="js/gameWebSocket.js"></script>
+    <script src="js/debugPanel.js"></script>
 </head>
 <body>
 
@@ -239,14 +221,7 @@
 
     <!-- Game Over / Victory 界面由 JS 动态生成 -->
 
-    <!-- 调试日志面板 -->
-    <div class="debug-log" id="debugLog">
-        <div class="debug-log-title">
-            [DEBUG LOG]
-            <button id="victory-test-btn" style="margin-left: 10px; padding: 2px 8px; font-size: 10px; background: #333; border: 1px solid #ffd700; color: #ffd700; cursor: pointer;">快速通关</button>
-        </div>
-        <div id="logContent"></div>
-    </div>
+    <!-- 调试面板由 debugPanel.js 模块动态创建 -->
 
     <canvas id="gameCanvas"></canvas>
 
@@ -264,8 +239,9 @@
         
         // ==================== 加载界面 ====================
         const loadingScreen = LoadingAnimations.create({
-            title: `竞技颜色收集 · ${LEVEL_MODES[currentLevel] || '基础模式'}`,
-            subtitle: '多人对战 · 争夺最高分!',
+            title: `颜色收集 · ${LEVEL_MODES[currentLevel] || '基础模式'}`,
+            subtitle: '⚔ 竞技模式',
+            subtitle2: '多人对战 · 争夺最高分',
             minDuration: 1000,
             showControls: true,
             onComplete: () => {
@@ -443,81 +419,21 @@
         }
 
         // ==================== 远程控制器 (WebSocket) ====================
-        let wsConnected = false;
-        let serverInfo = { ip: null, port: 8088 };
         // 记录上一帧的按钮状态，用于检测按下事件
         let prevButtonStates = {};
 
-        function initWebSocket() {
-            const wsUrl = 'ws://localhost:8088/ws/game';
-            console.log('连接游戏服务器:', wsUrl);
-            const ws = new WebSocket(wsUrl);
-            
-            ws.onopen = () => { console.log('游戏已连接到服务器!'); wsConnected = true; };
-            ws.onclose = () => { 
-                console.log('与服务器断开连接'); 
-                wsConnected = false;
-                // 断开时清理所有手柄
-                Object.keys(ControllerManager.controllers).forEach(id => {
-                    ControllerManager.onControllerDisconnected(parseInt(id));
-                });
-                setTimeout(initWebSocket, 3000); 
-            };
-            ws.onerror = (error) => { console.error('WebSocket 错误:', error); };
-            
-            ws.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    const controllerId = data.controller_id;
-                    
-                    if (data.type === 'connected') {
-                        if (data.server_ip) { serverInfo.ip = data.server_ip; serverInfo.port = data.server_port || 8088; }
-                        GameData.setWebSocket(ws);
-                        if (data.game_data) {
-                            GameData.initFromServer(data.game_data);
-                        }
-                        
-                        // 配置加载完成，现在初始化控制器
-                        initControllerAfterConfig();
-                        
-                        // 通知 ControllerManager 已连接的 Web 控制器
-                        (data.controllers || []).forEach(c => {
-                            ControllerManager.onControllerConnected(c.id);
-                        });
-                        updateControllerUI();
-                        
-                        // 标记配置加载完成，隐藏加载界面
-                        loadingScreen.setConfigLoaded();
-                    }
-                    else if (data.type === 'controller_joined') {
-                        ControllerManager.onControllerConnected(controllerId);
-                        updateControllerUI();
-                    }
-                    else if (data.type === 'controller_left') {
-                        ControllerManager.onControllerDisconnected(controllerId);
-                        updateControllerUI();
-                    }
-                    else if (data.type === 'state') {
-                        // 更新 ControllerManager 中的输入状态
-                        // （会自动触发 onUpdate 回调，统一处理 waiting 状态等）
-                        ControllerManager.updateControllerInput(controllerId, data.joystick, data.buttons);
-                    }
-                    else if (data.type === 'button') {
-                        // 单独的按钮事件（保持兼容）
-                        const input = ControllerManager.getInput(controllerId);
-                        if (input) {
-                            input.buttons[data.button] = data.action === 'press';
-                        }
-                    }
-                    else if (data.type === 'save_result' || data.type === 'load_result') {
-                        if (data.type === 'load_result' && data.success) GameData.initFromServer(data.data);
-                    }
-                } catch (e) { console.log('收到消息:', event.data); }
-            };
-        }
+        // 使用 GameWebSocket 抽象层
+        GameWebSocket.init({
+            loadingScreen: loadingScreen,
+            onConfigLoaded: (gameData) => {
+                // 配置加载完成，初始化控制器
+                initControllerAfterConfig();
+            },
+            onControllerUpdate: updateControllerUI
+        });
         
-        // 启动 WebSocket 连接（Tauri 环境下是进程内通信，必然成功）
-        initWebSocket();
+        // 设置页面卸载时发送退出游戏状态
+        GameWebSocket.setupUnloadHandler();
 
         // ==================== 玩家颜色加载 ====================
         function loadPlayerColors() {
@@ -759,6 +675,9 @@
             if (gameScreens) {
                 gameScreens.setScale(uiScale);
             }
+            
+            // 缩放暂停菜单
+            PauseMenu.setScale(uiScale);
         }
 
         // ==================== 游戏控制 ====================
@@ -864,6 +783,10 @@
 
         // ==================== 游戏更新 ====================
         function update() {
+            // 暂停检测（手柄 Start 按钮）
+            PauseMenu.pollGamepadStart();
+            if (PauseMenu.isPaused()) return;
+            
             if (gameState !== 'playing') return;
 
             // 竞技模式不显示时间，只需要更新计分板
@@ -1291,12 +1214,13 @@
             console.log('[Compete] 竞技游戏重置');
         }
         
-        // ==================== 调试按钮 ====================
-        document.getElementById('victory-test-btn').addEventListener('click', () => {
-            if (gameState === 'playing' || gameState === 'waiting') {
-                if (gameState === 'waiting') startGame();
-                debugLog.add(`<span style="color: #ffd700;">🎉 [DEBUG] 触发快速通关</span>`);
-                victory();
+        // ==================== 调试面板初始化（由 DebugPanel 模块处理）====================
+        DebugPanel.init({
+            onVictoryTest: () => {
+                if (gameState === 'playing' || gameState === 'waiting') {
+                    if (gameState === 'waiting') startGame();
+                    victory();
+                }
             }
         });
         
@@ -1351,6 +1275,24 @@
             }
         });
         gameScreens.bindMenuSystem(menuSystem);
+        
+        // 初始化暂停菜单
+        PauseMenu.init({
+            canPause: () => gameState === 'playing',
+            onPause: () => {
+                console.log('[Compete] 游戏暂停');
+            },
+            onResume: () => {
+                console.log('[Compete] 游戏恢复');
+            },
+            onRestart: () => {
+                resetCompeteGame();
+                startGame();
+            },
+            onBackToMenu: () => {
+                window.location.href = 'index.html';
+            }
+        });
         
         // ControllerManager 初始化延迟到 WebSocket 连接成功后
         // 这样可以先加载配置，再根据配置创建玩家，避免先创建再删除
@@ -1418,6 +1360,7 @@
         })();
         
         // BGM 已在加载动画 onComplete 中播放
+        // 页面卸载通知已由 GameWebSocket.setupUnloadHandler() 处理
     </script>
 </body>
 </html>

@@ -437,6 +437,54 @@
             transform: translateY(-50%) scale(0.95);
         }
 
+        /* 内联暂停按钮 - 紫色 赛博朋克风格，和状态栏对齐 */
+        .btn-start-inline {
+            height: 26px;
+            padding: 0 10px;
+            border-radius: 4px;
+            background: rgba(0, 20, 40, 0.9);
+            border: 1.5px solid #b366ff;
+            color: #b366ff;
+            font-family: 'Orbitron', monospace;
+            font-size: 10px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            display: none;  /* 默认隐藏，游戏中通过 WebSocket 消息显示 */
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            touch-action: manipulation;
+            text-shadow: 0 0 6px #b366ff;
+            box-shadow: 
+                0 0 8px rgba(179, 102, 255, 0.3),
+                inset 0 0 6px rgba(179, 102, 255, 0.1);
+            margin-right: 8px;
+        }
+
+        .btn-start-inline svg {
+            width: 12px;
+            height: 12px;
+            fill: currentColor;
+        }
+
+        .btn-start-inline:active, .btn-start-inline.pressed {
+            background: #b366ff;
+            color: #000;
+            text-shadow: none;
+            box-shadow: 0 0 20px rgba(179, 102, 255, 0.8);
+            transform: scale(0.95);
+        }
+
+        .btn-start-inline:active svg, .btn-start-inline.pressed svg {
+            fill: #000;
+        }
+        
+        .btn-start-inline.visible {
+            display: flex;
+        }
+
         /* 装饰性元素 */
         .corner-decor {
             position: absolute;
@@ -635,7 +683,7 @@
         .drag-handle {
             display: none;
             position: absolute;
-            bottom: -15px;
+            top: -15px;
             width: 30px;
             height: 30px;
             background: rgba(255, 0, 255, 0.8);
@@ -649,12 +697,14 @@
             touch-action: none;
         }
 
+        /* 摇杆在左侧，手柄放右上角（内侧） */
         .joystick-container .drag-handle {
-            left: -15px;
+            right: -15px;
         }
 
+        /* 按钮区域在右侧，手柄放左上角（内侧） */
         .controller .drag-handle {
-            right: -15px;
+            left: -15px;
         }
 
         .drag-handle svg {
@@ -915,6 +965,13 @@
         <!-- 信息栏（居中） -->
         <div class="info-bar" id="infoBar">
             <div class="status">
+                <!-- 暂停按钮（游戏中显示） -->
+                <button class="btn-start-inline" id="btnStart">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                    </svg>
+                    <span id="startBtnLabel">暂停</span>
+                </button>
                 <span class="status-dot"></span>
                 <span class="player-id" id="playerId"></span>
                 <span class="status-text" id="statusText">SYSTEM ONLINE</span>
@@ -1059,8 +1116,8 @@
         
         // 按钮文字映射
         const buttonLabels = {
-            cn: { '北': '北', '南': '南', '西': '西', '东': '东' },
-            en: { '北': 'N', '南': 'S', '西': 'W', '东': 'E' }
+            cn: { '北': '北', '南': '南', '西': '西', '东': '东', 'Start': '暂停' },
+            en: { '北': 'N', '南': 'S', '西': 'W', '东': 'E', 'Start': 'MENU' }
         };
         
         // Logo 文字映射
@@ -1096,6 +1153,12 @@
                 btn.style.fontFamily = font;
                 btn.style.fontSize = fontSize;
             });
+            
+            // 更新 Start 按钮标签
+            const startBtnLabel = document.getElementById('startBtnLabel');
+            if (startBtnLabel) {
+                startBtnLabel.textContent = labels['Start'];
+            }
             
             // 更新 Logo
             const title = titleLabels[currentLang];
@@ -1511,7 +1574,7 @@
         // ==================== 控制器状态（轮询模式） ====================
         const controllerState = {
             joystick: { x: 0, y: 0 },
-            buttons: { N: false, S: false, E: false, W: false }
+            buttons: { N: false, S: false, E: false, W: false, Start: false }
         };
         let pollInterval = null;
         const POLL_RATE = 60;  // 60Hz 轮询频率
@@ -1643,6 +1706,26 @@
                     } else if (data.type === 'pong') {
                         const latency = Date.now() - data.timestamp;
                         updateLatencyDisplay(latency);
+                    } else if (data.type === 'vibrate') {
+                        // 收到振动指令，触发手机振动
+                        if (navigator.vibrate) {
+                            const duration = data.duration || 200;
+                            const pattern = data.pattern || duration;
+                            navigator.vibrate(pattern);
+                            console.log(`[振动] ${typeof pattern === 'number' ? pattern + 'ms' : 'pattern: ' + JSON.stringify(pattern)}`);
+                        }
+                    } else if (data.type === 'game_state') {
+                        // 游戏状态变化：显示/隐藏暂停按钮
+                        const btnStart = document.getElementById('btnStart');
+                        if (btnStart) {
+                            if (data.state === 'playing') {
+                                btnStart.classList.add('visible');
+                                console.log('[游戏状态] 进入游戏，显示暂停按钮');
+                            } else {
+                                btnStart.classList.remove('visible');
+                                console.log('[游戏状态] 退出游戏，隐藏暂停按钮');
+                            }
+                        }
                     }
                 } catch (e) {
                     console.log('收到消息:', event.data);
@@ -1862,6 +1945,59 @@
                 e.stopPropagation();
             }, { passive: false });
         });
+        
+        // ==================== Start 按钮事件 ====================
+        const btnStart = document.getElementById('btnStart');
+        let startTouchId = null;
+        
+        function onStartPress() {
+            controllerState.buttons.Start = true;
+            if (navigator.vibrate) {
+                navigator.vibrate(30);
+            }
+            btnStart.classList.add('pressed');
+        }
+        
+        function onStartRelease() {
+            controllerState.buttons.Start = false;
+            btnStart.classList.remove('pressed');
+            startTouchId = null;
+        }
+        
+        btnStart.addEventListener('mousedown', onStartPress);
+        btnStart.addEventListener('mouseup', onStartRelease);
+        btnStart.addEventListener('mouseleave', onStartRelease);
+        
+        btnStart.addEventListener('touchstart', (e) => {
+            if (startTouchId === null) {
+                startTouchId = e.changedTouches[0].identifier;
+                onStartPress();
+            }
+            e.preventDefault();
+            e.stopPropagation();
+        }, { passive: false });
+        
+        btnStart.addEventListener('touchend', (e) => {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === startTouchId) {
+                    onStartRelease();
+                    break;
+                }
+            }
+            e.preventDefault();
+            e.stopPropagation();
+        }, { passive: false });
+        
+        btnStart.addEventListener('touchcancel', (e) => {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === startTouchId) {
+                    onStartRelease();
+                    break;
+                }
+            }
+            e.preventDefault();
+            e.stopPropagation();
+        }, { passive: false });
         
         // 防止页面滚动
         document.body.addEventListener('touchmove', (e) => {

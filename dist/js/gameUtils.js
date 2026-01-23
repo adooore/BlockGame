@@ -532,17 +532,17 @@ const GameUtils = (function() {
                     0% {
                         opacity: 1;
                         visibility: visible;
-                        transform: translate(-50%, -50%) scale(1);
+                        transform: translate(-50%, -50%) scale(var(--menu-scale, 1));
                         filter: blur(0);
                     }
                     30% {
-                        transform: translate(-48%, -50%) scale(1.02);
+                        transform: translate(-48%, -50%) scale(calc(var(--menu-scale, 1) * 1.02));
                         filter: blur(2px);
                     }
                     100% {
                         opacity: 0;
                         visibility: hidden;
-                        transform: translate(-50%, -50%) scale(0.5);
+                        transform: translate(-50%, -50%) scale(calc(var(--menu-scale, 1) * 0.5));
                         filter: blur(15px) brightness(2);
                     }
                 }
@@ -589,21 +589,21 @@ const GameUtils = (function() {
                     }
                     35% {
                         opacity: 1;
-                        transform: translate(-50%, -50%) scale(1.1) rotate(-2deg);
+                        transform: translate(-50%, -50%) scale(calc(var(--menu-scale, 1) * 1.1)) rotate(-2deg);
                         filter: blur(0) brightness(1.3);
                     }
                     55% {
-                        transform: translate(-50%, -50%) scale(0.96) rotate(1deg);
+                        transform: translate(-50%, -50%) scale(calc(var(--menu-scale, 1) * 0.96)) rotate(1deg);
                         filter: brightness(1.1);
                     }
                     75% {
-                        transform: translate(-50%, -50%) scale(1.03) rotate(-0.5deg);
+                        transform: translate(-50%, -50%) scale(calc(var(--menu-scale, 1) * 1.03)) rotate(-0.5deg);
                         filter: brightness(1);
                     }
                     100% {
                         opacity: 1;
                         visibility: visible;
-                        transform: translate(-50%, -50%) scale(1) rotate(0deg);
+                        transform: translate(-50%, -50%) scale(var(--menu-scale, 1)) rotate(0deg);
                         filter: blur(0) brightness(1);
                     }
                 }
@@ -622,21 +622,21 @@ const GameUtils = (function() {
                     }
                     40% {
                         opacity: 1;
-                        transform: translate(-50%, -50%) scale(1.08) rotate(1deg);
+                        transform: translate(-50%, -50%) scale(calc(var(--menu-scale, 1) * 1.08)) rotate(1deg);
                         filter: blur(0) brightness(1.5);
                     }
                     60% {
-                        transform: translate(-50%, -50%) scale(0.98) rotate(-0.5deg);
+                        transform: translate(-50%, -50%) scale(calc(var(--menu-scale, 1) * 0.98)) rotate(-0.5deg);
                         filter: brightness(1.2);
                     }
                     80% {
-                        transform: translate(-50%, -50%) scale(1.02) rotate(0deg);
+                        transform: translate(-50%, -50%) scale(calc(var(--menu-scale, 1) * 1.02)) rotate(0deg);
                         filter: brightness(1.1);
                     }
                     100% {
                         opacity: 1;
                         visibility: visible;
-                        transform: translate(-50%, -50%) scale(1) rotate(0deg);
+                        transform: translate(-50%, -50%) scale(var(--menu-scale, 1)) rotate(0deg);
                         filter: blur(0) brightness(1);
                     }
                 }
@@ -769,14 +769,18 @@ const GameUtils = (function() {
                 }
                 .game-screen .hint-btn {
                     display: inline-flex;
-                    width: 20px;
-                    height: 20px;
+                    width: 18px;
+                    height: 18px;
                     border-radius: 50%;
                     align-items: center;
                     justify-content: center;
-                    font-size: 10px;
+                    font-size: 9px;
                     margin: 0 2px;
                     vertical-align: middle;
+                }
+                .game-screen .hint-btn-x {
+                    font-size: 10px;
+                    font-weight: bold;
                 }
                 .game-screen .hint-btn-west { 
                     background: transparent; 
@@ -911,6 +915,8 @@ const GameUtils = (function() {
                     <span>|</span>
                     <span><span class="hint-key">Enter</span> 确认</span>
                     <span>|</span>
+                    <span><span class="hint-btn hint-btn-west hint-btn-x">X</span> 确认</span>
+                    <span>|</span>
                     <span><span class="hint-btn hint-btn-west">西</span> 确认</span>
                 </div>
             `;
@@ -979,6 +985,8 @@ const GameUtils = (function() {
                     <span><span class="hint-key">W</span><span class="hint-key">S</span> 移动</span>
                     <span>|</span>
                     <span><span class="hint-key">Enter</span> 确认</span>
+                    <span>|</span>
+                    <span><span class="hint-btn hint-btn-west hint-btn-x">X</span> 确认</span>
                     <span>|</span>
                     <span><span class="hint-btn hint-btn-west">西</span> 确认</span>
                 </div>
@@ -1101,9 +1109,21 @@ const GameUtils = (function() {
                 gameoverScreen.classList.remove('animate-in', 'animate-out', 'death-in', 'victory-in');
                 gameoverScreen.style.display = 'block';
                 
+                // 设置 CSS 变量用于动画缩放
+                gameoverScreen.style.setProperty('--menu-scale', currentScale);
+                
                 // 触发重绘后添加死亡专属动画
                 void gameoverScreen.offsetWidth;
                 gameoverScreen.classList.add('death-in');
+                
+                // 动画结束后保持可见状态
+                gameoverScreen.addEventListener('animationend', function onAnimEnd() {
+                    gameoverScreen.removeEventListener('animationend', onAnimEnd);
+                    gameoverScreen.classList.remove('death-in');
+                    gameoverScreen.style.opacity = '1';
+                    gameoverScreen.style.visibility = 'visible';
+                    gameoverScreen.style.transform = `translate(-50%, -50%) scale(${currentScale})`;
+                });
                 
                 // 设置菜单
                 if (menuSystem) {
@@ -1181,9 +1201,21 @@ const GameUtils = (function() {
                 victoryScreen.classList.remove('animate-in', 'animate-out', 'death-in', 'victory-in');
                 victoryScreen.style.display = 'block';
                 
+                // 设置 CSS 变量用于动画缩放
+                victoryScreen.style.setProperty('--menu-scale', currentScale);
+                
                 // 触发重绘后添加胜利专属动画
                 void victoryScreen.offsetWidth;
                 victoryScreen.classList.add('victory-in');
+                
+                // 动画结束后保持可见状态
+                victoryScreen.addEventListener('animationend', function onAnimEnd() {
+                    victoryScreen.removeEventListener('animationend', onAnimEnd);
+                    victoryScreen.classList.remove('victory-in');
+                    victoryScreen.style.opacity = '1';
+                    victoryScreen.style.visibility = 'visible';
+                    victoryScreen.style.transform = `translate(-50%, -50%) scale(${currentScale})`;
+                });
                 
                 // 菜单弹出后，延迟显示星星动画（等弹入动画结束后）
                 setTimeout(() => {
@@ -1238,6 +1270,10 @@ const GameUtils = (function() {
                         setTimeout(() => {
                             screen.style.display = 'none';
                             screen.classList.remove('animate-out');
+                            // 清除 inline style，恢复初始状态
+                            screen.style.opacity = '';
+                            screen.style.visibility = '';
+                            screen.style.transform = '';
                         }, 250);
                     }
                 };
@@ -1248,10 +1284,18 @@ const GameUtils = (function() {
                 if (gameoverScreen) {
                     gameoverScreen.style.display = 'none';
                     gameoverScreen.classList.remove(...allAnimClasses);
+                    // 清除 inline style，恢复初始状态
+                    gameoverScreen.style.opacity = '';
+                    gameoverScreen.style.visibility = '';
+                    gameoverScreen.style.transform = '';
                 }
                 if (victoryScreen) {
                     victoryScreen.style.display = 'none';
                     victoryScreen.classList.remove(...allAnimClasses);
+                    // 清除 inline style，恢复初始状态
+                    victoryScreen.style.opacity = '';
+                    victoryScreen.style.visibility = '';
+                    victoryScreen.style.transform = '';
                 }
             }
         }
@@ -1325,6 +1369,12 @@ const GameUtils = (function() {
      * @returns {Object} 日志系统实例
      */
     function createDebugLog(containerId, maxItems = 20) {
+        // 如果 DebugPanel 模块可用，直接使用它
+        if (typeof DebugPanel !== 'undefined') {
+            return DebugPanel;
+        }
+        
+        // 兼容模式：使用旧的内嵌 HTML 面板
         const container = document.getElementById(containerId);
         
         /**

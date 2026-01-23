@@ -17,7 +17,7 @@ const ControllerManager = (function() {
     let keyboardState = {                // 键盘状态
         keys: {},
         joystick: { x: 0, y: 0 },
-        buttons: { N: false, S: false, E: false, W: false }
+        buttons: { N: false, S: false, E: false, W: false, Start: false }
     };
     
     // 原生手柄状态 (Gamepad API)
@@ -216,7 +216,7 @@ const ControllerManager = (function() {
         if (!controllerInputs[playerId]) {
             controllerInputs[playerId] = {
                 joystick: { x: 0, y: 0 },
-                buttons: { N: false, S: false, E: false, W: false },
+                buttons: { N: false, S: false, E: false, W: false, Start: false },
                 source: 'nativeGamepad'
             };
         } else {
@@ -383,7 +383,7 @@ const ControllerManager = (function() {
                 connectedControllers[nextPlayerId] = true;
                 controllerInputs[nextPlayerId] = {
                     joystick: { x: 0, y: 0 },
-                    buttons: { N: false, S: false, E: false, W: false },
+                    buttons: { N: false, S: false, E: false, W: false, Start: false },
                     source: 'nativeGamepad'
                 };
                 ensurePlayer(nextPlayerId);
@@ -400,7 +400,7 @@ const ControllerManager = (function() {
                 connectedControllers[nextPlayerId] = true;
                 controllerInputs[nextPlayerId] = {
                     joystick: { x: 0, y: 0 },
-                    buttons: { N: false, S: false, E: false, W: false },
+                    buttons: { N: false, S: false, E: false, W: false, Start: false },
                     source: 'controller'
                 };
                 ensurePlayer(nextPlayerId);
@@ -467,7 +467,7 @@ const ControllerManager = (function() {
                 if (!controllerInputs[1]) {
                     controllerInputs[1] = {
                         joystick: { x: 0, y: 0 },
-                        buttons: { N: false, S: false, E: false, W: false },
+                        buttons: { N: false, S: false, E: false, W: false, Start: false },
                         source: 'keyboard'
                     };
                 }
@@ -561,7 +561,7 @@ const ControllerManager = (function() {
         // 初始化该控制器的输入
         controllerInputs[playerId] = {
             joystick: { x: 0, y: 0 },
-            buttons: { N: false, S: false, E: false, W: false },
+            buttons: { N: false, S: false, E: false, W: false, Start: false },
             source: 'controller'
         };
         
@@ -623,7 +623,7 @@ const ControllerManager = (function() {
         if (!controllerInputs[playerId]) {
             controllerInputs[playerId] = {
                 joystick: { x: 0, y: 0 },
-                buttons: { N: false, S: false, E: false, W: false },
+                buttons: { N: false, S: false, E: false, W: false, Start: false },
                 source: 'controller'
             };
         }
@@ -787,7 +787,7 @@ const ControllerManager = (function() {
     }
     
     /**
-     * 触发手柄震动（仅对原生手柄有效）
+     * 触发手柄震动（原生手柄 + Web 控制器）
      * @param {number} playerId - 玩家ID（可选，不传则震动所有手柄）
      * @param {object} options - 震动选项
      * @param {number} options.duration - 震动时长（毫秒），默认200
@@ -801,6 +801,7 @@ const ControllerManager = (function() {
             strongMagnitude = 0.8 
         } = options;
         
+        // 1. 原生手柄震动
         const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
         
         for (const gamepad of gamepads) {
@@ -826,6 +827,22 @@ const ControllerManager = (function() {
             } else if (gamepad.hapticActuators && gamepad.hapticActuators.length > 0) {
                 // 旧版 Haptic Actuators API（Chrome 旧版本）
                 gamepad.hapticActuators[0].pulse(strongMagnitude, duration).catch(() => {});
+            }
+        }
+        
+        // 2. Web 控制器震动（通过 WebSocket 发送振动指令）
+        if (typeof GameData !== 'undefined' && GameData._ws && GameData._ws.readyState === WebSocket.OPEN) {
+            // 遍历所有 Web 控制器
+            for (const [controllerId, mappedPlayerId] of Object.entries(webControllerToPlayer)) {
+                // 如果指定了 playerId，只震动对应的控制器
+                if (playerId !== undefined && mappedPlayerId !== playerId) continue;
+                
+                // 发送振动消息给 Web 控制器
+                GameData._ws.send(JSON.stringify({
+                    type: 'vibrate',
+                    controller_id: parseInt(controllerId),
+                    duration: duration
+                }));
             }
         }
     }

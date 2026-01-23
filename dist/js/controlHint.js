@@ -22,15 +22,15 @@ const ControlHint = (function() {
     // 配置
     const FADE_DELAY = 3000;  // 无输入后多久开始淡出（毫秒）
     
-    // 按钮配置（颜色与控制器一致）
+    // 按钮配置（与加载界面一致：web方向汉字 + Xbox按钮 + 键盘键）
     const BUTTON_CONFIG = {
-        E: { label: '东', color: '#ff0066', key: 'K' },  // 红色 - K键
-        S: { label: '南', color: '#00ff00', key: 'J' },  // 绿色 - J键
-        W: { label: '西', color: '#00aaff', key: 'U' },  // 蓝色 - U键
-        N: { label: '北', color: '#ffff00', key: 'I' }   // 黄色 - I键
+        E: { webKey: '东', xboxKey: 'B', kbKey: 'K', color: '#f87171' },  // 红色
+        S: { webKey: '南', xboxKey: 'A', kbKey: 'J', color: '#4ade80' },  // 绿色
+        W: { webKey: '西', xboxKey: 'X', kbKey: 'U', color: '#3b82f6' },  // 蓝色
+        N: { webKey: '北', xboxKey: 'Y', kbKey: 'I', color: '#facc15' }   // 黄色
     };
     
-    // 创建样式
+    // 创建样式（与加载界面一致）
     function injectStyles() {
         if (document.getElementById('control-hint-styles')) return;
         
@@ -43,14 +43,13 @@ const ControlHint = (function() {
                 left: 50%;
                 transform: translateX(-50%);
                 display: flex;
-                gap: 24px;
-                padding: 10px 20px;
-                background: rgba(0, 0, 0, 0.3);
-                border: 1px solid rgba(255, 255, 255, 0.05);
-                border-radius: 20px;
-                backdrop-filter: blur(5px);
+                gap: 32px;
+                padding: 12px 24px;
+                background: rgba(0, 0, 0, 0.4);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: 16px;
+                backdrop-filter: blur(8px);
                 z-index: 1000;
-                font-family: 'JetBrains Mono', 'Consolas', monospace;
                 transition: opacity 0.5s ease, transform 0.5s ease;
                 opacity: 0;
                 pointer-events: none;
@@ -67,10 +66,9 @@ const ControlHint = (function() {
                 pointer-events: none;
             }
             
+            /* 每个操作的卡片 */
             .control-hint-item {
-                display: flex;
-                align-items: center;
-                gap: 8px;
+                text-align: center;
                 opacity: 0.4;
                 transition: opacity 0.2s;
             }
@@ -79,49 +77,55 @@ const ControlHint = (function() {
                 opacity: 1;
             }
             
+            /* 按钮组（web + xbox + 键盘） */
+            .control-hint-btns {
+                display: flex;
+                gap: 6px;
+                justify-content: center;
+                margin-bottom: 6px;
+            }
+            
+            /* 通用按钮样式 */
             .control-hint-btn {
                 width: 24px;
                 height: 24px;
-                border-radius: 50%;
                 border: 1.5px solid currentColor;
+                border-radius: 50%;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 12px;
+                box-shadow: 0 0 6px currentColor;
+            }
+            
+            /* Web手柄方向按钮（汉字） */
+            .control-hint-btn.web-btn {
                 font-family: 'Zhi Mang Xing', cursive;
-                box-shadow: 0 0 4px currentColor;
-                flex-shrink: 0;
-                opacity: 0.7;
+                font-size: 14px;
             }
             
-            .control-hint-text {
+            /* Xbox按钮 */
+            .control-hint-btn.xbox-btn {
+                font-family: 'Orbitron', sans-serif;
+                font-weight: 700;
                 font-size: 10px;
-                color: rgba(255, 255, 255, 0.5);
-                text-transform: uppercase;
-                letter-spacing: 1px;
-                white-space: nowrap;
             }
             
-            .control-hint-item.active .control-hint-text {
+            /* 键盘按键（圆角方形） */
+            .control-hint-btn.kb-btn {
+                font-family: 'Orbitron', sans-serif;
+                font-size: 10px;
+                border-radius: 4px;
+            }
+            
+            /* 功能名称 */
+            .control-hint-label {
+                font-size: 10px;
                 color: rgba(255, 255, 255, 0.7);
-                text-shadow: 0 0 5px currentColor;
+                letter-spacing: 1px;
             }
             
-            .control-hint-key {
-                font-size: 9px;
-                color: rgba(255, 255, 255, 0.35);
-                background: rgba(255, 255, 255, 0.08);
-                padding: 1px 5px;
-                border-radius: 3px;
-                margin-left: 4px;
-                font-family: 'JetBrains Mono', monospace;
-                border: 1px solid rgba(255, 255, 255, 0.1);
-            }
-            
-            .control-hint-item.active .control-hint-key {
-                color: rgba(255, 255, 255, 0.5);
-                background: rgba(255, 255, 255, 0.1);
-                border-color: rgba(255, 255, 255, 0.2);
+            .control-hint-item.active .control-hint-label {
+                color: rgba(255, 255, 255, 0.9);
             }
         `;
         document.head.appendChild(style);
@@ -144,26 +148,41 @@ const ControlHint = (function() {
             const item = document.createElement('div');
             item.className = 'control-hint-item';
             item.dataset.key = key;
-            item.style.color = config.color;
             
-            const btn = document.createElement('div');
-            btn.className = 'control-hint-btn';
-            btn.textContent = config.label;
+            // 按钮组
+            const btns = document.createElement('div');
+            btns.className = 'control-hint-btns';
+            btns.style.color = config.color;
             
-            const text = document.createElement('span');
-            text.className = 'control-hint-text';
-            text.textContent = '-';
+            // Web手柄按钮（方向汉字）
+            const webBtn = document.createElement('div');
+            webBtn.className = 'control-hint-btn web-btn';
+            webBtn.textContent = config.webKey;
             
-            const keyHint = document.createElement('span');
-            keyHint.className = 'control-hint-key';
-            keyHint.textContent = config.key;
+            // Xbox按钮
+            const xboxBtn = document.createElement('div');
+            xboxBtn.className = 'control-hint-btn xbox-btn';
+            xboxBtn.textContent = config.xboxKey;
             
-            item.appendChild(btn);
-            item.appendChild(text);
-            item.appendChild(keyHint);
+            // 键盘按键
+            const kbBtn = document.createElement('div');
+            kbBtn.className = 'control-hint-btn kb-btn';
+            kbBtn.textContent = config.kbKey;
+            
+            btns.appendChild(webBtn);
+            btns.appendChild(xboxBtn);
+            btns.appendChild(kbBtn);
+            
+            // 功能名称
+            const label = document.createElement('div');
+            label.className = 'control-hint-label';
+            label.textContent = '-';
+            
+            item.appendChild(btns);
+            item.appendChild(label);
             container.appendChild(item);
             
-            buttons[key] = { item, text, keyHint };
+            buttons[key] = { item, label };
         });
         
         document.body.appendChild(container);
@@ -209,10 +228,10 @@ const ControlHint = (function() {
             
             if (button) {
                 if (hint) {
-                    button.text.textContent = hint;
+                    button.label.textContent = hint;
                     button.item.classList.add('active');
                 } else {
-                    button.text.textContent = '-';
+                    button.label.textContent = '-';
                     button.item.classList.remove('active');
                 }
             }
@@ -289,10 +308,10 @@ const ControlHint = (function() {
         const button = buttons[key];
         if (button) {
             if (hint) {
-                button.text.textContent = hint;
+                button.label.textContent = hint;
                 button.item.classList.add('active');
             } else {
-                button.text.textContent = '-';
+                button.label.textContent = '-';
                 button.item.classList.remove('active');
             }
         }
