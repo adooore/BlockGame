@@ -309,9 +309,24 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(5px);
         }
+
+        /* 启动遮罩：防止开场动画前闪出主页一帧 */
+        #boot-cover {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 20000;
+            opacity: 1;
+            transition: opacity 0.2s ease;
+            pointer-events: none;
+        }
+        #boot-cover.hidden {
+            opacity: 0;
+        }
     </style>
 </head>
 <body>
+    <div id="boot-cover"></div>
 
     <div class="bg-grid"></div>
     <div id="blocks-container" class="floating-blocks"></div>
@@ -838,6 +853,24 @@
                                 <i data-lucide="check" class="w-5 h-5 text-cyan-400 display-check" style="display: none;"></i>
                             </button>
                         </div>
+
+                        <div class="flex items-center justify-between glass-panel rounded-xl p-4 mt-2">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                                    <i data-lucide="gauge" class="w-5 h-5 text-cyan-400"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-bold text-white">FPS 面板</div>
+                                    <div class="text-xs text-white/50">右上角帧率信息显示</div>
+                                </div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="fps-overlay-toggle" class="sr-only peer" onchange="onFpsOverlayToggle(this.checked)" checked>
+                                <div class="w-12 h-6 bg-white/20 rounded-full peer peer-checked:bg-cyan-500/50 transition-colors"></div>
+                                <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
+                            </label>
+                        </div>
+
                     </div>
                 </div>
 
@@ -891,11 +924,35 @@
     <script src="js/gameData.js"></script>
     <script src="js/loadingAnimations.js"></script>
     <script src="js/gameUtils.js"></script>
+    <script src="js/frameScheduler.js"></script>
     <script src="js/controlHint.js"></script>
     <script src="js/controllerManager.js"></script>
     <script src="js/soundManager.js"></script>
     
     <script>
+        function hideBootCover() {
+            const cover = document.getElementById('boot-cover');
+            if (!cover) return;
+            cover.classList.add('hidden');
+            setTimeout(() => {
+                if (cover.parentNode) cover.parentNode.removeChild(cover);
+            }, 220);
+        }
+
+        function loadFpsOverlayAndShow() {
+            const enabled = GameData.gameSettings.getFpsOverlayEnabled();
+            if (window.FpsOverlay) {
+                window.FpsOverlay.setVisible(enabled);
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = 'js/fpsOverlay.js';
+            script.onload = () => {
+                if (window.FpsOverlay) window.FpsOverlay.setVisible(enabled);
+            };
+            document.head.appendChild(script);
+        }
+
         // ==================== 开场动画（仅首次进入） ====================
         const hasPlayedIntro = sessionStorage.getItem('intro_played');
         
@@ -911,13 +968,18 @@
                     // 开场动画结束后播放背景音乐
                     SoundManager.playMainBGM();
                     SoundManager.initBGMAutoplay();
+                    loadFpsOverlayAndShow();
                 }
             });
+            // Intro 覆盖层接管后再移除黑幕，防止主页先闪一帧
+            requestAnimationFrame(() => hideBootCover());
         } else {
             // 非首次进入（从游戏返回），直接播放背景音乐
             console.log('[Intro] 跳过开场动画');
             SoundManager.playMainBGM();
             SoundManager.initBGMAutoplay();
+            loadFpsOverlayAndShow();
+            hideBootCover();
         }
         
         
@@ -1010,7 +1072,7 @@
                 id,
                 window.innerWidth * pos.x - 20,
                 window.innerHeight * pos.y - 20,
-                { size: 40, moveSpeed: 5 }
+                { size: 40, moveSpeed: 7.5 }
             );
             controllerInputs[id] = {
                 joystick: { x: 0, y: 0 },
@@ -1256,9 +1318,12 @@
         }
         
         let uiUpdateCounter = 0;
-        function previewGameLoop() {
+        let previewScheduler = null;
+
+        function previewUpdate(fixedDt) {
+            const dtScale = fixedDt * 60;
             // 定期更新控制器 UI（每 30 帧约 0.5 秒）
-            uiUpdateCounter++;
+            uiUpdateCounter += dtScale;
             if (uiUpdateCounter >= 30) {
                 uiUpdateCounter = 0;
                 updateControllerUI();
@@ -1295,7 +1360,7 @@
                     maxX: window.innerWidth,
                     minY: 0,
                     maxY: window.innerHeight
-                });
+                }, dtScale);
                 
                 // 检测落地（从跳跃中变为非跳跃，在 updatePlayer 中处理）
                 if (wasJumping && !players[id].isJumping) {
@@ -1308,14 +1373,24 @@
             
             // 检测换装区
             updateWardrobeHighlight();
-            
+        }
+
+        function previewRender() {
             // 绘制
             previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
             Object.values(players).forEach(p => {
                 drawPlayerSimple(previewCtx, p, true);
             });
-            
-            requestAnimationFrame(previewGameLoop);
+        }
+
+        function initPreviewScheduler() {
+            previewScheduler = FrameScheduler.create({
+                fixedHz: 60,
+                onUpdate: (fixedDt) => previewUpdate(fixedDt),
+                onRender: () => previewRender()
+            });
+            previewScheduler.start();
+            console.log('[Main] PreviewScheduler 启动: logic=60Hz, render=60');
         }
         
         // ===== 输入处理（通过 ControllerManager 抽象层）=====
@@ -1379,7 +1454,7 @@
         // 启动游戏循环
         resizePreviewCanvas();
         window.addEventListener('resize', resizePreviewCanvas);
-        previewGameLoop();
+        initPreviewScheduler();
         
         function updateControllerUI() {
             const keyboardEnabled = ControllerManager.isKeyboardEnabled();
@@ -1941,6 +2016,11 @@
             const displayMode = GameData.gameSettings.getDisplayMode();
             // 使用 false 参数避免重复保存
             setDisplayMode(displayMode, false);
+
+            const fpsEnabled = GameData.gameSettings.getFpsOverlayEnabled();
+            const fpsToggle = document.getElementById('fps-overlay-toggle');
+            if (fpsToggle) fpsToggle.checked = fpsEnabled;
+            if (window.FpsOverlay) window.FpsOverlay.setVisible(fpsEnabled);
         }
         
         // 初始化标签页切换
@@ -2122,9 +2202,18 @@
                 windowedBtn.querySelector('.display-check').style.display = 'block';
             }
         }
-        
+
         // 注意：使用 Tauri 应用级全屏，不需要监听浏览器的 fullscreenchange 事件
         // UI 更新由 setDisplayMode 函数直接处理
+
+        function onFpsOverlayToggle(enabled) {
+            const nextEnabled = !!enabled;
+            GameData.gameSettings.setFpsOverlayEnabled(nextEnabled);
+            try {
+                localStorage.setItem('blockgame_fps_overlay_enabled', nextEnabled ? '1' : '0');
+            } catch (e) {}
+            if (window.FpsOverlay) window.FpsOverlay.setVisible(nextEnabled);
+        }
         
         // 键盘控制切换
         function onKeyboardToggle(enabled) {

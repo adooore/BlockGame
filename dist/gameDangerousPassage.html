@@ -155,6 +155,8 @@
     <script src="js/waveSystem.js"></script>
     <script src="js/loadingAnimations.js"></script>
     <script src="js/gameUtils.js"></script>
+    <script src="js/frameScheduler.js"></script>
+    <script src="js/fpsOverlay.js"></script>
     <script src="js/player.js"></script>
     <script src="js/controllerManager.js"></script>
     <script src="js/soundManager.js"></script>
@@ -253,7 +255,7 @@
             gridSize: 12,
             tileGap: 6,
             playerSizeRatio: 0.5,
-            moveSpeed: 5,
+            moveSpeed: 7.5,
             dashMultiplier: 3.5,
             dashDuration: 8,
             dashCooldown: 30,
@@ -408,7 +410,7 @@
         }
         
         // 更新滚动墙壁位置
-        function updateRollingLines() {
+        function updateRollingLines(dtScale) {
             if (currentLevel !== 3) return;
             
             const { tileSize } = gridSys;
@@ -418,7 +420,7 @@
             
             rollingWalls.forEach(wall => {
                 // 移动墙壁（速度随波次增加）
-                wall.xOffset += wall.direction * currentSpeed;
+                wall.xOffset += wall.direction * currentSpeed * dtScale;
                 
                 // 循环滚动（当偏移超过一个格子宽度时重置）
                 if (wall.xOffset > totalTileSize) {
@@ -678,6 +680,17 @@
         // 基准 tileSize（用于速度缩放）
         const BASE_TILE_SIZE = 70;
         let scaledMoveSpeed = config.moveSpeed;
+        let frameScheduler = null;
+
+        function initFrameScheduler() {
+            frameScheduler = FrameScheduler.create({
+                fixedHz: 60,
+                onUpdate: (fixedDt) => update(fixedDt),
+                onRender: () => draw()
+            });
+            frameScheduler.start();
+            console.log('[FrameScheduler] 启动: logic=60Hz, render=60');
+        }
         
         // ==================== 玩家对象 ====================
         // 通过 ControllerManager 管理玩家，游戏只需关心玩家对象本身
@@ -1104,15 +1117,16 @@
         });
 
         // ==================== 游戏更新 ====================
-        function update() {
+        function update(fixedDt) {
             // 暂停检测（手柄 Start 按钮）
             PauseMenu.pollGamepadStart();
             if (PauseMenu.isPaused()) return;
             
             if (gameState !== 'playing') return;
+            const dtScale = fixedDt * 60;
             
             // 第三关：更新滚动红线
-            updateRollingLines();
+            updateRollingLines(dtScale);
 
             if (gameStartTime > 0) {
                 purePlayTime = (Date.now() - gameStartTime) / 1000;
@@ -1167,10 +1181,10 @@
                 const isPrecise = input && input.buttons && input.buttons.N;
                 const speedMult = isPrecise ? 0.5 : 1.0;
 
-                updatePlayerMovement(p, speedMult);
+                updatePlayerMovement(p, speedMult, dtScale);
             });
 
-            if (invincibleTimer > 0) invincibleTimer--;
+            if (invincibleTimer > 0) invincibleTimer = Math.max(0, invincibleTimer - dtScale);
             
             // 碰撞检测 - 遍历所有玩家
             Object.values(players).forEach(p => {
@@ -1183,29 +1197,29 @@
                 checkPlayerCollision(p);
             });
 
-            gridSys.grid.forEach(t => t.pulse += 0.05);
+            gridSys.grid.forEach(t => t.pulse += 0.05 * dtScale);
             updateDebugInfo();
             checkAndRefresh();
         }
         
-        function updatePlayerMovement(p, speedMult) {
+        function updatePlayerMovement(p, speedMult, dtScale) {
             const { gridX, gridY, gridTotalDim, tileSize } = gridSys;
             
             const isDashing = p.dashTimer > 0;
             if (isDashing) {
-                p.x += p.vx * scaledMoveSpeed * config.dashMultiplier * speedMult;
-                p.y += p.vy * scaledMoveSpeed * config.dashMultiplier * speedMult;
-                p.dashTimer--;
+                p.x += p.vx * scaledMoveSpeed * config.dashMultiplier * speedMult * dtScale;
+                p.y += p.vy * scaledMoveSpeed * config.dashMultiplier * speedMult * dtScale;
+                p.dashTimer = Math.max(0, p.dashTimer - dtScale);
                 } else {
-                p.x += p.vx * scaledMoveSpeed * speedMult;
-                p.y += p.vy * scaledMoveSpeed * speedMult;
+                p.x += p.vx * scaledMoveSpeed * speedMult * dtScale;
+                p.y += p.vy * scaledMoveSpeed * speedMult * dtScale;
                 }
-            if (p.dashCooldown > 0) p.dashCooldown--;
+            if (p.dashCooldown > 0) p.dashCooldown = Math.max(0, p.dashCooldown - dtScale);
 
             if (p.isJumping) {
-                p.z += p.vz;
+                p.z += p.vz * dtScale;
                 const effectiveGravity = p.isJumpHeld ? config.gravity * 0.5 : config.gravity;
-                p.vz -= effectiveGravity;
+                p.vz -= effectiveGravity * dtScale;
                 if (p.z <= 0) { 
                     p.z = 0; p.vz = 0; p.isJumping = false; p.isJumpHeld = false;
                     SoundManager.playLand();
@@ -1222,7 +1236,7 @@
             p.y = Math.max(gridY, Math.min(p.y, gridY + gridTotalDim - p.height));
 
             if (p.ghostMarker) {
-                p.ghostMarker.timer--;
+                p.ghostMarker.timer = Math.max(0, p.ghostMarker.timer - dtScale);
                 p.ghostMarker.opacity = p.ghostMarker.timer / 60;
                 if (p.ghostMarker.timer <= 0) p.ghostMarker = null;
                 }
@@ -1310,7 +1324,6 @@
                 checkMenuInput();
             }
             
-            requestAnimationFrame(() => { update(); draw(); });
         }
         
         function drawPlayer(p) {
@@ -1581,7 +1594,7 @@
         
         resize();
         resetGame();
-        draw();
+        initFrameScheduler();
         
         // ==================== 音频（使用 SoundManager 统一管理）====================
         SoundManager.preload();

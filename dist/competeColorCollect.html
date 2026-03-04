@@ -157,6 +157,8 @@
     <script src="js/waveSystem.js"></script>
     <script src="js/loadingAnimations.js"></script>
     <script src="js/gameUtils.js"></script>
+    <script src="js/frameScheduler.js"></script>
+    <script src="js/fpsOverlay.js"></script>
     <script src="js/player.js"></script>
     <script src="js/controllerManager.js"></script>
     <script src="js/soundManager.js"></script>
@@ -257,7 +259,7 @@
             gridSize: 12,
             tileGap: 6,
             playerSizeRatio: 0.5,
-            moveSpeed: 5,
+            moveSpeed: 7.5,
             dashMultiplier: 3.5,
             dashDuration: 8,
             dashCooldown: 30,
@@ -345,6 +347,17 @@
         // 基准 tileSize（用于速度缩放）
         const BASE_TILE_SIZE = 70;
         let scaledMoveSpeed = config.moveSpeed;
+        let frameScheduler = null;
+
+        function initFrameScheduler() {
+            frameScheduler = FrameScheduler.create({
+                fixedHz: 60,
+                onUpdate: (fixedDt) => update(fixedDt),
+                onRender: () => draw()
+            });
+            frameScheduler.start();
+            console.log('[FrameScheduler] 启动: logic=60Hz, render=60');
+        }
         
         // ==================== 玩家对象 ====================
         // 通过 ControllerManager 管理玩家，游戏只需关心玩家对象本身
@@ -782,12 +795,13 @@
         });
 
         // ==================== 游戏更新 ====================
-        function update() {
+        function update(fixedDt) {
             // 暂停检测（手柄 Start 按钮）
             PauseMenu.pollGamepadStart();
             if (PauseMenu.isPaused()) return;
             
             if (gameState !== 'playing') return;
+            const dtScale = fixedDt * 60;
 
             // 竞技模式不显示时间，只需要更新计分板
             if (gameStartTime > 0) {
@@ -843,17 +857,17 @@
                 const isPrecise = input && input.buttons && input.buttons.N;
                 const speedMult = isPrecise ? 0.5 : 1.0;
 
-                updatePlayerMovement(p, speedMult);
+                updatePlayerMovement(p, speedMult, dtScale);
             });
 
-            if (invincibleTimer > 0) invincibleTimer--;
+            if (invincibleTimer > 0) invincibleTimer = Math.max(0, invincibleTimer - dtScale);
 
             // 碰撞检测和复活 - 遍历所有玩家
             let needLeaderboardUpdate = false;
             Object.values(players).forEach(p => {
                 checkPlayerCollision(p);
                 if (p.isDead) {
-                    updatePlayerRevive(p);
+                    updatePlayerRevive(p, dtScale);
                     // 更新复活倒计时显示
                     const reviveEl = document.getElementById(`revive-${p.id}`);
                     if (reviveEl) {
@@ -866,29 +880,29 @@
             // 有玩家复活时更新排行榜
             if (needLeaderboardUpdate) CompeteScoreboard.updateLeaderboard(gameState);
 
-            gridSys.grid.forEach(t => t.pulse += 0.05);
+            gridSys.grid.forEach(t => t.pulse += 0.05 * dtScale);
             updateDebugInfo();
             checkAndRefresh();
         }
         
-        function updatePlayerMovement(p, speedMult) {
+        function updatePlayerMovement(p, speedMult, dtScale) {
             const { gridX, gridY, gridTotalDim, tileSize } = gridSys;
             
             const isDashing = p.dashTimer > 0;
             if (isDashing) {
-                p.x += p.vx * scaledMoveSpeed * config.dashMultiplier * speedMult;
-                p.y += p.vy * scaledMoveSpeed * config.dashMultiplier * speedMult;
-                p.dashTimer--;
+                p.x += p.vx * scaledMoveSpeed * config.dashMultiplier * speedMult * dtScale;
+                p.y += p.vy * scaledMoveSpeed * config.dashMultiplier * speedMult * dtScale;
+                p.dashTimer = Math.max(0, p.dashTimer - dtScale);
                 } else {
-                p.x += p.vx * scaledMoveSpeed * speedMult;
-                p.y += p.vy * scaledMoveSpeed * speedMult;
+                p.x += p.vx * scaledMoveSpeed * speedMult * dtScale;
+                p.y += p.vy * scaledMoveSpeed * speedMult * dtScale;
                 }
-            if (p.dashCooldown > 0) p.dashCooldown--;
+            if (p.dashCooldown > 0) p.dashCooldown = Math.max(0, p.dashCooldown - dtScale);
 
             if (p.isJumping) {
-                p.z += p.vz;
+                p.z += p.vz * dtScale;
                 const effectiveGravity = p.isJumpHeld ? config.gravity * 0.5 : config.gravity;
-                p.vz -= effectiveGravity;
+                p.vz -= effectiveGravity * dtScale;
                 if (p.z <= 0) { 
                     p.z = 0; p.vz = 0; p.isJumping = false; p.isJumpHeld = false;
                     SoundManager.playLand();
@@ -905,7 +919,7 @@
             p.y = Math.max(gridY, Math.min(p.y, gridY + gridTotalDim - p.height));
 
             if (p.ghostMarker) {
-                p.ghostMarker.timer--;
+                p.ghostMarker.timer = Math.max(0, p.ghostMarker.timer - dtScale);
                 p.ghostMarker.opacity = p.ghostMarker.timer / 60;
                 if (p.ghostMarker.timer <= 0) p.ghostMarker = null;
                 }
@@ -981,10 +995,10 @@
         /**
          * 更新玩家复活状态
          */
-        function updatePlayerRevive(p) {
+        function updatePlayerRevive(p, dtScale) {
             if (!p.isDead) return;
             
-            p.reviveTimer--;
+            p.reviveTimer = Math.max(0, p.reviveTimer - dtScale);
             if (p.reviveTimer <= 0) {
                 // 复活
                 p.isDead = false;
@@ -1041,7 +1055,6 @@
                 checkMenuInput();
             }
             
-            requestAnimationFrame(() => { update(); draw(); });
         }
         
         function drawPlayer(p) {
@@ -1338,7 +1351,7 @@
         
         resize();
         resetGame();
-        draw();
+        initFrameScheduler();
         
         // ==================== 音频（使用 SoundManager 统一管理）====================
         SoundManager.preload();

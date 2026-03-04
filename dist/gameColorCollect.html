@@ -21,8 +21,8 @@
             touch-action: none;
         }
 
-        /* Scanlines Effect */
-        body::after {
+        /* Scanlines Effect（默认关闭，按需开启） */
+        body.scanlines::after {
             content: " ";
             position: absolute;
             top: 0; left: 0; bottom: 0; right: 0;
@@ -147,6 +147,29 @@
             0%, 100% { opacity: 0.3; transform: scale(1); }
             50% { opacity: 0.6; transform: scale(1.02); }
         }
+
+        #scanline-panel {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            z-index: 30;
+            pointer-events: auto;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .scanline-toggle-btn {
+            border: 1px solid var(--neon-cyan);
+            background: rgba(0, 0, 0, 0.65);
+            color: var(--neon-cyan);
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            letter-spacing: 0.08em;
+            box-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+        }
+        .scanline-toggle-btn.active {
+            background: rgba(0, 242, 255, 0.15);
+        }
     </style>
     <!-- 引入模块 -->
     <script src="js/controlHint.js"></script>
@@ -155,6 +178,8 @@
     <script src="js/waveSystem.js"></script>
     <script src="js/loadingAnimations.js"></script>
     <script src="js/gameUtils.js"></script>
+    <script src="js/frameScheduler.js"></script>
+    <script src="js/fpsOverlay.js"></script>
     <script src="js/player.js"></script>
     <script src="js/controllerManager.js"></script>
     <script src="js/soundManager.js"></script>
@@ -219,6 +244,10 @@
 
     <!-- 调试面板由 debugPanel.js 模块动态创建 -->
 
+    <div id="scanline-panel">
+        <button id="scanline-toggle-btn" class="scanline-toggle-btn">扫描线：关</button>
+    </div>
+
     <canvas id="gameCanvas"></canvas>
 
     <script>
@@ -249,17 +278,20 @@
         });
         
         // ==================== 游戏配置 ====================
+        // 玩家基础运动参数统一来源于 player.js，避免双维护
+        const PLAYER_DEFAULTS = DEFAULT_CONFIG;
+
         const config = {
             gridSize: 12,
             tileGap: 6,
             playerSizeRatio: 0.5,
-            moveSpeed: 5,
-            dashMultiplier: 3.5,
-            dashDuration: 8,
-            dashCooldown: 30,
-            jumpPower: 14,
-            gravity: 1.0,
-            trailLength: 6,
+            moveSpeed: PLAYER_DEFAULTS.moveSpeed,
+            dashMultiplier: PLAYER_DEFAULTS.dashMultiplier,
+            dashDuration: PLAYER_DEFAULTS.dashDuration,
+            dashCooldown: PLAYER_DEFAULTS.dashCooldown,
+            jumpPower: PLAYER_DEFAULTS.jumpPower,
+            gravity: PLAYER_DEFAULTS.gravity,
+            trailLength: PLAYER_DEFAULTS.trailLength,
             maxWaves: 12,
             initialCyan: 12,
             cyanDecrement: 1,
@@ -267,9 +299,9 @@
             initialPink: 5,
             pinkIncrement: 2,
             maxPink: 25,
-            colors: { bg: '#050505', grid: '#1a1a1a', cyan: '#00f2ff', pink: '#ff00ff' },
+            colors: { bg: '#050505', grid: '#1a1a1a', cyan: '#22d3ee', pink: '#d946ef' },
             collectibleColors: ['cyan', 'yellow', 'purple', 'orange'],
-            colorHex: { cyan: '#00f2ff', yellow: '#facc15', purple: '#a855f7', orange: '#fb923c', pink: '#ff00ff', red: '#ff4444', gray: '#888888' },
+            colorHex: { cyan: '#22d3ee', yellow: '#facc15', purple: '#a78bfa', orange: '#fb923c', pink: '#d946ef', red: '#ef4444', gray: '#888888' },
             colorNames: { cyan: '青色', yellow: '黄色', purple: '紫色', orange: '橙色', pink: '粉色', red: '红色', gray: '灰色' },
             wrongColorPenalty: 5,
             dangerColors: ['pink', 'red', 'gray'],
@@ -278,6 +310,8 @@
             // 第三关：所有颜色统一池，可以互换
             allColors: ['cyan', 'yellow', 'purple', 'orange', 'pink', 'red', 'gray']
         };
+
+        const SCANLINE_STORAGE_KEY = 'colorCollectScanlineEnabled';
         
         // ==================== 关卡配置 ====================
         // currentLevel 和 urlParams 已在上方定义
@@ -313,7 +347,19 @@
         let width, height;
         
         // ==================== 初始化模块 ====================
-        const gridSys = GridSystem.create({ gridSize: config.gridSize, tileGap: config.tileGap, colors: config.colors });
+        const gridSys = GridSystem.create({
+            gridSize: config.gridSize,
+            tileGap: config.tileGap,
+            colors: config.colors,
+            visual: {
+                glowBase: 8.7,
+                glowPulse: 3.5,
+                normalLineWidth: 2.0,
+                highlightLineWidth: 3.3,
+                normalFillAlpha: 0.10,
+                highlightFillAlpha: 0.18
+            }
+        });
         const waveSys = WaveSystem.create({
             maxWaves: config.maxWaves,
             initialTarget: config.initialCyan,
@@ -330,9 +376,38 @@
         // 游戏界面（使用抽象层）
         let gameScreens = null;   // 游戏结束屏幕
         
-        // 基准 tileSize（用于速度缩放）
-        const BASE_TILE_SIZE = 70;
+        // 速度口径与主页面保持一致，不随 tileSize 自动缩放
         let scaledMoveSpeed = config.moveSpeed;
+        let frameScheduler = null;
+
+        const scanlineToggleBtn = document.getElementById('scanline-toggle-btn');
+        let scanlineEnabled = false;
+
+        function initScanlineToggle() {
+            try { scanlineEnabled = localStorage.getItem(SCANLINE_STORAGE_KEY) === '1'; } catch (e) {}
+            setScanlineEnabled(scanlineEnabled);
+            scanlineToggleBtn.addEventListener('click', () => {
+                setScanlineEnabled(!scanlineEnabled);
+            });
+        }
+
+        function setScanlineEnabled(enabled) {
+            scanlineEnabled = !!enabled;
+            document.body.classList.toggle('scanlines', scanlineEnabled);
+            scanlineToggleBtn.classList.toggle('active', scanlineEnabled);
+            scanlineToggleBtn.textContent = `扫描线：${scanlineEnabled ? '开' : '关'}`;
+            try { localStorage.setItem(SCANLINE_STORAGE_KEY, scanlineEnabled ? '1' : '0'); } catch (e) {}
+        }
+
+        function initFrameScheduler() {
+            frameScheduler = FrameScheduler.create({
+                fixedHz: 60,
+                onUpdate: (fixedDt) => update(fixedDt),
+                onRender: () => draw()
+            });
+            frameScheduler.start();
+            console.log('[FrameScheduler] 启动: logic=60Hz, render=60');
+        }
         
         // ==================== 玩家对象 ====================
         // 通过 ControllerManager 管理玩家，游戏只需关心玩家对象本身
@@ -442,10 +517,10 @@
             
             box.style.borderColor = hex;
             indicator.style.background = hex;
-            indicator.style.boxShadow = `0 0 20px ${hex}`;
+            indicator.style.boxShadow = `0 0 12px ${hex}`;
             nameEl.textContent = name;
             nameEl.style.color = hex;
-            nameEl.style.textShadow = `0 0 10px ${hex}`;
+            nameEl.style.textShadow = `0 0 6px ${hex}`;
         }
         
         function updateDangerColorUI() {
@@ -458,7 +533,7 @@
             
             box.style.borderColor = hex;
             indicator.style.background = hex;
-            indicator.style.boxShadow = `0 0 15px ${hex}`;
+            indicator.style.boxShadow = `0 0 10px ${hex}`;
             nameEl.textContent = name;
             nameEl.style.color = hex;
         }
@@ -644,7 +719,7 @@
             canvas.height = height;
             
             const dims = gridSys.resize(width, height);
-            scaledMoveSpeed = config.moveSpeed * (dims.tileSize / BASE_TILE_SIZE);
+            scaledMoveSpeed = config.moveSpeed;
             
             // 更新所有玩家的大小
             const allPlayers = ControllerManager.getPlayers();
@@ -771,12 +846,13 @@
         });
 
         // ==================== 游戏更新 ====================
-        function update() {
+        function update(fixedDt) {
             // 暂停检测（手柄 Start 按钮）
             PauseMenu.pollGamepadStart();
             if (PauseMenu.isPaused()) return;
             
             if (gameState !== 'playing') return;
+            const dtScale = fixedDt * 60;
 
             if (gameStartTime > 0) {
                 purePlayTime = (Date.now() - gameStartTime) / 1000;
@@ -831,39 +907,40 @@
                 const isPrecise = input && input.buttons && input.buttons.N;
                 const speedMult = isPrecise ? 0.5 : 1.0;
 
-                updatePlayerMovement(p, speedMult);
+                updatePlayerMovement(p, speedMult, dtScale);
             });
 
-            if (invincibleTimer > 0) invincibleTimer--;
+            if (invincibleTimer > 0) invincibleTimer = Math.max(0, invincibleTimer - dtScale);
 
             // 碰撞检测 - 遍历所有玩家
             Object.values(players).forEach(p => {
                 checkPlayerCollision(p);
             });
 
-            gridSys.grid.forEach(t => t.pulse += 0.05);
+            gridSys.grid.forEach(t => t.pulse += 0.05 * dtScale);
             updateDebugInfo();
             checkAndRefresh();
         }
         
-        function updatePlayerMovement(p, speedMult) {
+        function updatePlayerMovement(p, speedMult, dtScale) {
             const { gridX, gridY, gridTotalDim, tileSize } = gridSys;
             
             const isDashing = p.dashTimer > 0;
             if (isDashing) {
-                p.x += p.vx * scaledMoveSpeed * config.dashMultiplier * speedMult;
-                p.y += p.vy * scaledMoveSpeed * config.dashMultiplier * speedMult;
-                p.dashTimer--;
+                p.x += p.vx * scaledMoveSpeed * config.dashMultiplier * speedMult * dtScale;
+                p.y += p.vy * scaledMoveSpeed * config.dashMultiplier * speedMult * dtScale;
+                p.dashTimer = Math.max(0, p.dashTimer - dtScale);
                 } else {
-                p.x += p.vx * scaledMoveSpeed * speedMult;
-                p.y += p.vy * scaledMoveSpeed * speedMult;
+                p.x += p.vx * scaledMoveSpeed * speedMult * dtScale;
+                p.y += p.vy * scaledMoveSpeed * speedMult * dtScale;
                 }
-            if (p.dashCooldown > 0) p.dashCooldown--;
+            if (p.dashCooldown > 0) p.dashCooldown = Math.max(0, p.dashCooldown - dtScale);
 
             if (p.isJumping) {
-                p.z += p.vz;
-                const effectiveGravity = p.isJumpHeld ? config.gravity * 0.5 : config.gravity;
-                p.vz -= effectiveGravity;
+                p.z += p.vz * dtScale;
+                // 仅在上升阶段允许轻微“按住延长跳跃”，避免整段滞空过长
+                const effectiveGravity = config.gravity;
+                p.vz -= effectiveGravity * dtScale;
                 if (p.z <= 0) { 
                     p.z = 0; p.vz = 0; p.isJumping = false; p.isJumpHeld = false;
                     SoundManager.playLand();
@@ -880,7 +957,7 @@
             p.y = Math.max(gridY, Math.min(p.y, gridY + gridTotalDim - p.height));
 
             if (p.ghostMarker) {
-                p.ghostMarker.timer--;
+                p.ghostMarker.timer = Math.max(0, p.ghostMarker.timer - dtScale);
                 p.ghostMarker.opacity = p.ghostMarker.timer / 60;
                 if (p.ghostMarker.timer <= 0) p.ghostMarker = null;
                 }
@@ -964,7 +1041,6 @@
                 checkMenuInput();
             }
             
-            requestAnimationFrame(() => { update(); draw(); });
         }
         
         function drawPlayer(p) {
@@ -1018,7 +1094,7 @@
             const isInvincible = invincibleTimer > 0;
             if (isInvincible) ctx.globalAlpha = 0.5 + Math.sin(Date.now() / 50) * 0.5;
 
-            ctx.shadowBlur = 15 + Math.sin(Date.now()/100) * 5 + (p.z/5);
+            ctx.shadowBlur = 10 + Math.sin(Date.now()/100) * 3 + (p.z/6);
             ctx.shadowColor = isInvincible ? '#ffffff' : p.colors.glow;
             ctx.fillStyle = p.colors.main;
             ctx.fillRect(drawX, drawY, drawW, drawH);
@@ -1122,6 +1198,7 @@
         window.addEventListener('resize', resize);
         gridSys.initGrid();
         initLevelUI();
+        initScanlineToggle();
         
         // 初始化游戏结束屏幕（使用抽象层，支持复用）
         gameScreens = GameUtils.createGameScreens({
@@ -1227,7 +1304,7 @@
         
         resize();
         resetGame();
-        draw();
+        initFrameScheduler();
         
         // ==================== 音频（使用 SoundManager 统一管理）====================
         SoundManager.preload();

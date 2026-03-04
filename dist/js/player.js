@@ -14,12 +14,13 @@ const PLAYER_COLORS = {
 // 默认配置
 const DEFAULT_CONFIG = {
     size: 40,
-    moveSpeed: 5,
+    // 与固定步长更新匹配后的默认体感参数
+    moveSpeed: 10.5,
     dashMultiplier: 3.5,
     dashDuration: 8,
     dashCooldown: 30,
-    jumpPower: 14,
-    gravity: 1.0,
+    jumpPower: 16,
+    gravity: 1.8,
     trailLength: 6  // 减少轨迹长度
 };
 
@@ -127,29 +128,31 @@ function handlePlayerInput(player, input, callbacks = {}) {
  * 更新玩家状态
  * @param {object} player - 玩家对象
  * @param {object} bounds - 边界 { minX, maxX, minY, maxY }
+ * @param {number} dtScale - 时间缩放（60Hz=1）
  */
-function updatePlayer(player, bounds = null) {
+function updatePlayer(player, bounds = null, dtScale = 1) {
     if (!player || !player.active) return;
     
     const config = player.config;
+    const scale = Number.isFinite(dtScale) && dtScale > 0 ? dtScale : 1;
     
     // 冲刺移动
     const isDashing = player.dashTimer > 0;
     if (isDashing) {
-        player.x += player.vx * config.moveSpeed * config.dashMultiplier;
-        player.y += player.vy * config.moveSpeed * config.dashMultiplier;
-        player.dashTimer--;
+        player.x += player.vx * config.moveSpeed * config.dashMultiplier * scale;
+        player.y += player.vy * config.moveSpeed * config.dashMultiplier * scale;
+        player.dashTimer = Math.max(0, player.dashTimer - scale);
     } else {
-        player.x += player.vx * config.moveSpeed;
-        player.y += player.vy * config.moveSpeed;
+        player.x += player.vx * config.moveSpeed * scale;
+        player.y += player.vy * config.moveSpeed * scale;
     }
     
-    if (player.dashCooldown > 0) player.dashCooldown--;
+    if (player.dashCooldown > 0) player.dashCooldown = Math.max(0, player.dashCooldown - scale);
     
     // 跳跃逻辑
     if (player.isJumping) {
-        player.z += player.vz;
-        player.vz -= config.gravity;
+        player.z += player.vz * scale;
+        player.vz -= config.gravity * scale;
         if (player.z <= 0) {
             player.z = 0;
             player.vz = 0;
@@ -175,7 +178,7 @@ function updatePlayer(player, bounds = null) {
     
     // 更新残影标记
     if (player.ghostMarker) {
-        player.ghostMarker.timer--;
+        player.ghostMarker.timer = Math.max(0, player.ghostMarker.timer - scale);
         player.ghostMarker.opacity = player.ghostMarker.timer / 60;
         if (player.ghostMarker.timer <= 0) {
             player.ghostMarker = null;

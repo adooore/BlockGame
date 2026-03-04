@@ -364,7 +364,7 @@ const GameData = {
             this._setSync({ displayMode: mode });
             console.log('[GameData] 显示模式:', mode);
         },
-        
+
         /**
          * 获取所有设置
          */
@@ -373,8 +373,27 @@ const GameData = {
                 controllerMode: this.getControllerMode(),
                 difficulty: this.getDifficulty(),
                 displayMode: this.getDisplayMode(),
+                fpsOverlayEnabled: this.getFpsOverlayEnabled(),
                 volume: this.getVolume()
             };
+        },
+
+        /**
+         * 获取 FPS 面板显示开关
+         * @returns {boolean} 默认 true
+         */
+        getFpsOverlayEnabled() {
+            const val = this._getSync().fpsOverlayEnabled;
+            return val !== false;
+        },
+
+        /**
+         * 设置 FPS 面板显示开关
+         * @param {boolean} enabled
+         */
+        setFpsOverlayEnabled(enabled) {
+            this._setSync({ fpsOverlayEnabled: !!enabled });
+            console.log('[GameData] FPS 面板:', enabled ? '显示' : '隐藏');
         },
         
         /**

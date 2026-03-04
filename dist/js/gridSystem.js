@@ -17,6 +17,15 @@ const GridSystem = (function() {
         const config = {
             gridSize: options.gridSize || 12,
             tileGap: options.tileGap || 6,
+            visual: {
+                glowBase: 10,
+                glowPulse: 5,
+                normalLineWidth: 2,
+                highlightLineWidth: 4,
+                normalFillAlpha: 0.1,
+                highlightFillAlpha: 0.2,
+                ...(options.visual || {})
+            },
             colors: {
                 bg: '#050505',
                 grid: '#1a1a1a',
@@ -184,14 +193,14 @@ const GridSystem = (function() {
                     ctx.strokeRect(x, y, tileSize, tileSize);
                 } else {
                     const { color, isHighlight } = getColorFn(tile);
-                    const glow = 10 + Math.sin(tile.pulse) * 5;
+                    const glow = config.visual.glowBase + Math.sin(tile.pulse) * config.visual.glowPulse;
                     
                     ctx.shadowBlur = glow;
                     ctx.shadowColor = color;
                     ctx.strokeStyle = color;
-                    ctx.lineWidth = isHighlight ? 4 : 2;
+                    ctx.lineWidth = isHighlight ? config.visual.highlightLineWidth : config.visual.normalLineWidth;
                     ctx.strokeRect(x, y, tileSize, tileSize);
-                    ctx.globalAlpha = isHighlight ? 0.2 : 0.1;
+                    ctx.globalAlpha = isHighlight ? config.visual.highlightFillAlpha : config.visual.normalFillAlpha;
                     ctx.fillStyle = color;
                     ctx.fillRect(x, y, tileSize, tileSize);
                     ctx.globalAlpha = 1.0;
