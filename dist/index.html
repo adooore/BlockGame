@@ -871,6 +871,23 @@
                             </label>
                         </div>
 
+                        <div class="p-4 rounded-xl bg-white/5 border border-white/10">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 rounded-lg bg-fuchsia-500/20 flex items-center justify-center">
+                                    <i data-lucide="sparkles" class="w-5 h-5 text-fuchsia-400"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="text-sm font-bold text-white">角色拖尾</div>
+                                    <div class="text-xs text-white/50">调整移动拖尾长度，`0` 为关闭</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <button type="button" class="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/15 text-white text-xl leading-none transition-colors" onclick="stepTrailLength(-1)">-</button>
+                                <input type="number" id="trail-length-input" min="0" max="1000" step="1" value="3" class="flex-1 h-10 px-3 rounded-lg bg-black/30 border border-white/10 text-white text-center font-mono focus:outline-none focus:border-cyan-500" onchange="onTrailLengthInputChange(this.value)" oninput="onTrailLengthInputChange(this.value, true)">
+                                <button type="button" class="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/15 text-white text-xl leading-none transition-colors" onclick="stepTrailLength(1)">+</button>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
 
@@ -1071,8 +1088,7 @@
             players[id] = createPlayer(
                 id,
                 window.innerWidth * pos.x - 20,
-                window.innerHeight * pos.y - 20,
-                { size: 40, moveSpeed: 7.5 }
+                window.innerHeight * pos.y - 20
             );
             controllerInputs[id] = {
                 joystick: { x: 0, y: 0 },
@@ -1331,41 +1347,24 @@
             
             // 更新所有玩家
             Object.keys(players).forEach(id => {
-                // 记录输入处理前的状态（用于检测冲刺开始）
-                const wasDashing = players[id].dashTimer > 0;
-                const wasJumping = players[id].isJumping;
-                
-                // 从 ControllerManager 获取统一的输入（P1 包含键盘，所有玩家包含手柄）
                 const input = ControllerManager.getInput(parseInt(id)) || controllerInputs[id];
-                if (input) {
-                    handlePlayerInput(players[id], input, {
-                        onConfirm: () => confirmButtonClick(id),  // W 键确认
-                        onCancel: handleBack                       // N 键返回
-                    });
-                }
-                
-                // 检测冲刺开始（dashTimer 从 0 变为 > 0，在 handlePlayerInput 中设置）
-                const isDashing = players[id].dashTimer > 0;
-                if (!wasDashing && isDashing) {
-                    SoundManager.playDash();
-                }
-                
-                // 检测起跳（从非跳跃变为跳跃，在 handlePlayerInput 中设置）
-                if (!wasJumping && players[id].isJumping) {
-                    SoundManager.playJump();
-                }
-                
-                updatePlayer(players[id], {
-                    minX: 0,
-                    maxX: window.innerWidth,
-                    minY: 0,
-                    maxY: window.innerHeight
-                }, dtScale);
-                
-                // 检测落地（从跳跃中变为非跳跃，在 updatePlayer 中处理）
-                if (wasJumping && !players[id].isJumping) {
-                    SoundManager.playLand();
-                }
+                handlePlayerInput(players[id], input, {
+                    onConfirm: () => confirmButtonClick(id),
+                    onCancel: handleBack,
+                    onJump: () => SoundManager.playJump(),
+                    onDash: () => SoundManager.playDash()
+                });
+
+                updatePlayerMovement(players[id], {
+                    dtScale,
+                    bounds: {
+                        minX: 0,
+                        maxX: window.innerWidth,
+                        minY: 0,
+                        maxY: window.innerHeight
+                    },
+                    onLand: () => SoundManager.playLand()
+                });
             });
             
             // 检测按钮碰撞
@@ -1375,11 +1374,11 @@
             updateWardrobeHighlight();
         }
 
-        function previewRender() {
+        function previewRender(alpha = 1) {
             // 绘制
             previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
             Object.values(players).forEach(p => {
-                drawPlayerSimple(previewCtx, p, true);
+                drawPlayerSimple(previewCtx, p, true, alpha);
             });
         }
 
@@ -1387,7 +1386,7 @@
             previewScheduler = FrameScheduler.create({
                 fixedHz: 60,
                 onUpdate: (fixedDt) => previewUpdate(fixedDt),
-                onRender: () => previewRender()
+                onRender: (alpha) => previewRender(alpha)
             });
             previewScheduler.start();
             console.log('[Main] PreviewScheduler 启动: logic=60Hz, render=60');
@@ -2021,6 +2020,10 @@
             const fpsToggle = document.getElementById('fps-overlay-toggle');
             if (fpsToggle) fpsToggle.checked = fpsEnabled;
             if (window.FpsOverlay) window.FpsOverlay.setVisible(fpsEnabled);
+
+            const trailLength = GameData.gameSettings.getTrailLength();
+            const trailInput = document.getElementById('trail-length-input');
+            if (trailInput) trailInput.value = trailLength;
         }
         
         // 初始化标签页切换
@@ -2213,6 +2216,34 @@
                 localStorage.setItem('blockgame_fps_overlay_enabled', nextEnabled ? '1' : '0');
             } catch (e) {}
             if (window.FpsOverlay) window.FpsOverlay.setVisible(nextEnabled);
+        }
+
+        function applyTrailLengthToActivePlayers(length) {
+            const nextLength = Math.max(0, Math.min(1000, Math.round(Number(length) || 0)));
+            Object.values(players).forEach(player => {
+                syncPlayerMovementConfig(player, player.width, { trailLength: nextLength });
+                if (nextLength === 0) player.trail = [];
+            });
+        }
+
+        function setTrailLengthValue(value, syncInput = true) {
+            const nextLength = Math.max(0, Math.min(1000, Math.round(Number(value) || 0)));
+            const trailInput = document.getElementById('trail-length-input');
+            if (syncInput && trailInput) trailInput.value = nextLength;
+            GameData.gameSettings.setTrailLength(nextLength);
+            applyTrailLengthToActivePlayers(nextLength);
+        }
+
+        function onTrailLengthInputChange(value, live = false) {
+            const parsed = Number(value);
+            if (live && !Number.isFinite(parsed)) return;
+            setTrailLengthValue(parsed);
+        }
+
+        function stepTrailLength(delta) {
+            const trailInput = document.getElementById('trail-length-input');
+            const current = trailInput ? Number(trailInput.value) : GameData.gameSettings.getTrailLength();
+            setTrailLengthValue((Number.isFinite(current) ? current : 0) + delta);
         }
         
         // 键盘控制切换

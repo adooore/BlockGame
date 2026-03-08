@@ -19,9 +19,6 @@ const FrameScheduler = (function() {
         const fixedHz = Number(options.fixedHz) > 0 ? Number(options.fixedHz) : 60;
         const fixedStepSec = 1 / fixedHz;
         const fixedStepMs = fixedStepSec * 1000;
-        const renderIntervalMs = 1000 / 60;
-        // 给予一点渲染判定容差，减少 60Hz 屏幕下因 rAF 抖动导致的漏渲染
-        const renderSlackMs = 0.5;
         const maxFrameDeltaMs = Number(options.maxFrameDeltaMs) > 0 ? Number(options.maxFrameDeltaMs) : 50;
         const maxCatchUpSteps = Number(options.maxCatchUpSteps) > 0 ? Number(options.maxCatchUpSteps) : 5;
         const onUpdate = typeof options.onUpdate === 'function' ? options.onUpdate : function() {};
@@ -33,7 +30,6 @@ const FrameScheduler = (function() {
         let rafId = null;
         let accumulatorMs = 0;
         let lastTimestampMs = 0;
-        let renderAccumulatorMs = 0;
 
         function loop(timestampMs) {
             if (!running) return;
@@ -46,7 +42,6 @@ const FrameScheduler = (function() {
 
             if (paused) {
                 accumulatorMs = 0;
-                renderAccumulatorMs = 0;
                 rafId = requestAnimationFrame(loop);
                 return;
             }
@@ -55,8 +50,6 @@ const FrameScheduler = (function() {
             if (frameDeltaMs > maxFrameDeltaMs) frameDeltaMs = maxFrameDeltaMs;
 
             accumulatorMs += frameDeltaMs;
-            renderAccumulatorMs += frameDeltaMs;
-
             let steps = 0;
             while (accumulatorMs >= fixedStepMs && steps < maxCatchUpSteps) {
                 onUpdate(fixedStepSec);
@@ -65,14 +58,9 @@ const FrameScheduler = (function() {
                 steps++;
             }
 
-            const shouldRender = (renderAccumulatorMs + renderSlackMs) >= renderIntervalMs;
-            if (shouldRender) {
-                onRender(renderAccumulatorMs / 1000);
-                if (stats) stats.renders++;
-                // 不直接清零，保留余量以避免长期偏慢
-                renderAccumulatorMs -= renderIntervalMs;
-                if (renderAccumulatorMs < 0) renderAccumulatorMs = 0;
-            }
+            const alpha = fixedStepMs > 0 ? Math.max(0, Math.min(1, accumulatorMs / fixedStepMs)) : 1;
+            onRender(alpha, frameDeltaMs / 1000);
+            if (stats) stats.renders++;
 
             rafId = requestAnimationFrame(loop);
         }
@@ -82,7 +70,6 @@ const FrameScheduler = (function() {
             running = true;
             paused = false;
             accumulatorMs = 0;
-            renderAccumulatorMs = 0;
             lastTimestampMs = 0;
             rafId = requestAnimationFrame(loop);
         }
@@ -91,7 +78,6 @@ const FrameScheduler = (function() {
             running = false;
             paused = false;
             accumulatorMs = 0;
-            renderAccumulatorMs = 0;
             lastTimestampMs = 0;
             if (rafId) {
                 cancelAnimationFrame(rafId);
@@ -106,7 +92,6 @@ const FrameScheduler = (function() {
         function resume() {
             paused = false;
             accumulatorMs = 0;
-            renderAccumulatorMs = 0;
             lastTimestampMs = 0;
         }
 

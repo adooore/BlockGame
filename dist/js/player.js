@@ -11,18 +11,205 @@ const PLAYER_COLORS = {
     4: { main: '#facc15', glow: '#ffaa00', core: '#fffbe0' }   // P4 黄色
 };
 
-// 默认配置
-const DEFAULT_CONFIG = {
-    size: 40,
-    // 与固定步长更新匹配后的默认体感参数
-    moveSpeed: 10.5,
-    dashMultiplier: 3.5,
-    dashDuration: 8,
-    dashCooldown: 30,
-    jumpPower: 16,
-    gravity: 1.8,
-    trailLength: 6  // 减少轨迹长度
+// 统一体感指标（按“玩家身位”定义，而不是裸像素）
+const PLAYER_FEEL_METRICS = {
+    referenceSize: 40,
+    moveBodyLengthsPerSecond: 15.75,
+    dashDistanceBodyLengths: 7.35,
+    dashDurationFrames: 8,
+    dashCooldownFrames: 30,
+    jumpHeightBodyLengths: 1.7777777778,
+    jumpAirtimeSeconds: 0.2962962963,
+    trailLength: 3,
+    preciseSpeedMultiplier: 0.5,
+    jumpHoldGravityScale: 0.5,
+    deadzone: 0.3,
+    enableJumpHold: true
 };
+
+function getConfiguredTrailLength() {
+    try {
+        if (typeof GameData !== 'undefined' && GameData.gameSettings && typeof GameData.gameSettings.getTrailLength === 'function') {
+            return GameData.gameSettings.getTrailLength();
+        }
+    } catch (e) {}
+    return PLAYER_FEEL_METRICS.trailLength;
+}
+
+function buildMovementConfig(size = PLAYER_FEEL_METRICS.referenceSize, overrides = {}) {
+    const metrics = { ...PLAYER_FEEL_METRICS, trailLength: getConfiguredTrailLength(), ...overrides };
+    const bodySize = Number.isFinite(size) && size > 0 ? size : PLAYER_FEEL_METRICS.referenceSize;
+    const fixedHz = 60;
+    const jumpAirtimeFrames = Math.max(1, metrics.jumpAirtimeSeconds * fixedHz);
+    const jumpHeightPx = bodySize * metrics.jumpHeightBodyLengths;
+    const moveSpeed = bodySize * metrics.moveBodyLengthsPerSecond / fixedHz;
+    const dashDuration = Math.max(1, metrics.dashDurationFrames);
+    const dashMultiplier = (metrics.dashDistanceBodyLengths * bodySize) / (moveSpeed * dashDuration);
+    const jumpPower = (4 * jumpHeightPx) / jumpAirtimeFrames;
+    const gravity = (8 * jumpHeightPx) / (jumpAirtimeFrames * jumpAirtimeFrames);
+
+    return {
+        size: bodySize,
+        moveSpeed,
+        dashMultiplier,
+        dashDuration,
+        dashCooldown: metrics.dashCooldownFrames,
+        jumpPower,
+        gravity,
+        trailLength: metrics.trailLength,
+        preciseSpeedMultiplier: metrics.preciseSpeedMultiplier,
+        jumpHoldGravityScale: metrics.jumpHoldGravityScale,
+        deadzone: metrics.deadzone,
+        enableJumpHold: metrics.enableJumpHold
+    };
+}
+
+function syncPlayerMovementConfig(player, size, overrides = {}) {
+    if (!player) return null;
+
+    const nextConfig = buildMovementConfig(size || player.width || player.config?.size, overrides);
+    player.width = nextConfig.size;
+    player.height = nextConfig.size;
+    player.config = { ...(player.config || {}), ...nextConfig };
+    return player.config;
+}
+
+function getPlayerFeelMetrics(playerOrConfig = DEFAULT_CONFIG) {
+    const config = playerOrConfig.config || playerOrConfig;
+    const bodySize = playerOrConfig.width || config.size || DEFAULT_CONFIG.size;
+    const jumpHeightPx = (config.jumpPower * config.jumpPower) / (2 * config.gravity);
+    const jumpAirtimeSec = (2 * config.jumpPower / config.gravity) / 60;
+
+    return {
+        bodySize,
+        moveBodyLengthsPerSecond: (config.moveSpeed * 60) / bodySize,
+        dashDistanceBodyLengths: (config.moveSpeed * config.dashMultiplier * config.dashDuration) / bodySize,
+        jumpHeightBodyLengths: jumpHeightPx / bodySize,
+        jumpAirtimeSeconds: jumpAirtimeSec,
+        dashDurationFrames: config.dashDuration,
+        dashCooldownFrames: config.dashCooldown,
+        jumpHoldGravityScale: config.jumpHoldGravityScale ?? 1
+    };
+}
+
+function getInterpolatedPlayerState(player, alpha = 1) {
+    if (!player) return null;
+
+    const t = Number.isFinite(alpha) ? Math.max(0, Math.min(1, alpha)) : 1;
+    const prevX = Number.isFinite(player.prevX) ? player.prevX : player.x;
+    const prevY = Number.isFinite(player.prevY) ? player.prevY : player.y;
+    const prevZ = Number.isFinite(player.prevZ) ? player.prevZ : player.z;
+
+    return {
+        x: prevX + (player.x - prevX) * t,
+        y: prevY + (player.y - prevY) * t,
+        z: prevZ + (player.z - prevZ) * t
+    };
+}
+
+function drawPlayerSprite(ctx, player, options = {}) {
+    if (!player || player.active === false) return;
+
+    const {
+        alpha = 1,
+        showLabel = false,
+        invincible = false,
+        invincibleColor = '#ffffff',
+        invinciblePulseMs = 50,
+        shadowFill = 'rgba(0,0,0,0.4)',
+        glowBlurBase = 12,
+        glowBlurJumpDivisor = 8
+    } = options;
+
+    const renderState = getInterpolatedPlayerState(player, alpha);
+    const { colors, width, height, id } = player;
+    const x = renderState ? renderState.x : player.x;
+    const y = renderState ? renderState.y : player.y;
+    const z = renderState ? renderState.z : player.z;
+    const jumpScale = 1 + (z / 80);
+    const drawW = width * jumpScale;
+    const drawH = height * jumpScale;
+    const drawX = x + width / 2 - drawW / 2;
+    const drawY = y + height / 2 - drawH / 2;
+    const centerX = x + width / 2;
+    const centerY = y + height / 2;
+
+    if (player.ghostMarker) {
+        const ghost = player.ghostMarker;
+        const gx = ghost.x + width / 2;
+        const gy = ghost.y + height / 2;
+
+        ctx.globalAlpha = ghost.opacity * 0.6;
+        ctx.strokeStyle = colors.main;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(ghost.x, ghost.y, width, height);
+        ctx.beginPath();
+        ctx.moveTo(gx, gy);
+        ctx.lineTo(centerX, centerY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+    }
+
+    if (z > 0) {
+        const shadowScale = Math.max(0.2, 1 - z / 150);
+        ctx.fillStyle = shadowFill;
+        ctx.beginPath();
+        ctx.ellipse(
+            centerX, centerY,
+            (width / 2) * shadowScale, (height / 2) * shadowScale,
+            0, 0, Math.PI * 2
+        );
+        ctx.fill();
+    }
+
+    // 拖尾恢复：在主体前绘制半透明轨迹，增强速度感
+    player.trail.forEach((t, i) => {
+        const trailScale = 1 + (t.z / 120);
+        const tw = width * trailScale;
+        const th = height * trailScale;
+        const tx = t.x + width / 2 - tw / 2;
+        const ty = t.y + height / 2 - th / 2;
+        ctx.globalAlpha = (player.trail.length - i) / (player.trail.length * 3);
+        ctx.fillStyle = colors.main;
+        ctx.fillRect(tx, ty, tw, th);
+    });
+    ctx.globalAlpha = 1;
+
+    if (invincible) {
+        ctx.globalAlpha = 0.5 + Math.sin(Date.now() / invinciblePulseMs) * 0.5;
+    }
+
+    ctx.shadowBlur = glowBlurBase + (z / glowBlurJumpDivisor);
+    ctx.shadowColor = invincible ? invincibleColor : colors.glow;
+    ctx.fillStyle = colors.main;
+    ctx.fillRect(drawX, drawY, drawW, drawH);
+
+    ctx.fillStyle = colors.core;
+    ctx.fillRect(
+        drawX + drawW * 0.25,
+        drawY + drawH * 0.25,
+        drawW * 0.5,
+        drawH * 0.5
+    );
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+
+    if (showLabel) {
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = colors.main;
+        ctx.fillStyle = colors.main;
+        ctx.font = 'bold 12px Orbitron, monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(`P${id}`, centerX, drawY - 6);
+        ctx.shadowBlur = 0;
+    }
+}
+
+// 默认配置
+const DEFAULT_CONFIG = buildMovementConfig();
 
 /**
  * 创建玩家对象
@@ -32,13 +219,19 @@ const DEFAULT_CONFIG = {
  * @param {object} customConfig - 自定义配置
  */
 function createPlayer(id, x, y, customConfig = {}) {
-    const config = { ...DEFAULT_CONFIG, ...customConfig };
+    const config = buildMovementConfig(
+        customConfig.size || customConfig.width || DEFAULT_CONFIG.size,
+        customConfig
+    );
     const colors = PLAYER_COLORS[id] || PLAYER_COLORS[1];
     
     return {
         id,
         x, y,
+        prevX: x,
+        prevY: y,
         z: 0,              // 跳跃高度
+        prevZ: 0,
         vx: 0, vy: 0,      // 水平速度
         vz: 0,             // 垂直速度
         width: config.size,
@@ -46,6 +239,7 @@ function createPlayer(id, x, y, customConfig = {}) {
         trail: [],
         colors,
         isJumping: false,
+        isJumpHeld: false,
         dashTimer: 0,
         dashCooldown: 0,
         config,
@@ -67,19 +261,46 @@ function createPlayer(id, x, y, customConfig = {}) {
  * └─────┴─────────┴──────────────────────┘
  */
 
+function normalizePlayerInput(input) {
+    const joystick = input && input.joystick ? input.joystick : {};
+    const buttons = input && input.buttons ? input.buttons : {};
+    return {
+        joystick: {
+            x: Number.isFinite(joystick.x) ? joystick.x : 0,
+            y: Number.isFinite(joystick.y) ? joystick.y : 0
+        },
+        buttons: {
+            N: !!buttons.N,
+            S: !!buttons.S,
+            W: !!buttons.W,
+            E: !!buttons.E,
+            Start: !!buttons.Start
+        }
+    };
+}
+
 /**
  * 处理玩家输入
  * @param {object} player - 玩家对象
  * @param {object} input - 输入 { joystick: {x, y}, buttons: {N, S, W, E} }
- * @param {object} callbacks - 可选回调 { onConfirm, onCancel }
+ * @param {object} callbacks - 可选回调 { onConfirm, onCancel, onJump, onDash }
+ * @param {object} options - 可选配置
  */
-function handlePlayerInput(player, input, callbacks = {}) {
-    if (!player || !player.active) return;
-    
-    const { joystick, buttons } = input;
-    const config = player.config;
-    const deadzone = 0.3;
-    
+function handlePlayerInput(player, input, callbacks = {}, options = {}) {
+    if (!player || player.active === false) {
+        return { input: normalizePlayerInput(null), isPrecise: false, speedMult: 1 };
+    }
+
+    const normalizedInput = normalizePlayerInput(input);
+    const { joystick, buttons } = normalizedInput;
+    const config = player.config || DEFAULT_CONFIG;
+    const {
+        deadzone = config.deadzone ?? 0.3,
+        preciseSpeedMultiplier = config.preciseSpeedMultiplier ?? 1,
+        enablePreciseMovement = false,
+        enableJumpHold = config.enableJumpHold !== false
+    } = options;
+
     // 摇杆移动
     if (Math.abs(joystick.x) > deadzone || Math.abs(joystick.y) > deadzone) {
         player.vx = joystick.x;
@@ -88,25 +309,27 @@ function handlePlayerInput(player, input, callbacks = {}) {
         player.vx = 0;
         player.vy = 0;
     }
-    
+
     // 南键 (S) - 跳跃
-    if (buttons.S && !player.isJumping) {
+    player.isJumpHeld = enableJumpHold ? buttons.S : false;
+    if (buttons.S && !player._sPressed && !player.isJumping) {
         player.isJumping = true;
         player.vz = config.jumpPower;
-        // 记录跳跃起始位置残影
         player.ghostMarker = { x: player.x, y: player.y, type: 'jump', opacity: 1, timer: 60 };
+        if (callbacks.onJump) callbacks.onJump();
     }
-    
+    player._sPressed = buttons.S;
+
     // 东键 (E) - 冲刺
-    if (buttons.E && player.dashCooldown <= 0) {
-        if (player.vx !== 0 || player.vy !== 0) {
-            player.dashTimer = config.dashDuration;
-            player.dashCooldown = config.dashCooldown;
-            // 记录冲刺起始位置残影
-            player.ghostMarker = { x: player.x, y: player.y, type: 'dash', opacity: 1, timer: 60 };
-        }
+    const isMoving = player.vx !== 0 || player.vy !== 0;
+    if (buttons.E && !player._ePressed && player.dashCooldown <= 0 && isMoving) {
+        player.dashTimer = config.dashDuration;
+        player.dashCooldown = config.dashCooldown;
+        player.ghostMarker = { x: player.x, y: player.y, type: 'dash', opacity: 1, timer: 60 };
+        if (callbacks.onDash) callbacks.onDash();
     }
-    
+    player._ePressed = buttons.E;
+
     // 西键 (W) - 确认/选择（用于 UI 交互）
     if (buttons.W && !player._wPressed) {
         player._wPressed = true;
@@ -114,7 +337,7 @@ function handlePlayerInput(player, input, callbacks = {}) {
     } else if (!buttons.W) {
         player._wPressed = false;
     }
-    
+
     // 北键 (N) - 取消/返回（用于 UI 交互）
     if (buttons.N && !player._nPressed) {
         player._nPressed = true;
@@ -122,6 +345,13 @@ function handlePlayerInput(player, input, callbacks = {}) {
     } else if (!buttons.N) {
         player._nPressed = false;
     }
+
+    const isPrecise = enablePreciseMovement && buttons.N;
+    return {
+        input: normalizedInput,
+        isPrecise,
+        speedMult: isPrecise ? preciseSpeedMultiplier : 1
+    };
 }
 
 /**
@@ -131,64 +361,92 @@ function handlePlayerInput(player, input, callbacks = {}) {
  * @param {number} dtScale - 时间缩放（60Hz=1）
  */
 function updatePlayer(player, bounds = null, dtScale = 1) {
-    if (!player || !player.active) return;
-    
-    const config = player.config;
+    updatePlayerMovement(player, { bounds, dtScale });
+}
+
+/**
+ * 统一玩家运动更新入口（供各游戏/竞技页在逻辑帧内调用）
+ * 将输入后的速度与状态推进一帧：位移、跳跃、冲刺、轨迹、边界、落地回调等。
+ * @param {object} player - 玩家对象（createPlayer 创建，且已通过 handlePlayerInput 写入 vx/vy/vz 等）
+ * @param {object} options - 可选配置
+ * @param {number} [options.speedMult=1] - 速度倍率（如静步 0.5）
+ * @param {number} [options.dtScale=1] - 时间步缩放（60Hz 下为 1）
+ * @param {object} [options.bounds] - 边界 { minX, maxX, minY, maxY }，缺省不裁剪
+ * @param {number} [options.moveSpeedScale=1] - 移动速度缩放（如按格子尺寸缩放时 dims.tileSize/BASE_TILE_SIZE）
+ * @param {number} [options.jumpHoldGravityScale=1] - 按住跳跃时的重力缩放（如 0.5 表示半重力）
+ * @param {function} [options.onLand] - 落地时回调（无参）
+ */
+function updatePlayerMovement(player, options = {}) {
+    if (!player || player.active === false) return;  // 仅当显式 active=false 时跳过，缺省视为活跃
+    const config = player.config || DEFAULT_CONFIG;
+    player.prevX = player.x;
+    player.prevY = player.y;
+    player.prevZ = player.z;
+
+    const {
+        speedMult = 1,
+        dtScale = 1,
+        bounds = null,
+        moveSpeedScale = 1,
+        jumpHoldGravityScale = config.jumpHoldGravityScale ?? 1,
+        onLand = null
+    } = typeof options === 'object' ? options : {};
     const scale = Number.isFinite(dtScale) && dtScale > 0 ? dtScale : 1;
-    
+    const moveScale = config.moveSpeed * moveSpeedScale * speedMult * scale;
+
     // 冲刺移动
     const isDashing = player.dashTimer > 0;
     if (isDashing) {
-        player.x += player.vx * config.moveSpeed * config.dashMultiplier * scale;
-        player.y += player.vy * config.moveSpeed * config.dashMultiplier * scale;
+        player.x += player.vx * config.dashMultiplier * moveScale;
+        player.y += player.vy * config.dashMultiplier * moveScale;
         player.dashTimer = Math.max(0, player.dashTimer - scale);
     } else {
-        player.x += player.vx * config.moveSpeed * scale;
-        player.y += player.vy * config.moveSpeed * scale;
+        player.x += player.vx * moveScale;
+        player.y += player.vy * moveScale;
     }
-    
+
     if (player.dashCooldown > 0) player.dashCooldown = Math.max(0, player.dashCooldown - scale);
-    
-    // 跳跃逻辑
+
+    // 跳跃逻辑（支持按住跳跃时减轻重力）
     if (player.isJumping) {
         player.z += player.vz * scale;
-        player.vz -= config.gravity * scale;
+        const effectiveGravity = (player.isJumpHeld ? config.gravity * jumpHoldGravityScale : config.gravity);
+        player.vz -= effectiveGravity * scale;
         if (player.z <= 0) {
             player.z = 0;
             player.vz = 0;
             player.isJumping = false;
+            if (player.hasOwnProperty('isJumpHeld')) player.isJumpHeld = false;
+            if (typeof onLand === 'function') onLand();
         }
     }
-    
-    // 轨迹（每帧添加，保持连贯）
+
+    // 拖尾：使用逻辑帧轨迹保留速度感，插值渲染会让主体更连续
     const isMoving = player.vx !== 0 || player.vy !== 0;
-    
-    if (isMoving || player.isJumping) {
+    if (config.trailLength > 0 && (isMoving || player.isJumping)) {
         player.trail.unshift({ x: player.x, y: player.y, z: player.z });
     }
-    
-    // 限制轨迹长度（冲刺时允许更长的尾巴）
-    const maxLen = isDashing ? config.trailLength + 4 : config.trailLength;
-    while (player.trail.length > maxLen) player.trail.pop();
-    
-    // 静止时快速消散
+    const maxTrailLength = isDashing ? config.trailLength + 4 : config.trailLength;
+    while (player.trail.length > maxTrailLength) {
+        player.trail.pop();
+    }
     if (!isMoving && !player.isJumping && player.trail.length > 0) {
         player.trail.pop();
     }
-    
-    // 更新残影标记
+
+    // 残影标记
     if (player.ghostMarker) {
         player.ghostMarker.timer = Math.max(0, player.ghostMarker.timer - scale);
         player.ghostMarker.opacity = player.ghostMarker.timer / 60;
-        if (player.ghostMarker.timer <= 0) {
-            player.ghostMarker = null;
-        }
+        if (player.ghostMarker.timer <= 0) player.ghostMarker = null;
     }
-    
-    // 边界检测
-    if (bounds) {
-        player.x = Math.max(bounds.minX, Math.min(player.x, bounds.maxX - player.width));
-        player.y = Math.max(bounds.minY, Math.min(player.y, bounds.maxY - player.height));
+
+    // 边界
+    if (bounds && typeof bounds.minX === 'number') {
+        const maxX = typeof bounds.maxX === 'number' ? bounds.maxX : bounds.minX + 9999;
+        const maxY = typeof bounds.maxY === 'number' ? bounds.maxY : bounds.minY + 9999;
+        player.x = Math.max(bounds.minX, Math.min(player.x, maxX - player.width));
+        player.y = Math.max(bounds.minY, Math.min(player.y, maxY - player.height));
     }
 }
 
@@ -198,89 +456,8 @@ function updatePlayer(player, bounds = null, dtScale = 1) {
  * @param {object} player - 玩家对象
  * @param {boolean} showLabel - 是否显示标签
  */
-function drawPlayerSimple(ctx, player, showLabel = true) {
-    if (!player || !player.active) return;
-    
-    const { x, y, z, trail, colors, width, height, id } = player;
-    const jumpScale = 1 + (z / 80);
-    const drawW = width * jumpScale;
-    const drawH = height * jumpScale;
-    const drawX = x + width/2 - drawW/2;
-    const drawY = y + height/2 - drawH/2;
-    
-    // 绘制动作残影标记（跳跃/冲刺起始位置）
-    if (player.ghostMarker) {
-        const ghost = player.ghostMarker;
-        const gx = ghost.x + width/2;
-        const gy = ghost.y + height/2;
-        
-        ctx.globalAlpha = ghost.opacity * 0.6;
-        ctx.strokeStyle = colors.main;  // 使用玩家当前颜色
-        ctx.lineWidth = 2;
-        ctx.setLineDash([4, 4]);
-        
-        // 绘制虚线方框
-        ctx.strokeRect(ghost.x, ghost.y, width, height);
-        
-        // 绘制连接线到当前位置
-        ctx.beginPath();
-        ctx.moveTo(gx, gy);
-        ctx.lineTo(x + width/2, y + height/2);
-        ctx.stroke();
-        
-        ctx.setLineDash([]);
-        ctx.globalAlpha = 1;
-    }
-    
-    // 跳跃时的阴影
-    if (z > 0) {
-        const shadowScale = Math.max(0.2, 1 - z / 150);
-        ctx.fillStyle = 'rgba(0,0,0,0.4)';
-        ctx.beginPath();
-        ctx.ellipse(
-            x + width/2, y + height/2,
-            (width/2) * shadowScale, (height/2) * shadowScale,
-            0, 0, Math.PI * 2
-        );
-        ctx.fill();
-    }
-    
-    // 绘制轨迹
-    trail.forEach((t, i) => {
-        const trailScale = 1 + (t.z / 120);
-        const tw = width * trailScale;
-        const th = height * trailScale;
-        const tx = t.x + width/2 - tw/2;
-        const ty = t.y + height/2 - th/2;
-        
-        ctx.globalAlpha = (trail.length - i) / (trail.length * 3);
-        ctx.fillStyle = colors.main;
-        ctx.fillRect(tx, ty, tw, th);
-    });
-    ctx.globalAlpha = 1;
-    
-    // 绘制角色主体
-    ctx.shadowBlur = 15 + Math.sin(Date.now()/100) * 5 + (z/5);
-    ctx.shadowColor = colors.glow;
-    ctx.fillStyle = colors.main;
-    ctx.fillRect(drawX, drawY, drawW, drawH);
-    
-    // 绘制内核
-    ctx.fillStyle = colors.core;
-    ctx.fillRect(drawX + drawW*0.25, drawY + drawH*0.25, drawW*0.5, drawH*0.5);
-    ctx.shadowBlur = 0;
-    
-    // 绘制玩家标识（头顶）
-    if (showLabel) {
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = colors.main;
-        ctx.fillStyle = colors.main;
-        ctx.font = 'bold 12px Orbitron, monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
-        ctx.fillText(`P${id}`, x + width/2, drawY - 6);
-        ctx.shadowBlur = 0;
-    }
+function drawPlayerSimple(ctx, player, showLabel = true, alpha = 1) {
+    drawPlayerSprite(ctx, player, { showLabel, alpha });
 }
 
 /**
@@ -294,11 +471,15 @@ function resetPlayer(player, x, y) {
     
     player.x = x;
     player.y = y;
+    player.prevX = x;
+    player.prevY = y;
     player.z = 0;
+    player.prevZ = 0;
     player.vx = 0;
     player.vy = 0;
     player.vz = 0;
     player.isJumping = false;
+    player.isJumpHeld = false;
     player.dashTimer = 0;
     player.dashCooldown = 0;
     player.trail = [];
@@ -308,10 +489,17 @@ function resetPlayer(player, x, y) {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         PLAYER_COLORS,
+        PLAYER_FEEL_METRICS,
+        buildMovementConfig,
+        syncPlayerMovementConfig,
+        getPlayerFeelMetrics,
+        getInterpolatedPlayerState,
+        drawPlayerSprite,
         DEFAULT_CONFIG,
         createPlayer,
         handlePlayerInput,
         updatePlayer,
+        updatePlayerMovement,
         drawPlayerSimple,
         resetPlayer
     };

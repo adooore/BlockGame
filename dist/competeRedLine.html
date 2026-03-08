@@ -544,16 +544,13 @@
         // 游戏界面（使用抽象层）
         let gameScreens = null;   // 游戏结束屏幕
         
-        // 基准 tileSize（用于速度缩放）
-        const BASE_TILE_SIZE = 70;
-        let scaledMoveSpeed = config.moveSpeed;
         let frameScheduler = null;
 
         function initFrameScheduler() {
             frameScheduler = FrameScheduler.create({
                 fixedHz: 60,
                 onUpdate: (fixedDt) => update(fixedDt),
-                onRender: () => draw()
+                onRender: (alpha) => draw(alpha)
             });
             frameScheduler.start();
             console.log('[FrameScheduler] 启动: logic=60Hz, render=60');
@@ -581,20 +578,12 @@
             const savedColor = GameData.playerColors.getPlayerColor(id);
             const colorData = savedColor || GAME_PLAYER_COLORS[(id - 1) % GAME_PLAYER_COLORS.length];
             
-            const p = {
-                id: id,
-                x: 0, y: 0, z: 0, vz: 0, width: 0, height: 0, vx: 0, vy: 0,
-                trail: [], 
-                colors: { main: colorData.main, glow: colorData.glow, core: colorData.core },
-                isJumping: false, isJumpHeld: false,
-                dashTimer: 0, dashCooldown: 0, ghostMarker: null,
-                isDead: false,           // 竞技模式：死亡状态
-                reviveTimer: 0           // 竞技模式：复活倒计时
-            };
-            // 设置初始大小
             const { tileSize } = gridSys;
-            p.width = tileSize * config.playerSizeRatio;
-            p.height = tileSize * config.playerSizeRatio;
+            const p = createPlayer(id, 0, 0);
+            syncPlayerMovementConfig(p, tileSize * config.playerSizeRatio);
+            p.colors = { main: colorData.main, glow: colorData.glow, core: colorData.core };
+            p.isDead = false;
+            p.reviveTimer = 0;
             resetPlayerPosition(p, id);
             console.log(`[Game] 玩家 ${id} 加入游戏，颜色:`, colorData.name || colorData.main);
 
@@ -632,9 +621,6 @@
         }
 
         // ==================== 远程控制器 (WebSocket) ====================
-        // 记录上一帧的按钮状态，用于检测按下事件
-        let prevButtonStates = {};
-
         // 使用 GameWebSocket 抽象层
         GameWebSocket.init({
             loadingScreen: loadingScreen,
@@ -796,13 +782,11 @@
             canvas.height = height;
             
             const dims = gridSys.resize(width, height);
-            scaledMoveSpeed = config.moveSpeed * (dims.tileSize / BASE_TILE_SIZE);
             
             // 更新所有玩家的大小
             const allPlayers = ControllerManager.getPlayers();
             Object.values(allPlayers).forEach(p => {
-                p.width = dims.tileSize * config.playerSizeRatio;
-                p.height = dims.tileSize * config.playerSizeRatio;
+                syncPlayerMovementConfig(p, dims.tileSize * config.playerSizeRatio);
             });
             
             // 根据窗口大小缩放UI
@@ -945,47 +929,21 @@
                 // 死亡状态下不处理输入
                 if (p.isDead) return;
                 
-                // 从 ControllerManager 获取统一的输入（已合并键盘和手柄）
                 const input = ControllerManager.getInput(p.id);
-                
-                p.vx = 0; p.vy = 0;
-                
-                // 获取摇杆输入（ControllerManager 已处理键盘->摇杆映射）
-                if (input && (Math.abs(input.joystick.x) > deadzone || Math.abs(input.joystick.y) > deadzone)) {
-                    p.vx = input.joystick.x;
-                    p.vy = input.joystick.y;
-                }
-            
-                // 处理按钮输入（按下事件）
-                if (input && input.buttons) {
-                    const prevState = prevButtonStates[p.id] || { S: false, E: false };
-                    
-                    // 南键 = 跳跃
-                    p.isJumpHeld = input.buttons.S;
-                    if (input.buttons.S && !prevState.S && !p.isJumping) {
-                        p.isJumping = true;
-                        p.vz = config.jumpPower;
-                        p.ghostMarker = { x: p.x, y: p.y, type: 'jump', opacity: 1, timer: 60 };
-                        SoundManager.playJump();
-                    }
-                    
-                    // 东键 = 冲刺
-                    if (input.buttons.E && !prevState.E && p.dashCooldown <= 0 && (p.vx !== 0 || p.vy !== 0)) {
-                        p.dashTimer = config.dashDuration;
-                        p.dashCooldown = config.dashCooldown;
-                        p.ghostMarker = { x: p.x, y: p.y, type: 'dash', opacity: 1, timer: 60 };
-                        SoundManager.playDash();
-                    }
-                    
-                    // 保存当前状态供下一帧比较
-                    prevButtonStates[p.id] = { S: input.buttons.S, E: input.buttons.E };
-                }
-                
-                // 静步检测 (北键 = 静步)
-                const isPrecise = input && input.buttons && input.buttons.N;
-                const speedMult = isPrecise ? 0.5 : 1.0;
-
-                updatePlayerMovement(p, speedMult, dtScale);
+                const { speedMult } = handlePlayerInput(p, input, {
+                    onJump: () => SoundManager.playJump(),
+                    onDash: () => SoundManager.playDash()
+                }, {
+                    enablePreciseMovement: true,
+                    preciseSpeedMultiplier: DEFAULT_CONFIG.preciseSpeedMultiplier
+                });
+                const { gridX, gridY, gridTotalDim } = gridSys;
+                updatePlayerMovement(p, {
+                    speedMult,
+                    dtScale,
+                    bounds: { minX: gridX, maxX: gridX + gridTotalDim - p.width, minY: gridY, maxY: gridY + gridTotalDim - p.height },
+                    onLand: () => SoundManager.playLand()
+                });
             });
 
             if (invincibleTimer > 0) invincibleTimer = Math.max(0, invincibleTimer - dtScale);
@@ -1021,46 +979,6 @@
             checkAndRefresh();
         }
         
-        function updatePlayerMovement(p, speedMult, dtScale) {
-            const { gridX, gridY, gridTotalDim, tileSize } = gridSys;
-            
-            const isDashing = p.dashTimer > 0;
-            if (isDashing) {
-                p.x += p.vx * scaledMoveSpeed * config.dashMultiplier * speedMult * dtScale;
-                p.y += p.vy * scaledMoveSpeed * config.dashMultiplier * speedMult * dtScale;
-                p.dashTimer = Math.max(0, p.dashTimer - dtScale);
-                } else {
-                p.x += p.vx * scaledMoveSpeed * speedMult * dtScale;
-                p.y += p.vy * scaledMoveSpeed * speedMult * dtScale;
-                }
-            if (p.dashCooldown > 0) p.dashCooldown = Math.max(0, p.dashCooldown - dtScale);
-
-            if (p.isJumping) {
-                p.z += p.vz * dtScale;
-                const effectiveGravity = p.isJumpHeld ? config.gravity * 0.5 : config.gravity;
-                p.vz -= effectiveGravity * dtScale;
-                if (p.z <= 0) { 
-                    p.z = 0; p.vz = 0; p.isJumping = false; p.isJumpHeld = false;
-                    SoundManager.playLand();
-                }
-                }
-
-            const isMoving = p.vx !== 0 || p.vy !== 0;
-            if (isMoving || p.isJumping) p.trail.unshift({x: p.x, y: p.y, z: p.z, opacity: 1});
-            const maxTrail = p.dashTimer > 0 ? config.trailLength + 4 : config.trailLength;
-            while (p.trail.length > maxTrail) p.trail.pop();
-            if (!isMoving && !p.isJumping && p.trail.length > 0) p.trail.pop();
-
-            p.x = Math.max(gridX, Math.min(p.x, gridX + gridTotalDim - p.width));
-            p.y = Math.max(gridY, Math.min(p.y, gridY + gridTotalDim - p.height));
-
-            if (p.ghostMarker) {
-                p.ghostMarker.timer = Math.max(0, p.ghostMarker.timer - dtScale);
-                p.ghostMarker.opacity = p.ghostMarker.timer / 60;
-                if (p.ghostMarker.timer <= 0) p.ghostMarker = null;
-                }
-            }
-
         function checkPlayerCollision(p) {
             // 跳跃中或死亡中不检测碰撞
             if (p.z >= 1 || p.isDead) return;
@@ -1133,7 +1051,7 @@
         }
             
         // ==================== 绘制 ====================
-        function draw() {
+        function draw(alpha = 1) {
             // 重置 canvas 状态，防止残留效果
             ctx.globalAlpha = 1.0;
             ctx.shadowBlur = 0;
@@ -1164,7 +1082,7 @@
             // 绘制玩家 - 遍历所有玩家
             const players = ControllerManager.getPlayers();
             Object.values(players).forEach(p => {
-                drawPlayer(p);
+                drawPlayer(p, alpha);
             });
 
             // 浮动文字
@@ -1178,7 +1096,7 @@
             
         }
         
-        function drawPlayer(p) {
+        function drawPlayer(p, alpha = 1) {
             const { tileSize } = gridSys;
             
             // 死亡状态：绘制幽灵效果
@@ -1213,63 +1131,14 @@
                 return;  // 死亡时不绘制正常外观
             }
 
-            // Ghost Marker
-            if (p.ghostMarker) {
-                const ghost = p.ghostMarker;
-                ctx.globalAlpha = ghost.opacity * 0.6;
-                ctx.strokeStyle = p.colors.main;
-                ctx.lineWidth = 2;
-                ctx.setLineDash([4, 4]);
-                ctx.strokeRect(ghost.x, ghost.y, p.width, p.height);
-                ctx.beginPath();
-                ctx.moveTo(ghost.x + p.width/2, ghost.y + p.height/2);
-                ctx.lineTo(p.x + p.width/2, p.y + p.height/2);
-                ctx.stroke();
-                ctx.setLineDash([]);
-                ctx.globalAlpha = 1;
-            }
-
-            // Shadow
-            if (p.z > 0) {
-                const shadowScale = Math.max(0.2, 1 - p.z / 150);
-                ctx.fillStyle = 'rgba(0,0,0,0.6)';
-                ctx.beginPath();
-                ctx.ellipse(p.x + p.width/2, p.y + p.height/2, (p.width/2) * shadowScale, (p.height/2) * shadowScale, 0, 0, Math.PI * 2);
-                ctx.fill();
-            }
-
-            // Trails
-            p.trail.forEach((t, i) => {
-                const trailScale = 1 + (t.z / 120);
-                const tw = p.width * trailScale;
-                const th = p.height * trailScale;
-                const tx = t.x - (tw - p.width) / 2;
-                const ty = t.y - (th - p.height) / 2;
-                ctx.globalAlpha = (p.trail.length - i) / (p.trail.length * 3);
-                ctx.fillStyle = p.colors.main;
-                ctx.fillRect(tx, ty, tw, th);
+            drawPlayerSprite(ctx, p, {
+                alpha,
+                invincible: invincibleTimer > 0,
+                invinciblePulseMs: 50,
+                shadowFill: 'rgba(0,0,0,0.6)',
+                glowBlurBase: 15,
+                glowBlurJumpDivisor: 5
             });
-            ctx.globalAlpha = 1.0;
-
-            // Body
-            const jumpScale = 1 + (p.z / 80);
-            const drawW = p.width * jumpScale;
-            const drawH = p.height * jumpScale;
-            const drawX = p.x - (drawW - p.width) / 2;
-            const drawY = p.y - (drawH - p.height) / 2;
-
-            const isInvincible = invincibleTimer > 0;
-            if (isInvincible) ctx.globalAlpha = 0.5 + Math.sin(Date.now() / 50) * 0.5;
-
-            ctx.shadowBlur = 15 + Math.sin(Date.now()/100) * 5 + (p.z/5);
-            ctx.shadowColor = isInvincible ? '#ffffff' : p.colors.glow;
-            ctx.fillStyle = p.colors.main;
-            ctx.fillRect(drawX, drawY, drawW, drawH);
-            
-            ctx.fillStyle = p.colors.core;
-            ctx.fillRect(drawX + drawW*0.25, drawY + drawH*0.25, drawW*0.5, drawH*0.5);
-            ctx.shadowBlur = 0;
-            ctx.globalAlpha = 1.0;
         }
 
         // ==================== 游戏结束/胜利 ====================
@@ -1310,7 +1179,10 @@
             const offset = SPAWN_OFFSETS[(id - 1) % SPAWN_OFFSETS.length];
             p.x = width / 2 - p.width / 2 + offset.x * gridSys.tileSize * 1.5;
             p.y = height / 2 - p.height / 2 + offset.y * gridSys.tileSize * 1.5;
+            p.prevX = p.x;
+            p.prevY = p.y;
             p.z = 0;
+            p.prevZ = 0;
             p.vz = 0;
         }
         

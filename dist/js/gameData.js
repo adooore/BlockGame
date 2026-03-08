@@ -295,6 +295,14 @@ const GameData = {
                 this._saveTimer = null;
             }, 500);
         },
+
+        flushPendingSave() {
+            if (this._saveTimer) {
+                clearTimeout(this._saveTimer);
+                this._saveTimer = null;
+                GameData.save();
+            }
+        },
         
         /**
          * 获取控制器模式（已固定为 independent）
@@ -374,6 +382,7 @@ const GameData = {
                 difficulty: this.getDifficulty(),
                 displayMode: this.getDisplayMode(),
                 fpsOverlayEnabled: this.getFpsOverlayEnabled(),
+                trailLength: this.getTrailLength(),
                 volume: this.getVolume()
             };
         },
@@ -394,6 +403,26 @@ const GameData = {
         setFpsOverlayEnabled(enabled) {
             this._setSync({ fpsOverlayEnabled: !!enabled });
             console.log('[GameData] FPS 面板:', enabled ? '显示' : '隐藏');
+        },
+
+        /**
+         * 获取玩家拖尾长度
+         * @returns {number} 默认 3，范围 0~1000
+         */
+        getTrailLength() {
+            const val = Number(this._getSync().trailLength);
+            if (!Number.isFinite(val)) return 3;
+            return Math.max(0, Math.min(1000, Math.round(val)));
+        },
+
+        /**
+         * 设置玩家拖尾长度
+         * @param {number} length - 0~1000
+         */
+        setTrailLength(length) {
+            const nextLength = Math.max(0, Math.min(1000, Math.round(Number(length) || 0)));
+            this._setSync({ trailLength: nextLength });
+            console.log('[GameData] 玩家拖尾长度:', nextLength);
         },
         
         /**
@@ -502,6 +531,14 @@ const GameData = {
                 this._saveTimer = null;
             }, 500);
         },
+
+        flushPendingSave() {
+            if (this._saveTimer) {
+                clearTimeout(this._saveTimer);
+                this._saveTimer = null;
+                GameData.save();
+            }
+        },
         
         /**
          * 获取单个玩家的颜色（返回颜色对象或默认值）
@@ -608,6 +645,15 @@ const GameData = {
             await GameData.save();
             console.log('[GameData] 已清空所有数据');
         }
+    },
+
+    flushPendingSaves() {
+        try {
+            this.gameSettings.flushPendingSave();
+        } catch (e) {}
+        try {
+            this.playerColors.flushPendingSave();
+        } catch (e) {}
     }
 };
 
@@ -617,6 +663,14 @@ if (typeof window !== 'undefined') {
         GameData.load().then(() => {
             console.log('[GameData] 初始化完成');
         });
+    });
+
+    // 切页前冲刷延迟保存，避免刚修改设置就跳页导致数据丢失
+    window.addEventListener('pagehide', () => {
+        GameData.flushPendingSaves();
+    });
+    window.addEventListener('beforeunload', () => {
+        GameData.flushPendingSaves();
     });
 }
 
