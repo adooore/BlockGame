@@ -11,10 +11,11 @@ use axum::{
     Router,
     routing::{get, post},
     extract::{State, WebSocketUpgrade, ws::{Message, WebSocket}},
-    response::IntoResponse,
+    response::{IntoResponse, Redirect},
+    http::StatusCode,
     Json,
 };
-use tower_http::services::ServeDir;
+use tower_http::services::{ServeDir, ServeFile};
 use tower_http::cors::CorsLayer;
 use futures_util::{StreamExt, SinkExt};
 use serde::{Deserialize, Serialize};
@@ -113,8 +114,9 @@ const MAX_CONTROLLERS: u8 = 8;
 
 impl ServerState {
     fn new() -> Self {
-        let (game_tx, _) = broadcast::channel(100);
-        let (controller_tx, _) = broadcast::channel(100);
+        // 容量足够多控制器 60Hz 输入时不被背压阻塞（约 8*60*2 条/秒）
+        let (game_tx, _) = broadcast::channel(1024);
+        let (controller_tx, _) = broadcast::channel(512);
         ServerState {
             controllers: RwLock::new(HashMap::new()),
             game_tx,
@@ -244,13 +246,7 @@ async fn handle_controller(socket: WebSocket, state: AppState) {
                 if let Ok(client_msg) = serde_json::from_str::<ClientMessage>(&text) {
                     match client_msg {
                         ClientMessage::State { joystick, buttons } => {
-                            {
-                                let mut controllers = state.controllers.write().await;
-                                if let Some(ctrl) = controllers.get_mut(&controller_id) {
-                                    ctrl.joystick = joystick.clone();
-                                    ctrl.buttons = buttons.clone();
-                                }
-                            }
+                            // 只转发，不写共享 state，避免多控制器时写锁竞争导致延迟
                             let forward_msg = json!({
                                 "type": "state",
                                 "controller_id": controller_id,
@@ -281,7 +277,6 @@ async fn handle_controller(socket: WebSocket, state: AppState) {
                                 "controller_id": controller_id
                             });
                             state.broadcast_to_games(&forward_msg.to_string());
-                            log_to_file(&format!("[P{} 摇杆] 释放", controller_id));
                         }
                         ClientMessage::Button { button, action } => {
                             let forward_msg = json!({
@@ -291,7 +286,6 @@ async fn handle_controller(socket: WebSocket, state: AppState) {
                                 "action": action
                             });
                             state.broadcast_to_games(&forward_msg.to_string());
-                            log_to_file(&format!("[P{} 按钮] {} {}", controller_id, button, action));
                         }
                     }
                 }
@@ -666,6 +660,24 @@ async fn api_load_handler() -> Json<LoadResponse> {
     }
 }
 
+async fn controller_route_handler() -> Redirect {
+    Redirect::permanent("/controller.html")
+}
+
+async fn root_route_handler() -> (StatusCode, &'static str) {
+    (
+        StatusCode::NOT_FOUND,
+        "BlockGame route required. Use /game or /controller",
+    )
+}
+
+async fn index_block_handler() -> (StatusCode, &'static str) {
+    (
+        StatusCode::NOT_FOUND,
+        "Index route disabled. Use /game",
+    )
+}
+
 // 内部存档函数（供 Tauri 命令和 HTTP API 共用）
 fn save_game_data_internal(data: &str) -> Result<bool, String> {
     let save_path = get_save_path();
@@ -792,12 +804,17 @@ fn main() {
             let local_ip = get_local_ip();
 
             // 创建路由
+            let game_entry_file = base_path.join("index.html");
             let app = Router::new()
+                .route("/", get(root_route_handler))
+                .route("/index.html", get(index_block_handler))
+                .route_service("/game", ServeFile::new(game_entry_file))
                 .route("/ws", get(ws_controller_handler))
                 .route("/ws/game", get(ws_game_handler))
+                .route("/controller", get(controller_route_handler))
                 .route("/api/save", post(api_save_handler))
                 .route("/api/load", get(api_load_handler))
-                .nest_service("/", ServeDir::new(&base_path))
+                .fallback_service(ServeDir::new(&base_path))
                 .layer(CorsLayer::permissive())
                 .with_state(state);
 
@@ -808,8 +825,9 @@ fn main() {
             println!("\n========================================");
             println!("  方寸枢机 游戏服务器");
             println!("========================================");
-            println!("  HTTP + WebSocket: http://localhost:8088");
-            println!("  控制器地址: http://{}:8088/controller.html", local_ip);
+            println!("  游戏入口: http://{}:8088/game", local_ip);
+            println!("  控制器地址: http://{}:8088/controller", local_ip);
+            println!("  WebSocket: ws://localhost:8088/ws/game");
             println!("========================================\n");
 
             axum::serve(listener, app).await.unwrap();

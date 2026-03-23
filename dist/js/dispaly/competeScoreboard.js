@@ -1,29 +1,46 @@
 /**
- * 竞技模式计分板系统
- * 统一管理所有竞技模式的分数、排行榜、结果显示
+ * 竞技模式计分板类
+ * 每场景 new CompeteScoreboard(sceneRoot, options)，场景卸载后实例无引用可被 GC
  */
-const CompeteScoreboard = (function() {
-    'use strict';
-    
-    // ==================== 配置 ====================
-    const CONFIG = {
-        CORRECT_SCORE: 5,       // 正确收集 +5分
-        WRONG_PENALTY: -10,     // 干扰项 -10分
-        DEATH_PENALTY: 0,       // 死亡无分数惩罚
-        STREAK_BONUS: 5,        // 连击奖励 +5分/次
-        REVIVE_COOLDOWN: 180    // 复活冷却时间（帧数，约3秒）
+class CompeteScoreboard {
+    static CONFIG_DEFAULT = {
+        CORRECT_SCORE: 5,
+        WRONG_PENALTY: -10,
+        DEATH_PENALTY: 0,
+        STREAK_BONUS: 5,
+        REVIVE_COOLDOWN: 180
     };
-    
-    // ==================== 状态 ====================
-    let playerScores = {};      // { playerId: { score, deaths, streak, penaltyCount, penaltyTotal } }
-    let prevRankings = {};      // 记录上一次的排名
-    let gameState = 'waiting';  // 游戏状态引用
-    let controllerManager = null;  // ControllerManager 引用
-    let leaderboardEl = null;   // 排行榜 DOM 元素
-    let onScoreChange = null;   // 分数变化回调
-    
-    // ==================== CSS 样式 ====================
-    const STYLES = `
+
+    /**
+     * @param {HTMLElement} parent - 挂载父节点（场景根）
+     * @param {Object} [options]
+     * @param {object} [options.controllerManager]
+     * @param {function} [options.onScoreChange]
+     * @param {object} [options.config]
+     */
+    constructor(parent, options = {}) {
+        this.parent = parent;
+        this.config = { ...CompeteScoreboard.CONFIG_DEFAULT, ...(options.config || {}) };
+        this.playerScores = {};
+        this.prevRankings = {};
+        this.gameState = 'waiting';
+        this.controllerManager = options.controllerManager || (typeof window !== 'undefined' ? window.ControllerManager : null);
+        this.onScoreChange = options.onScoreChange || null;
+        this.leaderboardEl = null;
+        this._injectStyles();
+        this._createLeaderboardDOM();
+        this.reset();
+    }
+
+    _injectStyles() {
+        if (document.getElementById('compete-scoreboard-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'compete-scoreboard-styles';
+        style.textContent = CompeteScoreboard.STYLES;
+        document.head.appendChild(style);
+    }
+
+    static STYLES = `
         /* ==================== 竞技模式 - 右侧排行榜样式 ==================== */
         #compete-leaderboard-panel {
             position: fixed;
@@ -247,235 +264,110 @@ const CompeteScoreboard = (function() {
             border: 2px solid currentColor;
         }
     `;
-    
-    // ==================== 初始化 ====================
-    
-    /**
-     * 初始化计分板系统
-     * @param {object} options - 配置选项
-     * @param {object} options.controllerManager - ControllerManager 引用
-     * @param {function} options.onScoreChange - 分数变化回调
-     * @param {object} options.config - 自定义配置（可选）
-     */
-    function init(options = {}) {
-        controllerManager = options.controllerManager || window.ControllerManager;
-        onScoreChange = options.onScoreChange || null;
-        
-        // 合并自定义配置
-        if (options.config) {
-            Object.assign(CONFIG, options.config);
-        }
-        
-        // 注入样式
-        injectStyles();
-        
-        // 创建排行榜 DOM
-        createLeaderboardDOM();
-        
-        // 重置状态
-        reset();
-        
-        console.log('[CompeteScoreboard] 初始化完成');
-    }
-    
-    /**
-     * 注入 CSS 样式
-     */
-    function injectStyles() {
-        if (document.getElementById('compete-scoreboard-styles')) return;
-        
-        const style = document.createElement('style');
-        style.id = 'compete-scoreboard-styles';
-        style.textContent = STYLES;
-        document.head.appendChild(style);
-    }
-    
-    /**
-     * 创建排行榜 DOM 结构
-     */
-    function createLeaderboardDOM() {
-        // 移除旧的排行榜（如果存在）
+
+    _createLeaderboardDOM() {
         const oldPanel = document.getElementById('compete-leaderboard-panel');
         if (oldPanel) oldPanel.remove();
-        
-        // 同时移除旧的 leaderboard-panel（兼容旧代码）
         const oldLeaderboard = document.getElementById('leaderboard-panel');
         if (oldLeaderboard) oldLeaderboard.remove();
-        
         const panel = document.createElement('div');
         panel.id = 'compete-leaderboard-panel';
         panel.innerHTML = `
             <div class="compete-leaderboard-container">
-                <div class="compete-leaderboard-title">
-                    <span>🏆</span>
-                    <span>排行榜</span>
-                </div>
-                <div id="compete-leaderboard-list" class="compete-leaderboard-list">
-                    <!-- 排行榜项目由 JS 动态生成 -->
-                </div>
+                <div class="compete-leaderboard-title"><span>🏆</span><span>排行榜</span></div>
+                <div id="compete-leaderboard-list" class="compete-leaderboard-list"></div>
             </div>
         `;
-        document.body.appendChild(panel);
-        
-        leaderboardEl = document.getElementById('compete-leaderboard-list');
+        this.parent.appendChild(panel);
+        this.leaderboardEl = document.getElementById('compete-leaderboard-list');
     }
-    
-    // ==================== 分数管理 ====================
-    
-    /**
-     * 初始化玩家分数数据
-     */
-    function initPlayerScore(playerId) {
-        if (!playerScores[playerId]) {
-            playerScores[playerId] = { 
-                score: 0, 
-                deaths: 0, 
-                streak: 0, 
-                penaltyCount: 0, 
-                penaltyTotal: 0 
+
+    initPlayerScore(playerId) {
+        if (!this.playerScores[playerId]) {
+            this.playerScores[playerId] = { 
+                score: 0,
+                deaths: 0,
+                streak: 0,
+                penaltyCount: 0,
+                penaltyTotal: 0
             };
         }
     }
-    
-    /**
-     * 添加玩家分数（带动画）
-     * @param {number} playerId - 玩家 ID
-     * @param {number} points - 分数（可正可负）
-     * @param {boolean} isCorrect - 是否为正确操作
-     * @returns {number} 当前总分
-     */
-    function addScore(playerId, points, isCorrect = true) {
-        initPlayerScore(playerId);
-        
-        const data = playerScores[playerId];
-        
+
+    addScore(playerId, points, isCorrect = true) {
+        this.initPlayerScore(playerId);
+        const data = this.playerScores[playerId];
         if (isCorrect) {
             data.streak++;
-            // 连击奖励
-            const streakBonus = data.streak > 1 ? CONFIG.STREAK_BONUS * (data.streak - 1) : 0;
+            const streakBonus = data.streak > 1 ? this.config.STREAK_BONUS * (data.streak - 1) : 0;
             data.score += points + streakBonus;
         } else {
-            data.streak = 0;  // 错误重置连击
+            data.streak = 0;
             data.score += points;
-            // 记录惩罚
             data.penaltyCount++;
             data.penaltyTotal += Math.abs(points);
         }
-        
-        // 播放动画
         const scoreEl = document.getElementById(`compete-score-${playerId}`);
         if (scoreEl) {
             scoreEl.classList.remove('compete-score-flash', 'compete-score-penalty');
-            void scoreEl.offsetWidth;  // 触发重绘
+            void scoreEl.offsetWidth;
             scoreEl.classList.add(isCorrect ? 'compete-score-flash' : 'compete-score-penalty');
         }
-        
-        updateLeaderboard();
-        
-        if (onScoreChange) {
-            onScoreChange(playerId, data);
-        }
-        
+        this.updateLeaderboard();
+        if (this.onScoreChange) this.onScoreChange(playerId, data);
         return data.score;
     }
-    
-    /**
-     * 处理玩家死亡
-     * @param {number} playerId - 玩家 ID
-     */
-    function handleDeath(playerId) {
-        initPlayerScore(playerId);
-        
-        const data = playerScores[playerId];
+
+    handleDeath(playerId) {
+        this.initPlayerScore(playerId);
+        const data = this.playerScores[playerId];
         data.deaths++;
         data.streak = 0;
-        data.score += CONFIG.DEATH_PENALTY;
-        
-        updateLeaderboard();
+        data.score += this.config.DEATH_PENALTY;
+        this.updateLeaderboard();
     }
-    
-    /**
-     * 移除玩家分数数据
-     * @param {number} playerId - 玩家 ID
-     */
-    function removePlayer(playerId) {
-        delete playerScores[playerId];
-        delete prevRankings[playerId];
-        updateLeaderboard();
+
+    removePlayer(playerId) {
+        delete this.playerScores[playerId];
+        delete this.prevRankings[playerId];
+        this.updateLeaderboard();
     }
-    
-    /**
-     * 获取玩家分数数据
-     * @param {number} playerId - 玩家 ID
-     * @returns {object} 玩家分数数据
-     */
-    function getPlayerScore(playerId) {
-        return playerScores[playerId] || null;
+
+    getPlayerScore(playerId) {
+        return this.playerScores[playerId] || null;
     }
-    
-    /**
-     * 获取连击数
-     * @param {number} playerId - 玩家 ID
-     * @returns {number} 连击数
-     */
-    function getStreak(playerId) {
-        return playerScores[playerId]?.streak || 0;
+
+    getStreak(playerId) {
+        return this.playerScores[playerId]?.streak || 0;
     }
-    
-    // ==================== 排行榜 UI ====================
-    
-    /**
-     * 更新排行榜显示
-     * @param {string} currentGameState - 当前游戏状态
-     */
-    function updateLeaderboard(currentGameState) {
-        if (currentGameState !== undefined) {
-            gameState = currentGameState;
-        }
-        
-        if (!leaderboardEl || !controllerManager) return;
-        
-        const players = controllerManager.getPlayers();
+
+    updateLeaderboard(currentGameState) {
+        if (currentGameState !== undefined) this.gameState = currentGameState;
+        if (!this.leaderboardEl || !this.controllerManager) return;
+        const players = this.controllerManager.getPlayers();
         const playerIds = Object.keys(players).map(id => parseInt(id));
-        
-        // 按分数排序
         const sortedPlayers = playerIds
-            .filter(id => playerScores[id])
-            .sort((a, b) => playerScores[b].score - playerScores[a].score);
-        
-        // 清空并重建排行榜
-        leaderboardEl.innerHTML = '';
-        
+            .filter(id => this.playerScores[id])
+            .sort((a, b) => this.playerScores[b].score - this.playerScores[a].score);
+        this.leaderboardEl.innerHTML = '';
         const medals = ['🥇', '🥈', '🥉'];
         const rankClasses = ['gold', 'silver', 'bronze'];
-        
         sortedPlayers.forEach((playerId, index) => {
             const rank = index + 1;
-            const data = playerScores[playerId];
+            const data = this.playerScores[playerId];
             const player = players[playerId];
             if (!player) return;
-            
-            const prevRank = prevRankings[playerId] || rank;
+            const prevRank = this.prevRankings[playerId] || rank;
             const rankChanged = prevRank !== rank;
-            
             const item = document.createElement('div');
             item.className = `compete-leaderboard-item rank-${rank}`;
             item.id = `compete-leaderboard-item-${playerId}`;
-            
-            // 检测是否死亡中
-            if (player.isDead) {
-                item.classList.add('dead');
-            }
-            
-            // 排名变化动画
-            if (rankChanged && gameState === 'playing') {
+            if (player.isDead) item.classList.add('dead');
+            if (rankChanged && this.gameState === 'playing') {
                 item.classList.add(rank < prevRank ? 'compete-rank-up' : 'compete-rank-down');
             }
-            
-            // 排名徽章
             const badgeClass = rank <= 3 ? rankClasses[rank - 1] : 'normal';
             const badgeContent = rank <= 3 ? medals[rank - 1] : rank;
-            
             item.innerHTML = `
                 <div class="compete-rank-badge ${badgeClass}">${badgeContent}</div>
                 <div class="compete-player-dot" style="background: ${player.colors.main}; box-shadow: 0 0 8px ${player.colors.glow};"></div>
@@ -485,63 +377,33 @@ const CompeteScoreboard = (function() {
                 ${data.deaths > 0 ? `<div class="compete-stats-icon">💀${data.deaths}</div>` : ''}
                 ${player.isDead ? `<div class="compete-revive-countdown" id="compete-revive-${playerId}">${Math.ceil(player.reviveTimer / 60)}</div>` : ''}
             `;
-            
-            leaderboardEl.appendChild(item);
-            
-            // 更新排名记录
-            prevRankings[playerId] = rank;
+            this.leaderboardEl.appendChild(item);
+            this.prevRankings[playerId] = rank;
         });
     }
-    
-    /**
-     * 更新复活倒计时显示
-     * @param {number} playerId - 玩家 ID
-     * @param {number} reviveTimer - 复活倒计时（帧数）
-     */
-    function updateReviveCountdown(playerId, reviveTimer) {
+
+    updateReviveCountdown(playerId, reviveTimer) {
         const reviveEl = document.getElementById(`compete-revive-${playerId}`);
-        if (reviveEl) {
-            reviveEl.textContent = Math.ceil(reviveTimer / 60);
-        }
+        if (reviveEl) reviveEl.textContent = Math.ceil(reviveTimer / 60);
     }
-    
-    // ==================== 结果显示 ====================
-    
-    /**
-     * 获取最终排名
-     * @returns {Array} 排名数组
-     */
-    function getFinalRankings() {
-        if (!controllerManager) return [];
-        
-        const players = controllerManager.getPlayers();
-        const rankings = Object.keys(playerScores)
+
+    getFinalRankings() {
+        if (!this.controllerManager) return [];
+        const players = this.controllerManager.getPlayers();
+        return Object.keys(this.playerScores)
             .filter(id => players[id])
             .map(id => ({
                 playerId: parseInt(id),
-                score: playerScores[id].score,
-                deaths: playerScores[id].deaths,
-                penaltyCount: playerScores[id].penaltyCount || 0,
-                penaltyTotal: playerScores[id].penaltyTotal || 0,
+                score: this.playerScores[id].score,
+                deaths: this.playerScores[id].deaths,
+                penaltyCount: this.playerScores[id].penaltyCount || 0,
+                penaltyTotal: this.playerScores[id].penaltyTotal || 0,
                 color: players[id]?.colors?.main || '#00f2ff'
             }))
             .sort((a, b) => b.score - a.score);
-        return rankings;
     }
     
-    /**
-     * 显示竞技结果页面
-     * @param {object} options - 配置选项
-     * @param {string} options.waveInfo - 波次信息（如 "12 / 12"）
-     * @param {number} options.currentLevel - 当前关卡
-     * @param {number} options.maxLevel - 最大关卡
-     * @param {string} options.nextLevelUrl - 下一关 URL
-     * @param {function} options.onRestart - 重新开始回调
-     * @param {function} options.onNextLevel - 下一关回调
-     * @param {function} options.onBackToMenu - 返回主菜单回调
-     * @param {object} options.menuSystem - 菜单系统引用
-     */
-    function showResults(options = {}) {
+    showResults(options = {}) {
         const {
             waveInfo = '',
             currentLevel = 1,
@@ -552,14 +414,10 @@ const CompeteScoreboard = (function() {
             onBackToMenu,
             menuSystem
         } = options;
-        
-        const rankings = getFinalRankings();
+        const rankings = this.getFinalRankings();
         const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣'];
-        
-        // 移除旧的结果页面
         const oldOverlay = document.getElementById('compete-results-overlay');
         if (oldOverlay) oldOverlay.remove();
-        
         const rankingsHtml = rankings.map((r, i) => `
             <div class="compete-ranking-item ${i === 0 ? 'winner' : ''}" style="border-color: ${r.color};">
                 <span style="font-size: 28px;">${medals[i] || ''}</span>
@@ -623,136 +481,65 @@ const CompeteScoreboard = (function() {
             </div>
         `;
         
-        document.body.appendChild(overlay);
-        
-        // 绑定按钮事件
+        this.parent.appendChild(overlay);
         document.getElementById('compete-restart-btn').addEventListener('click', () => {
             overlay.remove();
             if (onRestart) onRestart();
         });
-        
         const nextBtn = document.getElementById('compete-next-btn');
         if (nextBtn) {
             nextBtn.addEventListener('click', () => {
-                if (onNextLevel) {
-                    onNextLevel();
-                } else if (nextLevelUrl) {
-                    window.location.href = nextLevelUrl;
-                }
+                if (onNextLevel) onNextLevel();
+                else if (nextLevelUrl) window.location.href = nextLevelUrl;
             });
         }
-        
         document.getElementById('compete-menu-btn').addEventListener('click', () => {
-            if (onBackToMenu) {
-                onBackToMenu();
-            } else {
-                window.location.href = 'index.html';
-            }
+            if (onBackToMenu) onBackToMenu();
+            else window.location.href = 'index.html';
         });
-        
-        // 绑定菜单系统
         if (menuSystem) {
             const menuButtons = ['compete-restart-btn'];
             if (currentLevel < maxLevel) menuButtons.push('compete-next-btn');
             menuButtons.push('compete-menu-btn');
-            menuSystem.init(menuButtons, (btnId) => {
-                document.getElementById(btnId).click();
-            });
+            menuSystem.init(menuButtons, (btnId) => document.getElementById(btnId).click());
         }
-        
         return overlay;
     }
-    
-    /**
-     * 隐藏结果页面
-     */
-    function hideResults() {
+
+    hideResults() {
         const overlay = document.getElementById('compete-results-overlay');
         if (overlay) overlay.remove();
     }
-    
-    // ==================== 重置 ====================
-    
-    /**
-     * 重置所有分数数据
-     */
-    function reset() {
-        Object.keys(playerScores).forEach(id => {
-            playerScores[id] = { 
-                score: 0, 
-                deaths: 0, 
-                streak: 0, 
-                penaltyCount: 0, 
-                penaltyTotal: 0 
-            };
-        });
-        prevRankings = {};
-        updateLeaderboard();
-    }
-    
-    /**
-     * 完全清除所有数据
-     */
-    function clear() {
-        playerScores = {};
-        prevRankings = {};
-        if (leaderboardEl) {
-            leaderboardEl.innerHTML = '';
-        }
-    }
-    
-    // ==================== 配置获取 ====================
-    
-    /**
-     * 获取配置值
-     * @param {string} key - 配置键名
-     * @returns {*} 配置值
-     */
-    function getConfig(key) {
-        return CONFIG[key];
-    }
-    
-    /**
-     * 设置配置值
-     * @param {string} key - 配置键名
-     * @param {*} value - 配置值
-     */
-    function setConfig(key, value) {
-        if (CONFIG.hasOwnProperty(key)) {
-            CONFIG[key] = value;
-        }
-    }
-    
-    // ==================== 公开 API ====================
-    return {
-        init,
-        initPlayerScore,
-        addScore,
-        handleDeath,
-        removePlayer,
-        getPlayerScore,
-        getStreak,
-        updateLeaderboard,
-        updateReviveCountdown,
-        getFinalRankings,
-        showResults,
-        hideResults,
-        reset,
-        clear,
-        getConfig,
-        setConfig,
-        
-        // 常量（只读）
-        get CORRECT_SCORE() { return CONFIG.CORRECT_SCORE; },
-        get WRONG_PENALTY() { return CONFIG.WRONG_PENALTY; },
-        get DEATH_PENALTY() { return CONFIG.DEATH_PENALTY; },
-        get STREAK_BONUS() { return CONFIG.STREAK_BONUS; },
-        get REVIVE_COOLDOWN() { return CONFIG.REVIVE_COOLDOWN; }
-    };
-})();
 
-// 支持 ES6 模块导出
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = CompeteScoreboard;
+    reset() {
+        Object.keys(this.playerScores).forEach(id => {
+            this.playerScores[id] = { score: 0, deaths: 0, streak: 0, penaltyCount: 0, penaltyTotal: 0 };
+        });
+        this.prevRankings = {};
+        this.updateLeaderboard();
+    }
+
+    clear() {
+        this.playerScores = {};
+        this.prevRankings = {};
+        if (this.leaderboardEl) this.leaderboardEl.innerHTML = '';
+    }
+
+    getConfig(key) {
+        return this.config[key];
+    }
+
+    setConfig(key, value) {
+        if (this.config.hasOwnProperty(key)) this.config[key] = value;
+    }
+
+    get CORRECT_SCORE() { return this.config.CORRECT_SCORE; }
+    get WRONG_PENALTY() { return this.config.WRONG_PENALTY; }
+    get DEATH_PENALTY() { return this.config.DEATH_PENALTY; }
+    get STREAK_BONUS() { return this.config.STREAK_BONUS; }
+    get REVIVE_COOLDOWN() { return this.config.REVIVE_COOLDOWN; }
 }
+
+if (typeof window !== 'undefined') window.CompeteScoreboard = CompeteScoreboard;
+if (typeof module !== 'undefined' && module.exports) module.exports = CompeteScoreboard;
 

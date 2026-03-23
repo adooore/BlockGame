@@ -3,21 +3,31 @@
  * 统一管理键盘和手柄输入，自动映射到玩家角色
  * 
  * 设计原则：
- * - 键盘始终映射到 P1
- * - 第一个手柄连入时，和键盘共用 P1
- * - 后续手柄依次创建 P2、P3、P4
+ * - 不在 init 时默认创建 P1；仅在检测到输入设备后再创建（键盘为首次按键、手柄/Web 为连入时）
+ * - 键盘映射固定到 P1；首个可用槽位从 P1 起分配，手柄可与键盘共用 P1（both）
  * - 页面只需关心 players 对象，不需要知道输入来源
  */
 
 const ControllerManager = (function() {
+    // 规范输入数据结构（单一来源，各处引用）
+    const EMPTY_JOYSTICK = { x: 0, y: 0 };
+    const EMPTY_BUTTONS = { N: false, S: false, E: false, W: false, Start: false };
+    function createInputState(source) {
+        return {
+            joystick: { ...EMPTY_JOYSTICK },
+            buttons: { ...EMPTY_BUTTONS },
+            source: source || 'controller'
+        };
+    }
+
     // 内部状态
     let players = {};                    // 玩家对象 { id: playerObject }
-    let controllerInputs = {};           // 控制器输入 { id: { joystick, buttons } }
+    let controllerInputs = {};           // 控制器输入 { id: createInputState(...) }
     let connectedControllers = {};       // 已连接的手柄 { id: true }
-    let keyboardState = {                // 键盘状态
+    let keyboardState = {                 // 键盘状态
         keys: {},
-        joystick: { x: 0, y: 0 },
-        buttons: { N: false, S: false, E: false, W: false, Start: false }
+        joystick: { ...EMPTY_JOYSTICK },
+        buttons: { ...EMPTY_BUTTONS }
     };
     
     // 原生手柄状态 (Gamepad API)
@@ -31,9 +41,7 @@ const ControllerManager = (function() {
     
     let keyboardEnabled = true;          // 是否启用键盘
     let initialized = false;
-    
-    // 控制器模式固定为独立分配（通过键盘开关控制是否参与）
-    const controllerMode = 'independent';
+    let eventsInitialized = false;       // 键盘/原生手柄事件是否已绑定（全局只绑定一次）
     
     /**
      * 键盘按键映射配置
@@ -72,9 +80,9 @@ const ControllerManager = (function() {
     };
     
     /**
-     * 初始化控制器管理器
+     * 初始化控制器管理器（整个程序只调用一次，在启动/配置加载完成时）
      * @param {object} options - 配置选项
-     * @param {function} options.onPlayerCreate - 创建玩家回调 (id) => playerObject
+     * @param {function} options.onPlayerCreate - 创建玩家回调 (id, previousPlayer?) => playerObject，换场景时 previousPlayer 为上一场景对象便于继承
      * @param {function} options.onPlayerRemove - 移除玩家回调 (id) => void
      * @param {function} options.onUpdate - 状态更新回调 () => void
      * @param {function} options.onReassign - 设备重新分配回调 (webControllerMapping) => void
@@ -83,38 +91,57 @@ const ControllerManager = (function() {
      */
     function init(options = {}) {
         if (initialized) return;
-        
+
         playerCreateCallback = options.onPlayerCreate;
         playerRemoveCallback = options.onPlayerRemove;
         onUpdateCallback = options.onUpdate;
         onReassignCallback = options.onReassign;
         keyboardEnabled = options.enableKeyboard !== false;
         nativeGamepadEnabled = options.enableNativeGamepad !== false;
-        
-        // 从 GameData 加载设置
-        if (typeof GameData !== 'undefined' && GameData.gameSettings) {
-            keyboardEnabled = GameData.gameSettings.getKeyboardEnabled();
-            console.log('[ControllerManager] 加载设置 - 键盘:', keyboardEnabled ? '启用' : '禁用');
+
+        // 从 PersistedStore 加载设置
+        if (typeof PersistedStore !== 'undefined' && PersistedStore.gameSettings) {
+            keyboardEnabled = PersistedStore.gameSettings.getKeyboardEnabled();
         }
-        
-        // 初始化键盘事件（始终监听，但根据 keyboardEnabled 决定是否处理）
-        initKeyboardEvents();
-        
-        // 如果键盘启用，创建 P1
-        if (keyboardEnabled) {
-            ensurePlayer(1);
+        console.log('[ControllerManager] 加载设置:', { keyboardEnabled, nativeGamepadEnabled });
+
+        // 初始化输入事件监听（只做一次，全局复用）
+        if (!eventsInitialized) {
+            initKeyboardEvents();
+            if (nativeGamepadEnabled) {
+                initNativeGamepadEvents();
+                startGamepadPolling();
+            }
+            eventsInitialized = true;
         }
-        
-        // 初始化原生手柄事件 (Gamepad API)
-        if (nativeGamepadEnabled) {
-            initNativeGamepadEvents();
-            // 启动内部自动轮询循环
-            startGamepadPolling();
-        }
-        
+
         initialized = true;
-        console.log('[ControllerManager] 初始化完成，键盘:', keyboardEnabled ? '启用' : '禁用', 
-                    '，原生手柄:', nativeGamepadEnabled ? '启用' : '禁用');
+        console.log('[ControllerManager] 初始化完成', { keyboardEnabled, nativeGamepadEnabled });
+    }
+
+    /**
+     * 仅更新回调并重建当前玩家对象（换场景时调用，不清空控制器映射）
+     * 重建时会传入上一场景的玩家对象，便于继承颜色、身份等可传递数据，避免角色分配混乱
+     * @param {object} options - 同 init 的回调与 enableKeyboard/enableNativeGamepad
+     */
+    function setCallbacks(options = {}) {
+        if (!initialized) return;
+        if (options.onPlayerCreate !== undefined) playerCreateCallback = options.onPlayerCreate;
+        if (options.onPlayerRemove !== undefined) playerRemoveCallback = options.onPlayerRemove;
+        if (options.onUpdate !== undefined) onUpdateCallback = options.onUpdate;
+        if (options.onReassign !== undefined) onReassignCallback = options.onReassign;
+        if (options.enableKeyboard !== undefined) keyboardEnabled = options.enableKeyboard;
+        if (options.enableNativeGamepad !== undefined) nativeGamepadEnabled = options.enableNativeGamepad;
+
+        const ids = Object.keys(players).map(id => parseInt(id));
+        const previousById = {};
+        ids.forEach(id => {
+            previousById[id] = players[id];
+            if (playerRemoveCallback) playerRemoveCallback(id);
+            delete players[id];
+        });
+        ids.forEach(id => ensurePlayer(id, previousById[id]));
+        if (onUpdateCallback) onUpdateCallback();
     }
     
     /**
@@ -214,11 +241,7 @@ const ControllerManager = (function() {
         
         // 初始化输入状态
         if (!controllerInputs[playerId]) {
-            controllerInputs[playerId] = {
-                joystick: { x: 0, y: 0 },
-                buttons: { N: false, S: false, E: false, W: false, Start: false },
-                source: 'nativeGamepad'
-            };
+            controllerInputs[playerId] = createInputState('nativeGamepad');
         } else {
             controllerInputs[playerId].source = playerId === 1 ? 'both' : 'nativeGamepad';
         }
@@ -306,6 +329,13 @@ const ControllerManager = (function() {
      * 根据 KEY_MAP 配置自动映射，修改键位只需改 KEY_MAP
      */
     function updateKeyboardInput() {
+        if (keyboardEnabled && players[1] === undefined && playerCreateCallback) {
+            ensurePlayer(1);
+        }
+        if (keyboardEnabled && !controllerInputs[1]) {
+            controllerInputs[1] = createInputState(connectedControllers[1] ? 'both' : 'keyboard');
+        }
+
         const keys = keyboardState.keys;
         
         // 更新摇杆（遍历所有移动键）
@@ -324,7 +354,7 @@ const ControllerManager = (function() {
         });
         
         // 更新按钮（遍历所有按钮键）
-        keyboardState.buttons = { N: false, S: false, E: false, W: false };
+        keyboardState.buttons = { ...EMPTY_BUTTONS };
         
         Object.entries(KEY_MAP).forEach(([keyCode, mapping]) => {
             if (mapping.type === 'button' && keys[keyCode]) {
@@ -334,18 +364,10 @@ const ControllerManager = (function() {
         
         // 键盘输入映射到 P1
         controllerInputs[1] = {
+            ...createInputState(connectedControllers[1] ? 'both' : 'keyboard'),
             joystick: { ...keyboardState.joystick },
-            buttons: { ...keyboardState.buttons },
-            source: connectedControllers[1] ? 'both' : 'keyboard'
+            buttons: { ...keyboardState.buttons }
         };
-    }
-    
-    /**
-     * 设置控制器模式（已废弃，固定为独立模式）
-     * @deprecated 模式已固定为 independent
-     */
-    function setControllerMode(mode) {
-        console.log('[ControllerManager] 控制器模式已固定为 independent');
     }
     
     /**
@@ -372,20 +394,16 @@ const ControllerManager = (function() {
             }
         });
         
-        // 独立模式：为每个设备分配独立的玩家
-        // 如果键盘禁用，手柄从 P1 开始；否则从 P2 开始
-        let nextPlayerId = keyboardEnabled ? 2 : 1;
+        // 为每个设备分配玩家：从第一个空槽位开始（无默认 P1 时手柄可占 P1）
+        let nextPlayerId = 1;
+        while (nextPlayerId <= 8 && players[nextPlayerId]) nextPlayerId++;
         
         // 为原生手柄分配玩家ID
         Object.keys(nativeGamepads).forEach(gamepadIndex => {
             if (nextPlayerId <= 8) {
                 nativeGamepads[gamepadIndex] = nextPlayerId;
                 connectedControllers[nextPlayerId] = true;
-                controllerInputs[nextPlayerId] = {
-                    joystick: { x: 0, y: 0 },
-                    buttons: { N: false, S: false, E: false, W: false, Start: false },
-                    source: 'nativeGamepad'
-                };
+                controllerInputs[nextPlayerId] = createInputState('nativeGamepad');
                 ensurePlayer(nextPlayerId);
                 console.log(`[ControllerManager] 原生手柄 ${gamepadIndex} -> P${nextPlayerId}`);
                 nextPlayerId++;
@@ -398,11 +416,7 @@ const ControllerManager = (function() {
             if (nextPlayerId <= 8) {
                 webControllerToPlayer[controllerId] = nextPlayerId;
                 connectedControllers[nextPlayerId] = true;
-                controllerInputs[nextPlayerId] = {
-                    joystick: { x: 0, y: 0 },
-                    buttons: { N: false, S: false, E: false, W: false, Start: false },
-                    source: 'controller'
-                };
+                controllerInputs[nextPlayerId] = createInputState('controller');
                 ensurePlayer(nextPlayerId);
                 console.log(`[ControllerManager] Web手柄 ${controllerId} -> P${nextPlayerId}`);
                 nextPlayerId++;
@@ -439,39 +453,20 @@ const ControllerManager = (function() {
     }
     
     /**
-     * 获取控制器模式
-     */
-    function getControllerMode() {
-        return controllerMode;
-    }
-    
-    /**
      * 设置键盘是否启用
      * @param {boolean} enabled
      */
     function setKeyboardEnabled(enabled) {
         const wasEnabled = keyboardEnabled;
         keyboardEnabled = enabled;
-        console.log(`[ControllerManager] 键盘控制: ${enabled ? '启用' : '禁用'}`);
-        
-        // 同步保存到 GameData
-        if (typeof GameData !== 'undefined') {
-            GameData.gameSettings.setKeyboardEnabled(enabled);
+
+        // 同步保存到 PersistedStore
+        if (typeof PersistedStore !== 'undefined') {
+            PersistedStore.gameSettings.setKeyboardEnabled(enabled);
         }
         
         if (wasEnabled !== enabled) {
-            if (enabled) {
-                // 启用键盘：先确保 P1 存在
-                initKeyboardEvents();
-                ensurePlayer(1);
-                if (!controllerInputs[1]) {
-                    controllerInputs[1] = {
-                        joystick: { x: 0, y: 0 },
-                        buttons: { N: false, S: false, E: false, W: false, Start: false },
-                        source: 'keyboard'
-                    };
-                }
-            }
+            // 启用键盘时不预创建 P1，等首次按键再由 updateKeyboardInput 惰性创建
             // 重新分配所有设备的 playerId（会处理键盘禁用时移除 P1 的情况）
             reassignDevices();
         }
@@ -482,6 +477,18 @@ const ControllerManager = (function() {
      */
     function isKeyboardEnabled() {
         return keyboardEnabled;
+    }
+
+    /**
+     * 从 PersistedStore 重新对齐键盘开关（不写回存档）。
+     * WebSocket 重连或 initFromServer 刷新内存后调用，避免与 UI/存档不一致。
+     */
+    function refreshKeyboardEnabledFromStore() {
+        if (typeof PersistedStore === 'undefined' || !PersistedStore.gameSettings) return;
+        const fromStore = PersistedStore.gameSettings.getKeyboardEnabled();
+        if (fromStore === keyboardEnabled) return;
+        keyboardEnabled = fromStore;
+        reassignDevices();
     }
     
     /**
@@ -494,11 +501,8 @@ const ControllerManager = (function() {
             return 1;
         }
         
-        // 如果键盘被禁用，手柄从 P1 开始分配；否则从 P2 开始
-        const startId = keyboardEnabled ? 2 : 1;
-        
-        // 分配可用的玩家ID
-        for (let id = startId; id <= 8; id++) {
+        // 从 P1 起找第一个尚未创建玩家的槽位（无默认 P1 时手柄可拿 P1）
+        for (let id = 1; id <= 8; id++) {
             if (!players[id]) {
                 return id;
             }
@@ -511,10 +515,12 @@ const ControllerManager = (function() {
     
     /**
      * 确保玩家存在
+     * @param {number} id - 玩家 ID
+     * @param {object} [previousPlayer] - 上一场景的玩家对象（换场景重建时传入，用于继承颜色等）
      */
-    function ensurePlayer(id) {
+    function ensurePlayer(id, previousPlayer) {
         if (!players[id] && playerCreateCallback) {
-            players[id] = playerCreateCallback(id);
+            players[id] = playerCreateCallback(id, previousPlayer);
             console.log(`[ControllerManager] 创建玩家 P${id}`);
             if (onUpdateCallback) onUpdateCallback();
         }
@@ -545,7 +551,7 @@ const ControllerManager = (function() {
      * @returns {number|null} 分配的玩家ID，如果已满则返回 null
      */
     function onControllerConnected(controllerId) {
-        // 独立模式：为 Web 控制器分配独立的玩家ID
+        // 为 Web 控制器分配独立玩家ID
         // 如果键盘启用，Web 控制器从 P2 开始；否则从 P1 开始
         let playerId = getNextAvailablePlayerId('webController');
         
@@ -559,12 +565,8 @@ const ControllerManager = (function() {
         connectedControllers[playerId] = true;
         
         // 初始化该控制器的输入
-        controllerInputs[playerId] = {
-            joystick: { x: 0, y: 0 },
-            buttons: { N: false, S: false, E: false, W: false, Start: false },
-            source: 'controller'
-        };
-        
+        controllerInputs[playerId] = createInputState('controller');
+
         // 确保对应玩家存在
         ensurePlayer(playerId);
         
@@ -621,13 +623,9 @@ const ControllerManager = (function() {
      */
     function updatePlayerInput(playerId, joystick, buttons, source = 'controller') {
         if (!controllerInputs[playerId]) {
-            controllerInputs[playerId] = {
-                joystick: { x: 0, y: 0 },
-                buttons: { N: false, S: false, E: false, W: false, Start: false },
-                source: 'controller'
-            };
+            controllerInputs[playerId] = createInputState('controller');
         }
-        
+
         const input = controllerInputs[playerId];
         
         // 如果是 P1 且有键盘输入，合并输入
@@ -681,10 +679,32 @@ const ControllerManager = (function() {
     }
     
     /**
-     * 获取玩家输入状态
+     * 将原始输入规范为统一形状与类型，保证 joystick.x/y 为数字、buttons 为布尔。
+     * 对外输出输入的唯一入口，由 ControllerManager 保证契约。
+     */
+    function normalizeInput(input) {
+        const joystick = input && input.joystick ? input.joystick : {};
+        const buttons = input && input.buttons ? input.buttons : {};
+        return {
+            joystick: {
+                x: Number.isFinite(joystick.x) ? joystick.x : EMPTY_JOYSTICK.x,
+                y: Number.isFinite(joystick.y) ? joystick.y : EMPTY_JOYSTICK.y
+            },
+            buttons: {
+                N: !!buttons.N,
+                S: !!buttons.S,
+                W: !!buttons.W,
+                E: !!buttons.E,
+                Start: !!buttons.Start
+            }
+        };
+    }
+
+    /**
+     * 获取玩家输入状态。始终返回规范后的 { joystick: {x,y}, buttons: {N,S,E,W,Start} }，无输入时为空结构，不返回 null。
      */
     function getInput(playerId) {
-        return controllerInputs[playerId] || null;
+        return normalizeInput(controllerInputs[playerId]);
     }
     
     /**
@@ -731,18 +751,17 @@ const ControllerManager = (function() {
      */
     function hasAnyInput(playerId) {
         const checkInput = (input) => {
-            if (!input) return false;
             const anyButton = input.buttons.S || input.buttons.E || input.buttons.W || input.buttons.N;
             const anyJoystick = Math.abs(input.joystick.x) > 0.5 || Math.abs(input.joystick.y) > 0.5;
             return anyButton || anyJoystick;
         };
         
         if (playerId !== undefined) {
-            return checkInput(controllerInputs[playerId]);
+            return checkInput(getInput(playerId));
         }
         
         // 检查所有玩家
-        return Object.values(controllerInputs).some(checkInput);
+        return Object.keys(controllerInputs).some(id => checkInput(getInput(id)));
     }
     
     /**
@@ -831,14 +850,14 @@ const ControllerManager = (function() {
         }
         
         // 2. Web 控制器震动（通过 WebSocket 发送振动指令）
-        if (typeof GameData !== 'undefined' && GameData._ws && GameData._ws.readyState === WebSocket.OPEN) {
+        if (typeof PersistedStore !== 'undefined' && PersistedStore._ws && PersistedStore._ws.readyState === WebSocket.OPEN) {
             // 遍历所有 Web 控制器
             for (const [controllerId, mappedPlayerId] of Object.entries(webControllerToPlayer)) {
                 // 如果指定了 playerId，只震动对应的控制器
                 if (playerId !== undefined && mappedPlayerId !== playerId) continue;
                 
                 // 发送振动消息给 Web 控制器
-                GameData._ws.send(JSON.stringify({
+                PersistedStore._ws.send(JSON.stringify({
                     type: 'vibrate',
                     controller_id: parseInt(controllerId),
                     duration: duration
@@ -849,62 +868,60 @@ const ControllerManager = (function() {
     
     /**
      * 触发轻微震动（用于错误提示）
+     * @param {number} [playerId] - 可选，指定则只震动该玩家的手柄；不传则震动所有
      */
-    function vibrateLight() {
-        vibrate(undefined, { duration: 150, weakMagnitude: 0.3, strongMagnitude: 0.5 });
+    function vibrateLight(playerId) {
+        vibrate(playerId, { duration: 150, weakMagnitude: 0.3, strongMagnitude: 0.5 });
     }
     
     /**
      * 触发强烈震动（用于严重错误/死亡）
+     * @param {number} [playerId] - 可选，指定则只震动该玩家的手柄；不传则震动所有
      */
-    function vibrateStrong() {
-        vibrate(undefined, { duration: 300, weakMagnitude: 0.7, strongMagnitude: 1.0 });
+    function vibrateStrong(playerId) {
+        vibrate(playerId, { duration: 300, weakMagnitude: 0.7, strongMagnitude: 1.0 });
     }
     
     // 公开 API
     return {
-        init,
-        onControllerConnected,
-        onControllerDisconnected,
-        updateControllerInput,
-        pollNativeGamepads,      // 轮询原生手柄（需在游戏循环中调用）
-        getPlayers,
-        getPlayer,
-        getInput,
-        getPlayerCount,
-        getControllerCount,
-        hasPlayer,
-        hasController,
-        hasAnyInput,        // 检查是否有任意输入（按任意键开始）
-        getInputSource,
-        forEachPlayer,
-        resetAllPlayers,
-        ensurePlayer,
-        getKeyBindings,
-        getButtonActions,
+        // 初始化与生命周期
+        init,                           // 初始化（全程序只调一次）
+        setCallbacks,                   // 换场景时只更新回调并重建玩家对象，不清映射
+        onControllerConnected,          // 注册「控制器接入」回调
+        onControllerDisconnected,       // 注册「控制器断开」回调
+        updateControllerInput,          // 更新某玩家的输入（Web 控制器/外部调用）
+        pollNativeGamepads,             // 轮询原生手柄（需在游戏循环中调用）
+        // 玩家与输入查询
+        getPlayers,                     // 返回 { playerId: playerInfo }
+        getPlayer,                      // 根据 playerId 取单个玩家信息
+        getInput,                       // 获取某玩家的规范化输入状态
+        getPlayerCount,                 // 当前玩家数量
+        getControllerCount,             // 当前连接的控制器数量（物理+虚拟）
+        hasPlayer,                      // 是否存在指定 playerId
+        hasController,                  // 指定 playerId 是否有手柄（含 Web）
+        hasAnyInput,                    // 是否有任意输入（按任意键开始）
+        getInputSource,                 // 获取某玩家输入来源：'keyboard'|'native'|'web'
+        forEachPlayer,                  // 遍历所有玩家，回调 (playerId, playerInfo)
+        resetAllPlayers,                // 清空所有玩家与输入状态
+        ensurePlayer,                   // 确保某 playerId 存在（无则创建）
+        getKeyBindings,                 // 获取键盘键位配置（只读）
+        getButtonActions,               // 获取手柄按钮动作配置（只读）
         // 手柄震动
-        vibrate,                // 自定义震动
-        vibrateLight,           // 轻微震动（错误提示）
-        vibrateStrong,          // 强烈震动（死亡）
+        vibrate,                        // 自定义震动（可选 playerId、duration/强度）
+        vibrateLight,                   // 轻微震动（错误提示，可选 playerId）
+        vibrateStrong,                  // 强烈震动（死亡等，可选 playerId）
         // 键盘设置
-        setKeyboardEnabled,     // 设置键盘是否启用
-        isKeyboardEnabled,      // 获取键盘是否启用
-        // 废弃的模式设置（保留兼容性）
-        setControllerMode,      // 已废弃，模式固定为 independent
-        getControllerMode,      // 总是返回 'independent'
-        // 暴露内部状态（只读）
-        get players() { return players; },
-        get inputs() { return controllerInputs; },
-        get controllers() { return connectedControllers; },
-        get nativeGamepads() { return nativeGamepads; },
-        get webControllers() { return webControllerToPlayer; },
-        get keyMap() { return KEY_MAP; },
-        get mode() { return 'independent'; }
+        setKeyboardEnabled,             // 设置键盘是否启用（会持久化并重分配设备）
+        isKeyboardEnabled,              // 获取键盘是否启用
+        refreshKeyboardEnabledFromStore, // 从存档对齐键盘开关（不重入持久化）
+        // 内部状态（只读，调试用）
+        get players() { return players; },                   // 玩家表
+        get inputs() { return controllerInputs; },             // 每玩家输入状态
+        get controllers() { return connectedControllers; },    // 玩家 -> 是否有手柄
+        get nativeGamepads() { return nativeGamepads; },       // 原生手柄 index -> playerId
+        get webControllers() { return webControllerToPlayer; }, // Web 控制器 id -> playerId
+        get keyMap() { return KEY_MAP; }                       // 键盘键位映射
     };
 })();
 
-// 导出
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = ControllerManager;
-}
-
+if (typeof window !== 'undefined') { window.ControllerManager = ControllerManager; }

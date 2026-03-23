@@ -27,15 +27,17 @@ const PLAYER_FEEL_METRICS = {
     enableJumpHold: true
 };
 
+/** 从 PersistedStore 读取用户设置的拖尾长度，失败或未加载时退回 PLAYER_FEEL_METRICS.trailLength（默认 3）。 */
 function getConfiguredTrailLength() {
     try {
-        if (typeof GameData !== 'undefined' && GameData.gameSettings && typeof GameData.gameSettings.getTrailLength === 'function') {
-            return GameData.gameSettings.getTrailLength();
+        if (typeof PersistedStore !== 'undefined' && PersistedStore.gameSettings && typeof PersistedStore.gameSettings.getTrailLength === 'function') {
+            return PersistedStore.gameSettings.getTrailLength();
         }
     } catch (e) {}
     return PLAYER_FEEL_METRICS.trailLength;
 }
 
+/** 根据体感参数（身位/秒、滞空、冲刺等）与 size/overrides 算出 60Hz 下可用的运动 config（moveSpeed、jumpPower、gravity、trailLength 等）。 */
 function buildMovementConfig(size = PLAYER_FEEL_METRICS.referenceSize, overrides = {}) {
     const metrics = { ...PLAYER_FEEL_METRICS, trailLength: getConfiguredTrailLength(), ...overrides };
     const bodySize = Number.isFinite(size) && size > 0 ? size : PLAYER_FEEL_METRICS.referenceSize;
@@ -64,6 +66,7 @@ function buildMovementConfig(size = PLAYER_FEEL_METRICS.referenceSize, overrides
     };
 }
 
+/** 将当前体感配置同步到玩家对象（width/height/config），用于进场景或设置变更后刷新移动与拖尾等。 */
 function syncPlayerMovementConfig(player, size, overrides = {}) {
     if (!player) return null;
 
@@ -74,6 +77,7 @@ function syncPlayerMovementConfig(player, size, overrides = {}) {
     return player.config;
 }
 
+/** 从玩家 config 反推为人可读的体感指标（身位/秒、滞空时间、冲刺距离等），供调试或 UI 显示。 */
 function getPlayerFeelMetrics(playerOrConfig = DEFAULT_CONFIG) {
     const config = playerOrConfig.config || playerOrConfig;
     const bodySize = playerOrConfig.width || config.size || DEFAULT_CONFIG.size;
@@ -92,6 +96,7 @@ function getPlayerFeelMetrics(playerOrConfig = DEFAULT_CONFIG) {
     };
 }
 
+/** 在上一帧与当前帧逻辑位置之间按 alpha 插值，用于渲染平滑（逻辑 60Hz、渲染更高帧率时）。 */
 function getInterpolatedPlayerState(player, alpha = 1) {
     if (!player) return null;
 
@@ -107,12 +112,13 @@ function getInterpolatedPlayerState(player, alpha = 1) {
     };
 }
 
+/** 在 canvas 上绘制单个玩家：插值位置、幽灵标记、地面阴影、拖尾、主体发光方块、可选 P1 标签与无敌闪烁。 */
 function drawPlayerSprite(ctx, player, options = {}) {
     if (!player || player.active === false) return;
 
     const {
         alpha = 1,
-        showLabel = false,
+        showLabel: showLabelOpt,
         invincible = false,
         invincibleColor = '#ffffff',
         invinciblePulseMs = 50,
@@ -120,6 +126,8 @@ function drawPlayerSprite(ctx, player, options = {}) {
         glowBlurBase = 12,
         glowBlurJumpDivisor = 8
     } = options;
+    // 与拖尾一致：未传时从设置读取，局内局外统一
+    const showLabel = showLabelOpt !== undefined ? showLabelOpt : (typeof PersistedStore !== 'undefined' && PersistedStore.gameSettings ? PersistedStore.gameSettings.getShowPlayerNumber() : true);
 
     const renderState = getInterpolatedPlayerState(player, alpha);
     const { colors, width, height, id } = player;
@@ -261,24 +269,6 @@ function createPlayer(id, x, y, customConfig = {}) {
  * └─────┴─────────┴──────────────────────┘
  */
 
-function normalizePlayerInput(input) {
-    const joystick = input && input.joystick ? input.joystick : {};
-    const buttons = input && input.buttons ? input.buttons : {};
-    return {
-        joystick: {
-            x: Number.isFinite(joystick.x) ? joystick.x : 0,
-            y: Number.isFinite(joystick.y) ? joystick.y : 0
-        },
-        buttons: {
-            N: !!buttons.N,
-            S: !!buttons.S,
-            W: !!buttons.W,
-            E: !!buttons.E,
-            Start: !!buttons.Start
-        }
-    };
-}
-
 /**
  * 处理玩家输入
  * @param {object} player - 玩家对象
@@ -288,11 +278,11 @@ function normalizePlayerInput(input) {
  */
 function handlePlayerInput(player, input, callbacks = {}, options = {}) {
     if (!player || player.active === false) {
-        return { input: normalizePlayerInput(null), isPrecise: false, speedMult: 1 };
+        const empty = { joystick: { x: 0, y: 0 }, buttons: { N: false, S: false, W: false, E: false, Start: false } };
+        return { input: empty, isPrecise: false, speedMult: 1 };
     }
 
-    const normalizedInput = normalizePlayerInput(input);
-    const { joystick, buttons } = normalizedInput;
+    const { joystick, buttons } = input;
     const config = player.config || DEFAULT_CONFIG;
     const {
         deadzone = config.deadzone ?? 0.3,
@@ -348,7 +338,7 @@ function handlePlayerInput(player, input, callbacks = {}, options = {}) {
 
     const isPrecise = enablePreciseMovement && buttons.N;
     return {
-        input: normalizedInput,
+        input,
         isPrecise,
         speedMult: isPrecise ? preciseSpeedMultiplier : 1
     };
@@ -371,7 +361,7 @@ function updatePlayer(player, bounds = null, dtScale = 1) {
  * @param {object} options - 可选配置
  * @param {number} [options.speedMult=1] - 速度倍率（如静步 0.5）
  * @param {number} [options.dtScale=1] - 时间步缩放（60Hz 下为 1）
- * @param {object} [options.bounds] - 边界 { minX, maxX, minY, maxY }，缺省不裁剪
+ * @param {object} [options.bounds] - 边界 { minX, maxX, minY, maxY }：玩家**左上角**坐标的可取值（已含宽高，即 maxX = 右缘 - width），缺省不裁剪
  * @param {number} [options.moveSpeedScale=1] - 移动速度缩放（如按格子尺寸缩放时 dims.tileSize/BASE_TILE_SIZE）
  * @param {number} [options.jumpHoldGravityScale=1] - 按住跳跃时的重力缩放（如 0.5 表示半重力）
  * @param {function} [options.onLand] - 落地时回调（无参）
@@ -421,6 +411,14 @@ function updatePlayerMovement(player, options = {}) {
         }
     }
 
+    // 边界必须在拖尾入队之前：否则本帧越界的 x/y 会写入 trail，主体被拉回后拖尾仍画在界外
+    if (bounds && typeof bounds.minX === 'number') {
+        const maxX = typeof bounds.maxX === 'number' ? bounds.maxX : bounds.minX + 9999;
+        const maxY = typeof bounds.maxY === 'number' ? bounds.maxY : bounds.minY + 9999;
+        player.x = Math.max(bounds.minX, Math.min(player.x, maxX));
+        player.y = Math.max(bounds.minY, Math.min(player.y, maxY));
+    }
+
     // 拖尾：使用逻辑帧轨迹保留速度感，插值渲染会让主体更连续
     const isMoving = player.vx !== 0 || player.vy !== 0;
     if (config.trailLength > 0 && (isMoving || player.isJumping)) {
@@ -440,39 +438,37 @@ function updatePlayerMovement(player, options = {}) {
         player.ghostMarker.opacity = player.ghostMarker.timer / 60;
         if (player.ghostMarker.timer <= 0) player.ghostMarker = null;
     }
-
-    // 边界
-    if (bounds && typeof bounds.minX === 'number') {
-        const maxX = typeof bounds.maxX === 'number' ? bounds.maxX : bounds.minX + 9999;
-        const maxY = typeof bounds.maxY === 'number' ? bounds.maxY : bounds.minY + 9999;
-        player.x = Math.max(bounds.minX, Math.min(player.x, maxX - player.width));
-        player.y = Math.max(bounds.minY, Math.min(player.y, maxY - player.height));
-    }
 }
 
 /**
  * 绘制玩家（简化版，用于主页预览）
  * @param {CanvasRenderingContext2D} ctx - Canvas 上下文
  * @param {object} player - 玩家对象
- * @param {boolean} showLabel - 是否显示标签
+ * @param {boolean} [showLabel] - 是否显示 P1/P2/P3，不传则从设置读取
+ * @param {number} [alpha=1] - 透明度
  */
-function drawPlayerSimple(ctx, player, showLabel = true, alpha = 1) {
+function drawPlayerSimple(ctx, player, showLabel, alpha = 1) {
     drawPlayerSprite(ctx, player, { showLabel, alpha });
 }
 
 /**
- * 重置玩家状态
+ * 重置玩家状态。不传 x,y 时在原地复活（只清速度/跳跃/拖尾等）；传 x,y 时重置到该位置（如开局/检查点）。
  * @param {object} player - 玩家对象
- * @param {number} x - 重置位置 X
- * @param {number} y - 重置位置 Y
+ * @param {number} [x] - 可选，重置位置 X
+ * @param {number} [y] - 可选，重置位置 Y
  */
 function resetPlayer(player, x, y) {
     if (!player) return;
-    
-    player.x = x;
-    player.y = y;
-    player.prevX = x;
-    player.prevY = y;
+
+    if (x !== undefined && y !== undefined) {
+        player.x = x;
+        player.y = y;
+        player.prevX = x;
+        player.prevY = y;
+    } else {
+        player.prevX = player.x;
+        player.prevY = player.y;
+    }
     player.z = 0;
     player.prevZ = 0;
     player.vx = 0;
@@ -485,23 +481,7 @@ function resetPlayer(player, x, y) {
     player.trail = [];
 }
 
-// 导出（如果使用模块系统）
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {
-        PLAYER_COLORS,
-        PLAYER_FEEL_METRICS,
-        buildMovementConfig,
-        syncPlayerMovementConfig,
-        getPlayerFeelMetrics,
-        getInterpolatedPlayerState,
-        drawPlayerSprite,
-        DEFAULT_CONFIG,
-        createPlayer,
-        handlePlayerInput,
-        updatePlayer,
-        updatePlayerMovement,
-        drawPlayerSimple,
-        resetPlayer
-    };
+if (typeof window !== 'undefined') {
+    window.PLAYER_COLORS = PLAYER_COLORS;
+    window.PLAYER_FEEL_METRICS = PLAYER_FEEL_METRICS;
 }
-

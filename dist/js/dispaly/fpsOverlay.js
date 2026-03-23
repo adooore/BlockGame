@@ -7,25 +7,9 @@
     if (window.__fpsOverlayInitialized) return;
     window.__fpsOverlayInitialized = true;
     const FPS_OVERLAY_STORAGE_KEY = 'blockgame_fps_overlay_enabled';
-    let visible = true;
+    // 启动阶段默认隐藏，等待外层在配置加载完成后显式 setVisible。
+    let visible = false;
     let rootRef = null;
-
-    function getStoredVisible() {
-        try {
-            const simpleFlag = localStorage.getItem(FPS_OVERLAY_STORAGE_KEY);
-            if (simpleFlag === '0') return false;
-            if (simpleFlag === '1') return true;
-
-            const raw = localStorage.getItem('blockgame_data');
-            if (!raw) return true;
-            const parsed = JSON.parse(raw);
-            return parsed?.gameSettings?.fpsOverlayEnabled !== false;
-        } catch (e) {
-            return true;
-        }
-    }
-
-    visible = getStoredVisible();
 
     window.FpsOverlay = {
         show() {

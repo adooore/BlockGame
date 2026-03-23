@@ -12,7 +12,7 @@ const WaveSystem = (function() {
      */
     function create(options = {}) {
         const config = {
-            maxWaves: options.maxWaves || 12,           // 最大波数
+            maxWaves: options.maxWaves || 9,            // 最大波数
             initialTarget: options.initialTarget || 8,   // 初始目标方块数
             targetDecrement: options.targetDecrement || 1,  // 每波变化的目标数量（正数递减，负数递增）
             minTarget: options.minTarget || 3,           // 最少目标方块数

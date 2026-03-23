@@ -323,11 +323,100 @@
         #boot-cover.hidden {
             opacity: 0;
         }
+
+        /* 场景容器：游戏场景挂载点 */
+        #scene-container {
+            position: fixed;
+            inset: 0;
+            z-index: 15;
+            display: none;
+            pointer-events: auto;
+        }
+        #scene-container.active {
+            display: block;
+        }
+        #scene-mainMenu.hidden {
+            display: none !important;
+        }
+
+        /* 颜色收集场景样式 */
+        .scene-gameColorCollect { position: absolute; inset: 0; background: #050505; overflow: hidden; }
+        .scene-gameColorCollect #ui-overlay { position: absolute; top: 30px; left: 30px; color: #00f2ff; pointer-events: none; z-index: 20; text-shadow: 0 0 10px #00f2ff; font-family: Orbitron, sans-serif; }
+        @keyframes flicker { 0% { opacity: 0.9; } 5% { opacity: 0.5; } 10% { opacity: 0.9; } 100% { opacity: 1; } }
+        .scene-gameColorCollect .flicker { animation: flicker 3s infinite step-end; }
+        /* 红线危机场景样式 */
+        .scene-gameRedLine { position: absolute; inset: 0; background: #050505; overflow: hidden; }
+        .scene-gameRedLine #ui-overlay { position: absolute; top: 30px; left: 30px; color: #00f2ff; pointer-events: none; z-index: 20; text-shadow: 0 0 10px #00f2ff; font-family: Orbitron, sans-serif; }
+        .scene-gameRedLine .flicker { animation: flicker 3s infinite step-end; }
+        /* 危险通道场景样式 */
+        .scene-gameDangerousPassage { position: absolute; inset: 0; background: #050505; overflow: hidden; }
+        .scene-gameDangerousPassage #ui-overlay { position: absolute; top: 30px; left: 30px; color: #00f2ff; pointer-events: none; z-index: 20; text-shadow: 0 0 10px #00f2ff; font-family: Orbitron, sans-serif; }
+        .scene-gameDangerousPassage .flicker { animation: flicker 3s infinite step-end; }
+
+        .scene-competeColorCollect { position: absolute; inset: 0; background: #050505; overflow: hidden; }
+        .scene-competeColorCollect #ui-overlay { position: absolute; top: 30px; left: 30px; color: #00f2ff; pointer-events: none; z-index: 20; text-shadow: 0 0 10px #00f2ff; font-family: Orbitron, sans-serif; }
+        .scene-competeColorCollect .neon-text-cyan { color: #00f2ff; text-shadow: 0 0 10px #00f2ff, 0 0 20px #00f2ff; }
+        .scene-competeColorCollect .flicker { animation: flicker 3s infinite step-end; }
+        /* 竞技红线危机场景样式 */
+        .scene-competeRedLine { position: absolute; inset: 0; background: #050505; overflow: hidden; }
+        .scene-competeRedLine #ui-overlay { position: absolute; top: 30px; left: 30px; color: #00f2ff; pointer-events: none; z-index: 20; text-shadow: 0 0 10px #00f2ff; font-family: Orbitron, sans-serif; }
+        .scene-competeRedLine .flicker { animation: flicker 3s infinite step-end; }
+        /* 竞技危险通道场景样式 */
+        .scene-competeDangerousPassage { position: absolute; inset: 0; background: #050505; overflow: hidden; }
+        .scene-competeDangerousPassage #ui-overlay { position: absolute; top: 30px; left: 30px; color: #00f2ff; pointer-events: none; z-index: 20; text-shadow: 0 0 10px #00f2ff; font-family: Orbitron, sans-serif; }
+        .scene-competeDangerousPassage .neon-text-cyan { color: #00f2ff; text-shadow: 0 0 10px #00f2ff, 0 0 20px #00f2ff; }
+        .scene-competeDangerousPassage .flicker { animation: flicker 3s infinite step-end; }
+
+        /* 关卡选择场景（SceneManager：levelSelect） */
+        .scene-levelSelect {
+            position: absolute;
+            inset: 0;
+            background: #050505;
+            overflow-x: hidden;
+            overflow-y: auto;
+            z-index: 1;
+        }
+        .scene-levelSelect .bg-grid {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0.35;
+        }
+        /* 关卡选择紧凑布局：为后续新增关卡预留空间 */
+        .scene-levelSelect .menu-container {
+            gap: 0.55rem;
+        }
+        .scene-levelSelect .btn-glitch {
+            min-height: 58px;
+            padding-top: 0.42rem;
+            padding-bottom: 0.42rem;
+        }
+        .scene-levelSelect .btn-glitch .text-base {
+            font-size: 0.92rem;
+            line-height: 1.05rem;
+        }
+        .scene-levelSelect .btn-glitch .text-\[9px\] {
+            font-size: 8px !important;
+            line-height: 10px;
+            letter-spacing: 0.01em;
+        }
+        .scene-levelSelect .level-section-title {
+            font-size: 12px;
+            opacity: 0.64;
+            margin-bottom: 0.1rem;
+            letter-spacing: 0.03em;
+        }
+        .scene-levelSelect .section-divider {
+            margin-top: 0.2rem;
+            margin-bottom: 0.2rem;
+        }
     </style>
 </head>
 <body>
     <div id="boot-cover"></div>
 
+    <!-- 主菜单场景 -->
+    <div id="scene-mainMenu" class="scene" data-scene="mainMenu">
     <div class="bg-grid"></div>
     <div id="blocks-container" class="floating-blocks"></div>
     
@@ -360,7 +449,7 @@
                 </span>
             </button>
             
-            <button class="btn-glitch group !border-purple-500 hover:!bg-purple-500" onclick="toggleQR()">
+            <button class="btn-glitch group !border-purple-500 hover:!bg-purple-500" onclick="MainMenuUI.toggleQR()">
                 <span class="flex items-center justify-center gap-2">
                     <i data-lucide="smartphone-nfc" class="w-5 h-5"></i>
                     连接控制器
@@ -375,204 +464,6 @@
                     <i data-lucide="power" class="w-4 h-4"></i> 退出
                 </button>
             </div>
-        </div>
-
-        <!-- 菜单区域：游戏模式选择（合作/对抗） -->
-        <div id="game-mode-menu" class="menu-container flex flex-col gap-6 w-full max-w-xs hidden-menu">
-            <button class="btn-glitch group !border-cyan-400" onclick="showCoopLevels()">
-                <span class="flex flex-col items-center justify-center py-2">
-                    <span class="flex items-center gap-2 text-lg">
-                        <i data-lucide="users" class="w-5 h-5"></i>
-                        合作模式
-                    </span>
-                    <span class="text-[10px] opacity-50 mt-1">携手共进 · 团队挑战</span>
-                </span>
-            </button>
-            
-            <button class="btn-glitch group !border-purple-500 hover:!bg-purple-500" onclick="showVersusLevels()">
-                <span class="flex flex-col items-center justify-center py-2">
-                    <span class="flex items-center gap-2 text-lg">
-                        <i data-lucide="swords" class="w-5 h-5"></i>
-                        对抗模式
-                    </span>
-                    <span class="text-[10px] opacity-50 mt-1">激烈角逐 · 分数争霸</span>
-                </span>
-            </button>
-
-            <button class="flex items-center justify-center gap-2 text-white/40 hover:text-white transition text-xs uppercase tracking-tighter mt-3" onclick="backToMain()">
-                <i data-lucide="arrow-left" class="w-3 h-3"></i> 返回
-            </button>
-        </div>
-
-        <!-- 菜单区域：合作模式关卡选择 -->
-        <div id="coop-menu" class="menu-container flex flex-col gap-3 w-full max-w-md hidden-menu" style="margin-top: -100px;">
-            
-            <!-- 颜色收集 -->
-            <div class="text-center text-sm opacity-60 mb-1">🎨 颜色收集</div>
-            <div class="flex gap-2">
-                <button class="btn-glitch group !border-cyan-400 flex-1" onclick="selectLevel('color', 1)">
-                <span class="flex flex-col items-center justify-center py-1">
-                        <span class="text-base">关卡 I</span>
-                        <span class="text-[9px] opacity-50 font-game">基础模式</span>
-                </span>
-            </button>
-                <button class="btn-glitch group !border-yellow-400 hover:!bg-yellow-400 flex-1" onclick="selectLevel('color', 2)">
-                <span class="flex flex-col items-center justify-center py-1">
-                        <span class="text-base">关卡 II</span>
-                        <span class="text-[9px] opacity-50 font-game">动态目标</span>
-                </span>
-            </button>
-                <button class="btn-glitch group !border-purple-500 hover:!bg-purple-500 flex-1" onclick="selectLevel('color', 3)">
-                    <span class="flex flex-col items-center justify-center py-1">
-                        <span class="text-base">关卡 III</span>
-                        <span class="text-[9px] opacity-50 font-game">极限模式</span>
-                    </span>
-                </button>
-            </div>
-            
-            <!-- 分隔线 -->
-            <div class="flex items-center gap-3 my-2">
-                <div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-            </div>
-            
-            <!-- 红线危机 -->
-            <div class="text-center text-sm opacity-60 mb-1">🔴 红线危机</div>
-            <div class="flex gap-2">
-                <button class="btn-glitch group !border-red-500 hover:!bg-red-500 flex-1" onclick="selectLevel('redline', 1)">
-                <span class="flex flex-col items-center justify-center py-1">
-                        <span class="text-base">关卡 I</span>
-                        <span class="text-[9px] opacity-50 font-game">单线追击</span>
-                </span>
-            </button>
-                <button class="btn-glitch group !border-orange-500 hover:!bg-orange-500 flex-1" onclick="selectLevel('redline', 2)">
-                    <span class="flex flex-col items-center justify-center py-1">
-                        <span class="text-base">关卡 II</span>
-                        <span class="text-[9px] opacity-50 font-game">双线夹击</span>
-                    </span>
-                </button>
-                <button class="btn-glitch group !border-pink-500 hover:!bg-pink-500 flex-1" onclick="selectLevel('redline', 3)">
-                    <span class="flex flex-col items-center justify-center py-1">
-                        <span class="text-base">关卡 III</span>
-                        <span class="text-[9px] opacity-50 font-game">十字封锁</span>
-                    </span>
-                </button>
-            </div>
-
-            <!-- 分隔线 -->
-            <div class="flex items-center gap-3 my-2">
-                <div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-            </div>
-            
-            <!-- 危险通道 -->
-            <div class="text-center text-sm opacity-60 mb-1">⚠️ 危险通道</div>
-            <div class="flex gap-2">
-                <button class="btn-glitch group !border-amber-500 hover:!bg-amber-500 flex-1" onclick="selectLevel('dangerousPassage', 1)">
-                    <span class="flex flex-col items-center justify-center py-1">
-                        <span class="text-base">关卡 I</span>
-                        <span class="text-[9px] opacity-50 font-game">基础通道</span>
-                    </span>
-                </button>
-                <button class="btn-glitch group !border-yellow-500 hover:!bg-yellow-500 flex-1" onclick="selectLevel('dangerousPassage', 2)">
-                    <span class="flex flex-col items-center justify-center py-1">
-                        <span class="text-base">关卡 II</span>
-                        <span class="text-[9px] opacity-50 font-game">双重封锁</span>
-                    </span>
-                </button>
-                <button class="btn-glitch group !border-orange-400 hover:!bg-orange-400 flex-1" onclick="selectLevel('dangerousPassage', 3)">
-                    <span class="flex flex-col items-center justify-center py-1">
-                        <span class="text-base">关卡 III</span>
-                        <span class="text-[9px] opacity-50 font-game">极限穿越</span>
-                    </span>
-                </button>
-            </div>
-
-            <button class="flex items-center justify-center gap-2 text-white/40 hover:text-white transition text-xs uppercase tracking-tighter mt-3" onclick="backToModeSelection()">
-                <i data-lucide="arrow-left" class="w-3 h-3"></i> 返回
-            </button>
-        </div>
-
-        <!-- 菜单区域：对抗模式关卡选择 -->
-        <div id="versus-menu" class="menu-container flex flex-col gap-3 w-full max-w-md hidden-menu" style="margin-top: -50px;">
-            
-            <!-- 竞技颜色收集 -->
-            <div class="text-center text-sm opacity-60 mb-1">🏆 竞技颜色收集</div>
-            <div class="flex gap-2">
-                <button class="btn-glitch group !border-fuchsia-400 flex-1" onclick="selectLevel('competeColor', 1)">
-                    <span class="flex flex-col items-center justify-center py-1">
-                        <span class="text-base">关卡 I</span>
-                        <span class="text-[9px] opacity-50 font-game">基础模式</span>
-                    </span>
-                </button>
-                <button class="btn-glitch group !border-fuchsia-500 hover:!bg-fuchsia-500 flex-1" onclick="selectLevel('competeColor', 2)">
-                    <span class="flex flex-col items-center justify-center py-1">
-                        <span class="text-base">关卡 II</span>
-                        <span class="text-[9px] opacity-50 font-game">动态目标</span>
-                    </span>
-                </button>
-                <button class="btn-glitch group !border-fuchsia-600 hover:!bg-fuchsia-600 flex-1" onclick="selectLevel('competeColor', 3)">
-                    <span class="flex flex-col items-center justify-center py-1">
-                        <span class="text-base">关卡 III</span>
-                        <span class="text-[9px] opacity-50 font-game">极限模式</span>
-                    </span>
-                </button>
-            </div>
-            
-            <!-- 分隔线 -->
-            <div class="flex items-center gap-3 my-3">
-                <div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-                <span class="text-[10px] text-white/30 uppercase tracking-widest">更多竞技模式</span>
-                <div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-            </div>
-            
-            <!-- 竞技红线危机 -->
-            <div class="text-center text-sm opacity-60 mb-1">⚡ 竞技红线危机</div>
-            <div class="flex gap-2">
-                <button class="btn-glitch group !border-red-400 flex-1" onclick="selectLevel('competeRedLine', 1)">
-                    <span class="flex flex-col items-center justify-center py-1">
-                        <span class="text-base">关卡 I</span>
-                        <span class="text-[9px] opacity-50 font-game">单线追击</span>
-                    </span>
-                </button>
-                <button class="btn-glitch group !border-red-500 hover:!bg-red-500 flex-1" onclick="selectLevel('competeRedLine', 2)">
-                    <span class="flex flex-col items-center justify-center py-1">
-                        <span class="text-base">关卡 II</span>
-                        <span class="text-[9px] opacity-50 font-game">双线夹击</span>
-                    </span>
-                </button>
-                <button class="btn-glitch group !border-red-600 hover:!bg-red-600 flex-1" onclick="selectLevel('competeRedLine', 3)">
-                    <span class="flex flex-col items-center justify-center py-1">
-                        <span class="text-base">关卡 III</span>
-                        <span class="text-[9px] opacity-50 font-game">十字封锁</span>
-                    </span>
-                </button>
-            </div>
-            
-            <!-- 竞技危险通道 -->
-            <div class="text-center text-sm opacity-60 mb-1 mt-3">🚧 竞技危险通道</div>
-            <div class="flex gap-2">
-                <button class="btn-glitch group !border-orange-400 flex-1" onclick="selectLevel('competeDangerousPassage', 1)">
-                    <span class="flex flex-col items-center justify-center py-1">
-                        <span class="text-base">关卡 I</span>
-                        <span class="text-[9px] opacity-50 font-game">基础通道</span>
-                    </span>
-                </button>
-                <button class="btn-glitch group !border-orange-500 hover:!bg-orange-500 flex-1" onclick="selectLevel('competeDangerousPassage', 2)">
-                    <span class="flex flex-col items-center justify-center py-1">
-                        <span class="text-base">关卡 II</span>
-                        <span class="text-[9px] opacity-50 font-game">双重封锁</span>
-                    </span>
-                </button>
-                <button class="btn-glitch group !border-orange-600 hover:!bg-orange-600 flex-1" onclick="selectLevel('competeDangerousPassage', 3)">
-                    <span class="flex flex-col items-center justify-center py-1">
-                        <span class="text-base">关卡 III</span>
-                        <span class="text-[9px] opacity-50 font-game">极限穿越</span>
-                    </span>
-                </button>
-            </div>
-
-            <button class="flex items-center justify-center gap-2 text-white/40 hover:text-white transition text-xs uppercase tracking-tighter mt-2" onclick="backToModeSelection()">
-                <i data-lucide="arrow-left" class="w-3 h-3"></i> 返回
-            </button>
         </div>
 
         <!-- 底部装饰 -->
@@ -619,54 +510,74 @@
 
     <!-- 扫码弹窗 -->
     <div id="qr-modal" class="fixed inset-0 z-50 items-center justify-center p-6">
-        <div id="qr-content" class="glass-panel p-8 rounded-2xl max-w-sm w-full relative" style="transform-origin: center center;">
-            <button onclick="toggleQR()" class="absolute top-4 right-4 text-white/50 hover:text-white">
+        <div id="qr-content" class="glass-panel p-6 rounded-2xl w-full relative" style="transform-origin: center center; max-width: 760px;">
+            <button onclick="MainMenuUI.toggleQR()" class="absolute top-4 right-4 text-white/50 hover:text-white">
                 <i data-lucide="x"></i>
             </button>
             
-            <div class="text-center mb-6">
+            <div class="text-center mb-4">
                 <h3 class="text-2xl font-bold mb-2 text-white">唤醒「<span class="text-cyan-400">方寸枢</span>」</h3>
                 <p class="text-sm text-white/50 leading-relaxed">
                     扫描二维码，将手机化为掌中枢机
                 </p>
             </div>
 
-            <div class="relative w-64 h-64 mx-auto mb-6 bg-white p-4 rounded-xl shadow-[0_0_50px_rgba(0,242,255,0.3)]">
-                <div class="w-full h-full bg-white flex items-center justify-center relative overflow-hidden rounded-lg">
-                    <div class="qr-scanner-line"></div>
-                    <canvas id="qr-canvas"></canvas>
-                    <div id="qr-loading" class="absolute inset-0 flex items-center justify-center bg-white text-gray-400 text-sm">
-                        正在连接服务器...
+            <div class="flex flex-col md:flex-row gap-5 md:gap-6 items-stretch">
+                <div class="md:w-[280px] md:flex-shrink-0">
+                    <div class="relative w-52 h-52 md:w-64 md:h-64 mx-auto mb-4 bg-white p-3 rounded-xl shadow-[0_0_50px_rgba(0,242,255,0.3)]">
+                        <div class="w-full h-full bg-white flex items-center justify-center relative overflow-hidden rounded-lg">
+                            <div class="qr-scanner-line"></div>
+                            <canvas id="qr-canvas"></canvas>
+                            <div id="qr-loading" class="absolute inset-0 flex items-center justify-center bg-white text-gray-400 text-sm">
+                                正在连接服务器...
+                            </div>
+                        </div>
+                    </div>
+                    <p id="qr-url" class="text-[11px] text-cyan-400 text-center font-mono break-all px-2">等待服务器响应...</p>
+                </div>
+
+                <div class="flex-1 min-w-0 flex flex-col justify-between gap-4">
+                    <div class="rounded-xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
+                        <div class="flex items-center justify-between mb-1">
+                            <p class="text-xs uppercase tracking-widest text-cyan-300/85">连接步骤</p>
+                            <p class="text-[11px] text-white/40">Connect Guide</p>
+                        </div>
+                        <div class="flex items-start gap-3 text-base text-white/72">
+                            <div class="w-6 h-6 rounded-full bg-cyan-400/20 text-cyan-400 flex-shrink-0 flex items-center justify-center font-bold">1</div>
+                            <p class="leading-relaxed">确保手机与电脑处于同一局域网内</p>
+                        </div>
+                        <div class="flex items-start gap-3 text-base text-white/72">
+                            <div class="w-6 h-6 rounded-full bg-cyan-400/20 text-cyan-400 flex-shrink-0 flex items-center justify-center font-bold">2</div>
+                            <p class="leading-relaxed">扫描成功后，网页会自动跳转至控制界面</p>
+                        </div>
+                    </div>
+
+                    <!-- 控制器连接状态 -->
+                    <div class="rounded-xl border border-white/10 bg-black/20 p-5 md:p-6">
+                        <div class="flex items-center justify-between">
+                            <p class="text-base text-white/62 uppercase tracking-widest">当前玩家</p>
+                            <span id="player-count" class="text-5xl font-bold text-cyan-400 leading-none" style="text-shadow: 0 0 10px rgba(0, 242, 255, 0.6);">0</span>
+                        </div>
+                        <p id="connection-hint" class="text-sm text-white/50 uppercase tracking-widest mt-2">P1 键盘控制 | 等待手柄连接...</p>
+                        <div id="player-slots" class="grid grid-cols-8 gap-3 mt-5">
+                            <div class="player-slot w-6 h-6 rounded-sm border" data-slot="1" style="background: rgba(120,120,120,0.2); border-color: rgba(255,255,255,0.1); transition: all 180ms ease;"></div>
+                            <div class="player-slot w-6 h-6 rounded-sm border" data-slot="2" style="background: rgba(120,120,120,0.2); border-color: rgba(255,255,255,0.1); transition: all 180ms ease;"></div>
+                            <div class="player-slot w-6 h-6 rounded-sm border" data-slot="3" style="background: rgba(120,120,120,0.2); border-color: rgba(255,255,255,0.1); transition: all 180ms ease;"></div>
+                            <div class="player-slot w-6 h-6 rounded-sm border" data-slot="4" style="background: rgba(120,120,120,0.2); border-color: rgba(255,255,255,0.1); transition: all 180ms ease;"></div>
+                            <div class="player-slot w-6 h-6 rounded-sm border" data-slot="5" style="background: rgba(120,120,120,0.2); border-color: rgba(255,255,255,0.1); transition: all 180ms ease;"></div>
+                            <div class="player-slot w-6 h-6 rounded-sm border" data-slot="6" style="background: rgba(120,120,120,0.2); border-color: rgba(255,255,255,0.1); transition: all 180ms ease;"></div>
+                            <div class="player-slot w-6 h-6 rounded-sm border" data-slot="7" style="background: rgba(120,120,120,0.2); border-color: rgba(255,255,255,0.1); transition: all 180ms ease;"></div>
+                            <div class="player-slot w-6 h-6 rounded-sm border" data-slot="8" style="background: rgba(120,120,120,0.2); border-color: rgba(255,255,255,0.1); transition: all 180ms ease;"></div>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <p id="qr-url" class="text-xs text-cyan-400 text-center mb-4 font-mono break-all px-4">等待服务器响应...</p>
-
-            <div class="space-y-4">
-                <div class="flex items-start gap-3 text-xs text-white/60">
-                    <div class="w-5 h-5 rounded-full bg-cyan-400/20 text-cyan-400 flex-shrink-0 flex items-center justify-center font-bold">1</div>
-                    <p>确保手机与电脑处于同一局域网内</p>
-                </div>
-                <div class="flex items-start gap-3 text-xs text-white/60">
-                    <div class="w-5 h-5 rounded-full bg-cyan-400/20 text-cyan-400 flex-shrink-0 flex items-center justify-center font-bold">2</div>
-                    <p>扫描成功后，网页会自动跳转至控制界面</p>
-                </div>
-            </div>
-
-            <!-- 控制器连接状态 -->
-            <div class="mt-4 pt-4 border-t border-white/10">
-                <div class="flex items-center justify-center gap-2">
-                    <p class="text-[10px] text-white/40 uppercase tracking-widest">当前玩家</p>
-                    <span id="player-count" class="text-xl font-bold text-cyan-400" style="text-shadow: 0 0 10px rgba(0, 242, 255, 0.6);">0</span>
-                </div>
-                <p id="connection-hint" class="text-[10px] text-white/30 uppercase tracking-widest mt-2 text-center">P1 键盘控制 | 等待手柄连接...</p>
             </div>
         </div>
     </div>
 
     <!-- 设置面板 -->
     <div id="settings-modal" class="fixed inset-0 z-50 flex items-center justify-center p-6" style="background: rgba(10, 10, 12, 0.95); backdrop-filter: blur(10px); display: none; transition: opacity 0.3s ease;">
-        <div id="settings-content" class="glass-panel p-6 rounded-2xl max-w-lg w-full relative" style="transform-origin: center center;">
+        <div id="settings-content" class="glass-panel p-6 rounded-2xl w-full relative flex flex-col" style="transform-origin: center center; max-width: 560px; width: min(82vw, 560px); height: min(82vh, 760px); max-height: 82vh; overflow: hidden;">
             <button onclick="toggleSettings()" class="absolute top-4 right-4 text-white/50 hover:text-white z-10">
                 <i data-lucide="x"></i>
             </button>
@@ -701,7 +612,7 @@
             </div>
 
             <!-- 标签页内容容器 -->
-            <div class="settings-panels" style="min-height: 280px;">
+            <div class="settings-panels" style="min-height: 0; flex: 1; overflow-y: auto; overflow-x: hidden; padding-right: 6px;">
                 
                 <!-- 控制设置 -->
                 <div class="settings-panel active" data-panel="control">
@@ -871,6 +782,23 @@
                             </label>
                         </div>
 
+                        <div class="flex items-center justify-between glass-panel rounded-xl p-4 mt-2">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                                    <i data-lucide="user" class="w-5 h-5 text-emerald-400"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-bold text-white">显示玩家序号</div>
+                                    <div class="text-xs text-white/50">头顶显示 P1 / P2 / P3，主菜单与局内统一</div>
+                                </div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="show-player-number-toggle" class="sr-only peer" onchange="onShowPlayerNumberToggle(this.checked)" checked>
+                                <div class="w-12 h-6 bg-white/20 rounded-full peer peer-checked:bg-cyan-500/50 transition-colors"></div>
+                                <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
+                            </label>
+                        </div>
+
                         <div class="p-4 rounded-xl bg-white/5 border border-white/10">
                             <div class="flex items-center gap-3 mb-3">
                                 <div class="w-10 h-10 rounded-lg bg-fuchsia-500/20 flex items-center justify-center">
@@ -934,1440 +862,454 @@
             </div>
         </div>
     </div>
+    </div><!-- /#scene-mainMenu -->
 
-    <!-- 共享模块（放在内联脚本之前）-->
-    <script src="js/player.js"></script>
-    <script src="js/wsClient.js"></script>
-    <script src="js/gameData.js"></script>
-    <script src="js/loadingAnimations.js"></script>
-    <script src="js/gameUtils.js"></script>
-    <script src="js/frameScheduler.js"></script>
-    <script src="js/controlHint.js"></script>
-    <script src="js/controllerManager.js"></script>
-    <script src="js/soundManager.js"></script>
+    <template id="scene-levelSelect-tpl">
+        <div id="scene-levelSelect" class="scene-levelSelect">
+            <div class="bg-grid"></div>
+            <main class="min-h-screen flex flex-col items-center justify-start relative px-4 pt-8 pb-6" style="transform-origin: center center;">
+        <!-- 菜单区域：游戏模式选择（合作/对抗） -->
+        <div id="game-mode-menu" class="menu-container flex flex-col gap-6 w-full max-w-xs hidden-menu">
+            <button class="btn-glitch group !border-cyan-400" onclick="showCoopLevels()">
+                <span class="flex flex-col items-center justify-center py-2">
+                    <span class="flex items-center gap-2 text-lg">
+                        <i data-lucide="users" class="w-5 h-5"></i>
+                        合作模式
+                    </span>
+                    <span class="text-[10px] opacity-50 mt-1">携手共进 · 团队挑战</span>
+                </span>
+            </button>
+            
+            <button class="btn-glitch group !border-purple-500 hover:!bg-purple-500" onclick="showVersusLevels()">
+                <span class="flex flex-col items-center justify-center py-2">
+                    <span class="flex items-center gap-2 text-lg">
+                        <i data-lucide="swords" class="w-5 h-5"></i>
+                        对抗模式
+                    </span>
+                    <span class="text-[10px] opacity-50 mt-1">激烈角逐 · 分数争霸</span>
+                </span>
+            </button>
+
+            <button class="flex items-center justify-center gap-2 text-white/40 hover:text-white transition text-xs uppercase tracking-tighter mt-3" onclick="backToMain()">
+                <i data-lucide="arrow-left" class="w-3 h-3"></i> 返回
+            </button>
+        </div>
+
+        <!-- 菜单区域：合作模式关卡选择 -->
+        <div id="coop-menu" class="menu-container flex flex-col gap-3 w-full max-w-2xl hidden-menu" style="margin-top: -26px;">
+            
+            <!-- 颜色收集 -->
+            <div class="text-center level-section-title">🎨 颜色收集</div>
+            <div class="flex gap-2">
+                <button class="btn-glitch group !border-cyan-400 flex-1" onclick="selectLevel('color', 1)">
+                <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 I</span>
+                        <span class="text-[9px] opacity-50 font-game">基础模式</span>
+                </span>
+            </button>
+                <button class="btn-glitch group !border-yellow-400 hover:!bg-yellow-400 flex-1" onclick="selectLevel('color', 2)">
+                <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 II</span>
+                        <span class="text-[9px] opacity-50 font-game">动态目标</span>
+                </span>
+            </button>
+                <button class="btn-glitch group !border-purple-500 hover:!bg-purple-500 flex-1" onclick="selectLevel('color', 3)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 III</span>
+                        <span class="text-[9px] opacity-50 font-game">极限模式</span>
+                    </span>
+                </button>
+            </div>
+            
+            <!-- 分隔线 -->
+            <div class="flex items-center gap-3 my-2 section-divider">
+                <div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+            </div>
+            
+            <!-- 红线危机 -->
+            <div class="text-center level-section-title">🔴 红线危机</div>
+            <div class="flex gap-2">
+                <button class="btn-glitch group !border-red-500 hover:!bg-red-500 flex-1" onclick="selectLevel('redline', 1)">
+                <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 I</span>
+                        <span class="text-[9px] opacity-50 font-game">单线追击</span>
+                </span>
+            </button>
+                <button class="btn-glitch group !border-orange-500 hover:!bg-orange-500 flex-1" onclick="selectLevel('redline', 2)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 II</span>
+                        <span class="text-[9px] opacity-50 font-game">双线夹击</span>
+                    </span>
+                </button>
+                <button class="btn-glitch group !border-pink-500 hover:!bg-pink-500 flex-1" onclick="selectLevel('redline', 3)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 III</span>
+                        <span class="text-[9px] opacity-50 font-game">十字封锁</span>
+                    </span>
+                </button>
+            </div>
+
+            <!-- 分隔线 -->
+            <div class="flex items-center gap-3 my-2 section-divider">
+                <div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+            </div>
+            
+            <!-- 危险通道 -->
+            <div class="text-center level-section-title">⚠️ 危险通道</div>
+            <div class="flex gap-2">
+                <button class="btn-glitch group !border-amber-500 hover:!bg-amber-500 flex-1" onclick="selectLevel('dangerousPassage', 1)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 I</span>
+                        <span class="text-[9px] opacity-50 font-game">基础通道</span>
+                    </span>
+                </button>
+                <button class="btn-glitch group !border-yellow-500 hover:!bg-yellow-500 flex-1" onclick="selectLevel('dangerousPassage', 2)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 II</span>
+                        <span class="text-[9px] opacity-50 font-game">双重封锁</span>
+                    </span>
+                </button>
+                <button class="btn-glitch group !border-orange-400 hover:!bg-orange-400 flex-1" onclick="selectLevel('dangerousPassage', 3)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 III</span>
+                        <span class="text-[9px] opacity-50 font-game">极限穿越</span>
+                    </span>
+                </button>
+            </div>
+
+            <button class="flex items-center justify-center gap-2 text-white/40 hover:text-white transition text-xs uppercase tracking-tighter mt-3" onclick="backToModeSelection()">
+                <i data-lucide="arrow-left" class="w-3 h-3"></i> 返回
+            </button>
+        </div>
+
+        <!-- 菜单区域：对抗模式关卡选择 -->
+        <div id="versus-menu" class="menu-container flex flex-col gap-3 w-full max-w-2xl hidden-menu" style="margin-top: -18px;">
+            
+            <!-- 竞技颜色收集 -->
+            <div class="text-center level-section-title">🏆 竞技颜色收集</div>
+            <div class="flex gap-2">
+                <button class="btn-glitch group !border-fuchsia-400 flex-1" onclick="selectLevel('competeColor', 1)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 I</span>
+                        <span class="text-[9px] opacity-50 font-game">基础模式</span>
+                    </span>
+                </button>
+                <button class="btn-glitch group !border-fuchsia-500 hover:!bg-fuchsia-500 flex-1" onclick="selectLevel('competeColor', 2)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 II</span>
+                        <span class="text-[9px] opacity-50 font-game">动态目标</span>
+                    </span>
+                </button>
+                <button class="btn-glitch group !border-fuchsia-600 hover:!bg-fuchsia-600 flex-1" onclick="selectLevel('competeColor', 3)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 III</span>
+                        <span class="text-[9px] opacity-50 font-game">极限模式</span>
+                    </span>
+                </button>
+            </div>
+            
+            <!-- 分隔线 -->
+            <div class="flex items-center gap-3 my-2 section-divider">
+                <div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+                <span class="text-[10px] text-white/30 uppercase tracking-widest">更多竞技模式</span>
+                <div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+            </div>
+            
+            <!-- 竞技红线危机 -->
+            <div class="text-center level-section-title">⚡ 竞技红线危机</div>
+            <div class="flex gap-2">
+                <button class="btn-glitch group !border-red-400 flex-1" onclick="selectLevel('competeRedLine', 1)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 I</span>
+                        <span class="text-[9px] opacity-50 font-game">单线追击</span>
+                    </span>
+                </button>
+                <button class="btn-glitch group !border-red-500 hover:!bg-red-500 flex-1" onclick="selectLevel('competeRedLine', 2)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 II</span>
+                        <span class="text-[9px] opacity-50 font-game">双线夹击</span>
+                    </span>
+                </button>
+                <button class="btn-glitch group !border-red-600 hover:!bg-red-600 flex-1" onclick="selectLevel('competeRedLine', 3)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 III</span>
+                        <span class="text-[9px] opacity-50 font-game">十字封锁</span>
+                    </span>
+                </button>
+            </div>
+            
+            <!-- 竞技危险通道 -->
+            <div class="text-center level-section-title mt-1">🚧 竞技危险通道</div>
+            <div class="flex gap-2">
+                <button class="btn-glitch group !border-orange-400 flex-1" onclick="selectLevel('competeDangerousPassage', 1)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 I</span>
+                        <span class="text-[9px] opacity-50 font-game">基础通道</span>
+                    </span>
+                </button>
+                <button class="btn-glitch group !border-orange-500 hover:!bg-orange-500 flex-1" onclick="selectLevel('competeDangerousPassage', 2)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 II</span>
+                        <span class="text-[9px] opacity-50 font-game">双重封锁</span>
+                    </span>
+                </button>
+                <button class="btn-glitch group !border-orange-600 hover:!bg-orange-600 flex-1" onclick="selectLevel('competeDangerousPassage', 3)">
+                    <span class="flex flex-col items-center justify-center py-1">
+                        <span class="text-base">关卡 III</span>
+                        <span class="text-[9px] opacity-50 font-game">极限穿越</span>
+                    </span>
+                </button>
+            </div>
+
+            <button class="flex items-center justify-center gap-2 text-white/40 hover:text-white transition text-xs uppercase tracking-tighter mt-2" onclick="backToModeSelection()">
+                <i data-lucide="arrow-left" class="w-3 h-3"></i> 返回
+            </button>
+        </div>
+            </main>
+        </div>
+    </template>
+
+    <!-- 游戏场景挂载点 -->
+    <div id="scene-container"></div>
+
+    <template id="scene-gameColorCollect-tpl">
+        <div id="scene-gameColorCollect" class="scene-gameColorCollect">
+            <div id="ui-overlay" class="flicker">
+                <div class="text-3xl font-black mb-2 tracking-widest">用时: <span id="timer">00:00</span></div>
+                <div class="text-sm opacity-70">最快记录: <span id="best-time">--:--</span></div>
+                <div class="mt-2 text-xs" style="opacity: 0.8;"><span style="color: #4ade80;">游戏: <span id="play-time">00:00</span></span><span class="ml-3" style="color: #ff6b6b;">惩罚: <span id="penalty-time-display">+0s</span></span></div>
+                <div id="level-title" class="mb-2" style="font-size: 14px; opacity: 0.6; letter-spacing: 2px;"></div>
+                <div id="speed-boost-ui" class="mt-2 font-black tracking-wide" style="opacity: 0.95;">
+                    冲刺速度:
+                    <span id="speed-boost-body" style="display:inline-block; min-width:92px; text-align:center; font-size:18px; color:#facc15; font-weight:900; text-shadow: 0 0 14px rgba(250,204,21,0.65);">15.75</span>
+                    <span style="font-size:12px; opacity:0.9;">身位/s</span>
+                </div>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                    <div id="target-color-box" class="mt-2" style="background: rgba(0,0,0,0.8); border: 3px solid #00f2ff; border-radius: 10px; padding: 12px 16px; display: inline-block;">
+                        <div style="font-size: 10px; opacity: 0.7; margin-bottom: 5px;">收集目标</div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div id="target-color-indicator" style="width: 35px; height: 35px; border-radius: 6px; background: #00f2ff; box-shadow: 0 0 15px #00f2ff;"></div>
+                            <div><div id="target-color-name" style="font-size: 16px; font-weight: bold;">青色</div><div id="target-color-count" style="font-size: 10px; opacity: 0.7;">剩余: 0</div></div>
+                        </div>
+                    </div>
+                    <div id="danger-color-box" class="mt-2" style="background: rgba(0,0,0,0.8); border: 3px solid #ff00ff; border-radius: 10px; padding: 12px 16px; display: none;">
+                        <div style="font-size: 10px; opacity: 0.7; margin-bottom: 5px;">⚠ 危险障碍</div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div id="danger-color-indicator" style="width: 35px; height: 35px; border-radius: 6px; background: #ff00ff;"></div>
+                            <div><div id="danger-color-name" style="font-size: 16px; font-weight: bold; color: #ff00ff;">粉色</div><div style="font-size: 10px; opacity: 0.7;">触碰即死</div></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="game-ui-container"></div>
+                <div id="debug-info" class="mt-4 text-xs tracking-widest" style="font-family: JetBrains Mono, monospace;"><div>波次: <span id="wave-num">0</span></div><div class="mt-1" id="color-counts"></div></div>
+            </div>
+            <canvas id="gameCanvas"></canvas>
+        </div>
+    </template>
+
+    <template id="scene-competeColorCollect-tpl">
+        <div id="scene-competeColorCollect" class="scene-competeColorCollect">
+            <div id="ui-overlay" class="flicker">
+                <div id="level-title" class="mb-2" style="font-size: 18px; opacity: 0.9; letter-spacing: 3px; font-weight: bold;">竞技模式 - 颜色收集</div>
+                <div class="mt-2" style="font-size: 14px; opacity: 0.7;">波次: <span id="wave-num" class="neon-text-cyan" style="font-weight: bold;">0</span> / <span id="max-waves">9</span></div>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 15px;">
+                    <div id="target-color-box" style="background: rgba(0,0,0,0.8); border: 3px solid #00f2ff; border-radius: 10px; padding: 12px 16px; display: inline-block;">
+                        <div style="font-size: 10px; opacity: 0.7; margin-bottom: 5px;">收集目标</div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div id="target-color-indicator" style="width: 35px; height: 35px; border-radius: 6px; background: #00f2ff; box-shadow: 0 0 15px #00f2ff;"></div>
+                            <div>
+                                <div id="target-color-name" style="font-size: 16px; font-weight: bold;">青色</div>
+                                <div id="target-color-count" style="font-size: 10px; opacity: 0.7;">剩余: 0</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="danger-color-box" style="background: rgba(0,0,0,0.8); border: 3px solid #ff00ff; border-radius: 10px; padding: 12px 16px; display: none;">
+                        <div style="font-size: 10px; opacity: 0.7; margin-bottom: 5px;">⚠ 危险障碍</div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div id="danger-color-indicator" style="width: 35px; height: 35px; border-radius: 6px; background: #ff00ff; box-shadow: 0 0 15px #ff00ff;"></div>
+                            <div>
+                                <div id="danger-color-name" style="font-size: 16px; font-weight: bold; color: #ff00ff;">粉色</div>
+                                <div style="font-size: 10px; opacity: 0.7;">触碰即死</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="game-ui-container"></div>
+                <div id="debug-info" class="mt-4 text-xs tracking-widest" style="font-family: JetBrains Mono, monospace;">
+                    <div class="mt-1" id="color-counts"></div>
+                </div>
+            </div>
+            <canvas id="gameCanvas"></canvas>
+        </div>
+    </template>
+
+    <template id="scene-gameRedLine-tpl">
+        <div id="scene-gameRedLine" class="scene-gameRedLine">
+            <div id="ui-overlay" class="flicker">
+                <div class="text-3xl font-black mb-2 tracking-widest">用时: <span id="timer">00:00</span></div>
+                <div class="text-sm opacity-70">最快记录: <span id="best-time">--:--</span></div>
+                <div class="mt-2 text-xs" style="opacity: 0.8;"><span style="color: #4ade80;">游戏: <span id="play-time">00:00</span></span><span class="ml-3" style="color: #ff6b6b;">惩罚: <span id="penalty-time-display">+0s</span></span></div>
+                <div id="level-title" class="mb-2" style="font-size: 14px; opacity: 0.6; letter-spacing: 2px;"></div>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                    <div id="target-color-box" class="mt-2" style="background: rgba(0,0,0,0.8); border: 3px solid #00f2ff; border-radius: 10px; padding: 12px 16px; display: inline-block;">
+                        <div style="font-size: 10px; opacity: 0.7; margin-bottom: 5px;">收集目标</div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div id="target-color-indicator" style="width: 35px; height: 35px; border-radius: 6px; background: #00f2ff; box-shadow: 0 0 15px #00f2ff;"></div>
+                            <div><div id="target-color-name" style="font-size: 16px; font-weight: bold;">青色</div><div id="target-color-count" style="font-size: 10px; opacity: 0.7;">剩余: 0</div></div>
+                        </div>
+                    </div>
+                    <div id="danger-color-box" class="mt-2" style="background: rgba(0,0,0,0.8); border: 3px solid #ff00ff; border-radius: 10px; padding: 12px 16px; display: none;">
+                        <div style="font-size: 10px; opacity: 0.7; margin-bottom: 5px;">⚠ 危险障碍</div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div id="danger-color-indicator" style="width: 35px; height: 35px; border-radius: 6px; background: #ff4444;"></div>
+                            <div><div id="danger-color-name" style="font-size: 16px; font-weight: bold; color: #ff4444;">红线</div><div id="danger-desc" style="font-size: 10px; opacity: 0.7;">闪避移动</div></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="game-ui-container"></div>
+                <div id="debug-info" class="mt-4 text-xs tracking-widest" style="font-family: JetBrains Mono, monospace;"><div>波次: <span id="wave-num">0</span></div><div class="mt-1" id="color-counts"></div></div>
+            </div>
+            <canvas id="gameCanvas"></canvas>
+        </div>
+    </template>
+
+    <template id="scene-competeRedLine-tpl">
+        <div id="scene-competeRedLine" class="scene-competeRedLine">
+            <div id="ui-overlay" class="flicker">
+                <div id="level-title" class="mb-2" style="font-size: 18px; opacity: 0.9; letter-spacing: 3px; font-weight: bold;"></div>
+                <div class="mt-2" style="font-size: 14px; opacity: 0.7;">波次: <span id="wave-num" style="font-weight: bold;">0</span> / <span id="max-waves">9</span></div>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 15px;">
+                    <div id="target-color-box" style="background: rgba(0,0,0,0.8); border: 3px solid #00f2ff; border-radius: 10px; padding: 12px 16px; display: inline-block;">
+                        <div style="font-size: 10px; opacity: 0.7; margin-bottom: 5px;">收集目标</div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div id="target-color-indicator" style="width: 35px; height: 35px; border-radius: 6px; background: #00f2ff; box-shadow: 0 0 15px #00f2ff;"></div>
+                            <div><div id="target-color-name" style="font-size: 16px; font-weight: bold;">青色</div><div id="target-color-count" style="font-size: 10px; opacity: 0.7;">剩余: 0</div></div>
+                        </div>
+                    </div>
+                    <div id="danger-color-box" style="background: rgba(0,0,0,0.8); border: 3px solid #ff00ff; border-radius: 10px; padding: 12px 16px; display: none;">
+                        <div style="font-size: 10px; opacity: 0.7; margin-bottom: 5px;">⚠ 危险障碍</div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div id="danger-color-indicator" style="width: 35px; height: 35px; border-radius: 6px; background: #ff4444;"></div>
+                            <div><div id="danger-color-name" style="font-size: 16px; font-weight: bold; color: #ff4444;">红线</div><div id="danger-desc" style="font-size: 10px; opacity: 0.7;">闪避移动</div></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="game-ui-container"></div>
+                <div id="debug-info" class="mt-4 text-xs tracking-widest" style="font-family: JetBrains Mono, monospace;"><div class="mt-1" id="color-counts"></div></div>
+            </div>
+            <canvas id="gameCanvas"></canvas>
+        </div>
+    </template>
+
+    <template id="scene-gameDangerousPassage-tpl">
+        <div id="scene-gameDangerousPassage" class="scene-gameDangerousPassage">
+            <div id="ui-overlay" class="flicker">
+                <div class="text-3xl font-black mb-2 tracking-widest">用时: <span id="timer">00:00</span></div>
+                <div class="text-sm opacity-70">最快记录: <span id="best-time">--:--</span></div>
+                <div class="mt-2 text-xs" style="opacity: 0.8;"><span style="color: #4ade80;">游戏: <span id="play-time">00:00</span></span><span class="ml-3" style="color: #ff6b6b;">惩罚: <span id="penalty-time-display">+0s</span></span></div>
+                <div id="level-title" class="mb-2" style="font-size: 14px; opacity: 0.6; letter-spacing: 2px;"></div>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                    <div id="target-color-box" class="mt-2" style="background: rgba(0,0,0,0.8); border: 3px solid #00f2ff; border-radius: 10px; padding: 12px 16px; display: inline-block;">
+                        <div style="font-size: 10px; opacity: 0.7; margin-bottom: 5px;">收集目标</div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div id="target-color-indicator" style="width: 35px; height: 35px; border-radius: 6px; background: #00f2ff; box-shadow: 0 0 15px #00f2ff;"></div>
+                            <div><div id="target-color-name" style="font-size: 16px; font-weight: bold;">青色</div><div id="target-color-count" style="font-size: 10px; opacity: 0.7;">剩余: 0</div></div>
+                        </div>
+                    </div>
+                    <div id="danger-color-box" class="mt-2" style="background: rgba(0,0,0,0.8); border: 3px solid #ff4444; border-radius: 10px; padding: 12px 16px; display: none;">
+                        <div style="font-size: 10px; opacity: 0.7; margin-bottom: 5px;">⚠ 危险通道</div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div id="danger-color-indicator" style="width: 35px; height: 35px; border-radius: 6px; background: #ff4444; box-shadow: 0 0 15px #ff0000;"></div>
+                            <div><div id="danger-color-name" style="font-size: 16px; font-weight: bold; color: #ff4444;">危险区</div><div id="danger-desc" style="font-size: 10px; opacity: 0.7;">闪避移动</div></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="game-ui-container"></div>
+                <div id="debug-info" class="mt-4 text-xs tracking-widest" style="font-family: JetBrains Mono, monospace;"><div>波次: <span id="wave-num">0</span></div><div class="mt-1" id="color-counts"></div></div>
+            </div>
+            <canvas id="gameCanvas"></canvas>
+        </div>
+    </template>
+
+    <template id="scene-competeDangerousPassage-tpl">
+        <div id="scene-competeDangerousPassage" class="scene-competeDangerousPassage">
+            <div id="ui-overlay" class="flicker">
+                <div id="level-title" class="mb-2" style="font-size: 18px; opacity: 0.9; letter-spacing: 3px; font-weight: bold;">竞技模式 - 危险通道</div>
+                <div class="mt-2" style="font-size: 14px; opacity: 0.7;">
+                    波次: <span id="wave-num" class="neon-text-cyan" style="font-weight: bold;">0</span> / <span id="max-waves">9</span>
+                </div>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 15px;">
+                    <div id="target-color-box" style="background: rgba(0,0,0,0.8); border: 3px solid #00f2ff; border-radius: 10px; padding: 12px 16px; display: inline-block;">
+                        <div style="font-size: 10px; opacity: 0.7; margin-bottom: 5px;">收集目标</div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div id="target-color-indicator" style="width: 35px; height: 35px; border-radius: 6px; background: #00f2ff; box-shadow: 0 0 15px #00f2ff;"></div>
+                            <div>
+                                <div id="target-color-name" style="font-size: 16px; font-weight: bold;">青色</div>
+                                <div id="target-color-count" style="font-size: 10px; opacity: 0.7;">剩余: 0</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="danger-color-box" style="background: rgba(0,0,0,0.8); border: 3px solid #ff00ff; border-radius: 10px; padding: 12px 16px; display: none;">
+                        <div style="font-size: 10px; opacity: 0.7; margin-bottom: 5px;">⚠ 危险通道</div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div id="danger-color-indicator" style="width: 35px; height: 35px; border-radius: 6px; background: #ff4444;"></div>
+                            <div>
+                                <div id="danger-color-name" style="font-size: 16px; font-weight: bold; color: #ff4444;">危险区</div>
+                                <div style="font-size: 10px; opacity: 0.7;">触碰即死</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="game-ui-container"></div>
+                <div id="debug-info" class="mt-4 text-xs tracking-widest" style="font-family: JetBrains Mono, monospace;">
+                    <div class="mt-1" id="color-counts"></div>
+                </div>
+            </div>
+            <canvas id="gameCanvas"></canvas>
+        </div>
+    </template>
+
+    <!-- 工具 & 数据层 -->
+    <script src="js/data/persistedStore.js"></script>
+    <script src="js/utils/gameUtils.js"></script>
+    <script src="js/core/gridSystem.js"></script>
+    <script src="js/core/waveSystem.js"></script>
+    <script src="js/core/frameScheduler.js"></script>
+    <script src="js/dispaly/loadingAnimations.js"></script>
+
+    <!-- 核心系统 / 管理器层 -->
+    <script src="js/scenes/sceneManager.js"></script>
+    <script src="js/scenes/levelSelectScene.js"></script>
+    <script src="js/player/player.js"></script>
+    <script src="js/player/controllerManager.js"></script>
+    <script src="js/dispaly/soundManager.js"></script>
+    <script src="js/data/gameWebSocket.js"></script>
+    <script src="js/dispaly/fpsOverlay.js"></script>
+    <script src="js/dispaly/competeScoreboard.js"></script>
+    <script src="js/dispaly/debugPanel.js"></script>
+
+    <!-- UI 辅助模块 -->
+    <script src="js/dispaly/controlHint.js"></script>
+    <script src="js/dispaly/pauseMenu.js"></script>
+    <script src="js/main/mainMenuUI.js"></script>
+    <script src="js/main/playerSlotRenderer.js"></script>
+    <script src="js/main/mainMenuWsLifecycleHandlers.js"></script>
+    <script src="js/main/mainMenuWsHandlers.js"></script>
+    <script src="js/main/floatingBlocks.js"></script>
+
+    <!-- 场景 / 模式脚本 -->
+    <script src="js/scenes/gameColorCollectScene.js"></script>
+    <script src="js/scenes/gameRedLineScene.js"></script>
+    <script src="js/scenes/gameDangerousPassageScene.js"></script>
+    <script src="js/scenes/competeColorCollectScene.js"></script>
+    <script src="js/scenes/competeRedLineScene.js"></script>
+    <script src="js/scenes/competeDangerousPassageScene.js"></script>
+
+    <!-- 入口：主菜单预览与 WebSocket 等 -->
+    <script src="js/mainEntry.js"></script>
+    <!-- 场景注册与启动（依赖 mainEntry 中的 mountMainMenu / init） -->
+    <script src="js/scenes/registerScenes.js"></script>
+
     
-    <script>
-        function hideBootCover() {
-            const cover = document.getElementById('boot-cover');
-            if (!cover) return;
-            cover.classList.add('hidden');
-            setTimeout(() => {
-                if (cover.parentNode) cover.parentNode.removeChild(cover);
-            }, 220);
-        }
-
-        function loadFpsOverlayAndShow() {
-            const enabled = GameData.gameSettings.getFpsOverlayEnabled();
-            if (window.FpsOverlay) {
-                window.FpsOverlay.setVisible(enabled);
-                return;
-            }
-            const script = document.createElement('script');
-            script.src = 'js/fpsOverlay.js';
-            script.onload = () => {
-                if (window.FpsOverlay) window.FpsOverlay.setVisible(enabled);
-            };
-            document.head.appendChild(script);
-        }
-
-        // ==================== 开场动画（仅首次进入） ====================
-        const hasPlayedIntro = sessionStorage.getItem('intro_played');
-        
-        if (!hasPlayedIntro) {
-            // 首次进入，播放开场动画
-            const introScreen = LoadingAnimations.createIntro({
-                title: '方寸枢机',
-                subtitle: 'BLOCK GAME',
-                duration: 2000,
-                onComplete: () => {
-                    console.log('[Intro] 开场动画完成');
-                    sessionStorage.setItem('intro_played', 'true');
-                    // 开场动画结束后播放背景音乐
-                    SoundManager.playMainBGM();
-                    SoundManager.initBGMAutoplay();
-                    loadFpsOverlayAndShow();
-                }
-            });
-            // Intro 覆盖层接管后再移除黑幕，防止主页先闪一帧
-            requestAnimationFrame(() => hideBootCover());
-        } else {
-            // 非首次进入（从游戏返回），直接播放背景音乐
-            console.log('[Intro] 跳过开场动画');
-            SoundManager.playMainBGM();
-            SoundManager.initBGMAutoplay();
-            loadFpsOverlayAndShow();
-            hideBootCover();
-        }
-        
-        
-        // 初始化图标
-        lucide.createIcons();
-        
-        // ==================== 全局按钮点击音效 ====================
-        document.addEventListener('click', (e) => {
-            const target = e.target.closest('button, .btn-glitch, .btn-cyber, .menu-btn, .glass-panel[onclick]');
-            if (target) {
-                SoundManager.playClick();
-            }
-        });
-
-        // ==================== 真实二维码生成 ====================
-        let serverInfo = { ip: null, port: 8088 };
-        
-        // 获取控制器 URL
-        function getControllerUrl() {
-            const protocol = window.location.protocol;
-            const host = serverInfo.ip || window.location.hostname;
-            const port = serverInfo.port || window.location.port || '8088';
-            return `${protocol}//${host}:${port}/controller.html`;
-        }
-        
-        // 生成二维码
-        function generateQRCode() {
-            const url = getControllerUrl();
-            const qrCanvas = document.getElementById('qr-canvas');
-            const qrUrlDisplay = document.getElementById('qr-url');
-            const qrLoading = document.getElementById('qr-loading');
-            
-            // 隐藏 loading 状态
-            if (qrLoading) qrLoading.style.display = 'none';
-            
-            qrUrlDisplay.textContent = url;
-            
-            const qr = qrcode(0, 'M');
-            qr.addData(url);
-            qr.make();
-            
-            const moduleCount = qr.getModuleCount();
-            const cellSize = Math.floor(200 / moduleCount);
-            const size = moduleCount * cellSize;
-            
-            qrCanvas.width = size;
-            qrCanvas.height = size;
-            const ctx = qrCanvas.getContext('2d');
-            
-            // 白色背景
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, size, size);
-            
-            // 绘制二维码模块
-            ctx.fillStyle = '#000000';
-            for (let row = 0; row < moduleCount; row++) {
-                for (let col = 0; col < moduleCount; col++) {
-                    if (qr.isDark(row, col)) {
-                        ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
-                    }
-                }
-            }
-        }
-        
-        // 控制器状态
-        let connectedControllers = {};
-        
-        // 使用共享模块的颜色配置
-        const slotColors = PLAYER_COLORS;
-        
-        // ==================== 预览角色系统（使用共享模块）====================
-        const previewCanvas = document.getElementById('preview-canvas');
-        const previewCtx = previewCanvas.getContext('2d');
-        
-        // 角色数据和输入状态
-        const players = {};
-        const controllerInputs = {};  // 每个控制器的输入状态
-        
-        // 初始位置配置
-        const SPAWN_POSITIONS = {
-            1: { x: 0.2, y: 0.5 },
-            2: { x: 0.8, y: 0.5 },
-            3: { x: 0.3, y: 0.7 },
-            4: { x: 0.7, y: 0.7 }
-        };
-        
-        function initPlayer(id) {
-            const pos = SPAWN_POSITIONS[id] || { x: 0.5, y: 0.5 };
-            players[id] = createPlayer(
-                id,
-                window.innerWidth * pos.x - 20,
-                window.innerHeight * pos.y - 20
-            );
-            controllerInputs[id] = {
-                joystick: { x: 0, y: 0 },
-                buttons: { N: false, S: false, E: false, W: false }
-            };
-            
-            // 使用 GameData 统一的颜色管理，避免重复颜色
-            const savedColor = GameData.playerColors.getPlayerColor(id);
-            // 获取首选颜色ID：优先使用保存的颜色ID，如果没有则用玩家ID作为默认
-            let preferredColorId = (savedColor && savedColor.id && savedColor.id > 0) 
-                ? savedColor.id 
-                : parseInt(id);
-            
-            console.log(`[initPlayer] P${id} 首选颜色ID: ${preferredColorId}, savedColor:`, savedColor);
-            
-            // 获取其他玩家已使用的颜色
-            const usedColors = Object.entries(playerColors)
-                .filter(([pid, _]) => parseInt(pid) !== parseInt(id))  // 排除自己
-                .map(([_, colorId]) => colorId);
-            
-            const ALL_COLORS = GameData.playerColors.getAllColors();
-            let finalColorId = preferredColorId;
-            
-            // 只有当首选颜色已被其他玩家使用时，才顺延到下一个可用颜色
-            if (usedColors.includes(preferredColorId)) {
-                console.log(`[initPlayer] P${id} 颜色 ${preferredColorId} 已被使用，寻找替代...`);
-                for (let i = 1; i <= ALL_COLORS.length; i++) {
-                    const candidateId = ((preferredColorId - 1 + i) % ALL_COLORS.length) + 1;
-                    if (!usedColors.includes(candidateId)) {
-                        finalColorId = candidateId;
-                        console.log(`[initPlayer] P${id} 替代颜色: ${finalColorId}`);
-                        break;
-                    }
-                }
-            }
-            
-            playerColors[id] = finalColorId;
-            
-            // 应用颜色到玩家
-            const colorData = GameData.playerColors.getColorById(finalColorId);
-            if (colorData && players[id]) {
-                players[id].colors = { main: colorData.main, glow: colorData.glow, core: colorData.core };
-            }
-            
-            // 只有当颜色变化时才保存（避免覆盖保存的颜色）
-            if (!savedColor || savedColor.id !== finalColorId) {
-                GameData.playerColors.setPlayerColor(id, finalColorId);
-            }
-            
-            updateWardrobeUI();
-        }
-        
-        function removePlayer(id) {
-            delete players[id];
-            delete controllerInputs[id];
-            delete playerColors[id];
-            updateWardrobeUI();
-        }
-        
-        const BASE_UI_WIDTH = 1280;  // UI设计基准宽度
-        const BASE_UI_HEIGHT = 720; // UI设计基准高度
-        
-        function resizePreviewCanvas() {
-            previewCanvas.width = window.innerWidth;
-            previewCanvas.height = window.innerHeight;
-            
-            // 根据窗口大小缩放主内容
-            const mainContent = document.getElementById('main-content');
-            const wardrobeZone = document.getElementById('wardrobe-zone');
-            
-            if (mainContent) {
-                // 基于宽度和高度计算缩放比例，取较小值确保内容不超出
-                const scaleX = window.innerWidth / BASE_UI_WIDTH;
-                const scaleY = window.innerHeight / BASE_UI_HEIGHT;
-                const scale = Math.max(0.8, Math.min(2, Math.min(scaleX, scaleY)));
-                
-                mainContent.style.transform = `scale(${scale})`;
-            }
-            
-            // 换装区缩放 - 现在独立于 main-content，可以安全缩放
-            if (wardrobeZone) {
-                const scale = Math.max(1, Math.min(1.8, window.innerWidth / BASE_UI_WIDTH));
-                wardrobeZone.style.transform = `scale(${scale})`;
-            }
-            
-            // 二维码弹窗缩放
-            const qrContent = document.getElementById('qr-content');
-            if (qrContent) {
-                const scale = Math.max(1, Math.min(1.5, window.innerWidth / BASE_UI_WIDTH));
-                qrContent.style.transform = `scale(${scale})`;
-            }
-        }
-        
-        // 每个玩家触碰的按钮 { playerId: button }
-        const playerHoveredButtons = {};
-        
-        // 检测角色与按钮的碰撞
-        function checkButtonCollision(player) {
-            // 检测所有可点击的按钮（btn-glitch 和带 onclick 的 glass-panel）
-            const buttons = document.querySelectorAll('.btn-glitch:not([style*="display: none"]), .glass-panel[onclick]');
-            const px = player.x + player.width / 2;
-            const py = player.y + player.height / 2;
-            
-            for (const btn of buttons) {
-                // 跳过不可见的按钮（在隐藏菜单中）
-                const menu = btn.closest('.menu-container');
-                if (menu && menu.classList.contains('hidden-menu')) continue;
-                
-                // 跳过隐藏的弹窗中的按钮
-                const modal = btn.closest('#qr-modal, #settings-modal');
-                if (modal && !modal.classList.contains('active')) continue;
-                
-                const rect = btn.getBoundingClientRect();
-                if (px >= rect.left && px <= rect.right && py >= rect.top && py <= rect.bottom) {
-                    return btn;
-                }
-            }
-            return null;
-        }
-        
-        // 更新按钮高亮状态
-        function updateButtonHighlight() {
-            // 清除所有高亮（包括 btn-glitch 和 glass-panel）
-            document.querySelectorAll('.btn-glitch.player-hover, .glass-panel.player-hover').forEach(btn => {
-                btn.classList.remove('player-hover');
-            });
-            
-            // 检测所有玩家，每个玩家记住自己触碰的按钮
-            Object.entries(players).forEach(([id, p]) => {
-                const btn = checkButtonCollision(p);
-                playerHoveredButtons[id] = btn;
-                if (btn) {
-                    btn.classList.add('player-hover');
-                }
-            });
-        }
-        
-        // 确认按钮点击（指定玩家）
-        function confirmButtonClick(playerId) {
-            // 先检查是否在换装区
-            if (tryChangeColor(playerId)) {
-                return;
-            }
-            
-            const btn = playerHoveredButtons[playerId];
-            if (btn) {
-                btn.click();
-            }
-        }
-        
-        // ==================== 换装系统 ====================
-        // 使用 GameData 统一管理的颜色常量
-        const ALL_COLORS = GameData.playerColors.getAllColors();
-        
-        // 玩家当前颜色 { playerId: colorId }
-        const playerColors = {};
-        
-        // 检测玩家是否在换装区
-        function isInWardrobeZone(player) {
-            const zone = document.getElementById('wardrobe-zone');
-            const rect = zone.getBoundingClientRect();
-            const px = player.x + player.width / 2;
-            const py = player.y + player.height / 2;
-            
-            // 扩大检测范围
-            const padding = 20;
-            return px >= rect.left - padding && px <= rect.right + padding &&
-                   py >= rect.top - padding && py <= rect.bottom + padding;
-        }
-        
-        // 获取已被使用的颜色
-        function getUsedColors() {
-            return Object.values(playerColors);
-        }
-        
-        // 尝试换色
-        function tryChangeColor(playerId) {
-            const player = players[playerId];
-            if (!player || !isInWardrobeZone(player)) {
-                return false;
-            }
-            
-            const usedColors = getUsedColors();
-            const currentColorId = playerColors[playerId] || parseInt(playerId);
-            
-            // 找下一个可用颜色
-            let nextColorId = currentColorId;
-            for (let i = 0; i < ALL_COLORS.length; i++) {
-                nextColorId = (nextColorId % ALL_COLORS.length) + 1;
-                // 跳过被其他玩家使用的颜色
-                if (!usedColors.includes(nextColorId) || nextColorId === currentColorId) {
-                    break;
-                }
-            }
-            
-            // 如果找到了不同的颜色
-            if (nextColorId !== currentColorId && !usedColors.includes(nextColorId)) {
-                playerColors[playerId] = nextColorId;
-                const newColor = ALL_COLORS.find(c => c.id === nextColorId);
-                if (newColor && player.colors) {
-                    player.colors = { main: newColor.main, glow: newColor.glow, core: newColor.core };
-                }
-                // 立即保存颜色到存档
-                GameData.playerColors.setPlayerColor(playerId, nextColorId);
-                updateWardrobeUI();
-                return true;
-            }
-            
-            return true; // 在换装区但没有可换的颜色
-        }
-        
-        // 更新换装区 UI
-        function updateWardrobeUI() {
-            const swatches = document.querySelectorAll('.color-swatch');
-            const usedColors = getUsedColors();
-            
-            swatches.forEach(swatch => {
-                const colorId = parseInt(swatch.dataset.color);
-                if (usedColors.includes(colorId)) {
-                    swatch.classList.add('taken');
-                } else {
-                    swatch.classList.remove('taken');
-                }
-            });
-        }
-        
-        // 更新换装区高亮状态
-        function updateWardrobeHighlight() {
-            const zone = document.getElementById('wardrobe-zone');
-            let anyPlayerNearby = false;
-            
-            Object.values(players).forEach(p => {
-                if (isInWardrobeZone(p)) {
-                    anyPlayerNearby = true;
-                }
-            });
-            
-            if (anyPlayerNearby) {
-                zone.classList.add('player-nearby');
-            } else {
-                zone.classList.remove('player-nearby');
-            }
-        }
-        
-        let uiUpdateCounter = 0;
-        let previewScheduler = null;
-
-        function previewUpdate(fixedDt) {
-            const dtScale = fixedDt * 60;
-            // 定期更新控制器 UI（每 30 帧约 0.5 秒）
-            uiUpdateCounter += dtScale;
-            if (uiUpdateCounter >= 30) {
-                uiUpdateCounter = 0;
-                updateControllerUI();
-            }
-            
-            // 更新所有玩家
-            Object.keys(players).forEach(id => {
-                const input = ControllerManager.getInput(parseInt(id)) || controllerInputs[id];
-                handlePlayerInput(players[id], input, {
-                    onConfirm: () => confirmButtonClick(id),
-                    onCancel: handleBack,
-                    onJump: () => SoundManager.playJump(),
-                    onDash: () => SoundManager.playDash()
-                });
-
-                updatePlayerMovement(players[id], {
-                    dtScale,
-                    bounds: {
-                        minX: 0,
-                        maxX: window.innerWidth,
-                        minY: 0,
-                        maxY: window.innerHeight
-                    },
-                    onLand: () => SoundManager.playLand()
-                });
-            });
-            
-            // 检测按钮碰撞
-            updateButtonHighlight();
-            
-            // 检测换装区
-            updateWardrobeHighlight();
-        }
-
-        function previewRender(alpha = 1) {
-            // 绘制
-            previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-            Object.values(players).forEach(p => {
-                drawPlayerSimple(previewCtx, p, true, alpha);
-            });
-        }
-
-        function initPreviewScheduler() {
-            previewScheduler = FrameScheduler.create({
-                fixedHz: 60,
-                onUpdate: (fixedDt) => previewUpdate(fixedDt),
-                onRender: (alpha) => previewRender(alpha)
-            });
-            previewScheduler.start();
-            console.log('[Main] PreviewScheduler 启动: logic=60Hz, render=60');
-        }
-        
-        // ===== 输入处理（通过 ControllerManager 抽象层）=====
-        // ControllerManager 初始化延迟到配置加载完成后
-        let controllerInitialized = false;
-        
-        function initControllerAfterConfig() {
-            if (controllerInitialized) return;
-            controllerInitialized = true;
-            
-            const keyboardEnabled = GameData.gameSettings.getKeyboardEnabled();
-            console.log('[Main] 配置加载完成，键盘控制:', keyboardEnabled ? '启用' : '禁用');
-            
-            ControllerManager.init({
-                enableKeyboard: keyboardEnabled,
-                onPlayerCreate: (id) => {
-                    initPlayer(id);
-                    console.log(`[Main] 创建玩家 P${id}`);
-                    updateControllerUI(); // 更新控制器显示
-                    return players[id];
-                },
-                onPlayerRemove: (id) => {
-                    if (players[id]) {
-                        delete players[id];
-                        delete playerColors[id];
-                        console.log(`[Main] 移除玩家 P${id}`);
-                        updateControllerUI(); // 更新控制器显示
-                    }
-                },
-                onUpdate: () => {
-                    ControlHint.onInput();
-                },
-                onReassign: (webControllerMapping) => {
-                    // 键盘开关后重新分配了 playerId，通知所有 Web 控制器更新显示
-                    console.log('[Main] 设备重新分配，通知 Web 控制器更新 playerId:', webControllerMapping);
-                    Object.entries(webControllerMapping).forEach(([controllerId, playerId]) => {
-                        WsClient.send({
-                            type: 'update_player_id',
-                            controller_id: parseInt(controllerId),
-                            player_id: playerId
-                        });
-                    });
-                    updateControllerUI();
-                }
-            });
-            
-            updateControllerUI();
-        }
-        
-        // ==================== 音效（使用 SoundManager 统一管理）====================
-        SoundManager.preload();
-        
-        // 加载保存的音量设置
-        (function applyVolumeSettings() {
-            const volumes = GameData.gameSettings.getVolume();
-            SoundManager.setMasterVolume(volumes.master);
-            SoundManager.setBGMVolume(volumes.bgm);
-            SoundManager.setSFXVolume(volumes.sfx);
-        })();
-        
-        // 启动游戏循环
-        resizePreviewCanvas();
-        window.addEventListener('resize', resizePreviewCanvas);
-        initPreviewScheduler();
-        
-        function updateControllerUI() {
-            const keyboardEnabled = ControllerManager.isKeyboardEnabled();
-            const playerCountEl = document.getElementById('player-count');
-            const hint = document.getElementById('connection-hint');
-            
-            // 统计已连接的玩家数量
-            let playerCount = 0;
-            for (let i = 1; i <= 8; i++) {
-                if (ControllerManager.hasPlayer(i)) {
-                    playerCount++;
-                }
-            }
-            
-            // 更新数字显示
-            playerCountEl.textContent = playerCount;
-            
-            // 更新提示文字
-            const controllerCount = Object.keys(connectedControllers).length;
-            
-            if (playerCount === 0) {
-                hint.textContent = '等待控制器连接...';
-                hint.style.color = 'rgba(255, 255, 255, 0.5)';
-            } else if (keyboardEnabled) {
-                if (controllerCount === 0) {
-                    hint.textContent = 'P1 键盘控制 | 等待手柄连接...';
-                    hint.style.color = 'rgba(0, 242, 255, 0.5)';
-                } else {
-                    hint.textContent = `${controllerCount} 手柄已连接`;
-                    hint.style.color = 'rgba(0, 242, 255, 0.8)';
-                }
-            } else {
-                hint.textContent = `${controllerCount} 手柄已连接`;
-                hint.style.color = 'rgba(0, 242, 255, 0.8)';
-            }
-        }
-        
-        // 全局 WebSocket 客户端对象
-        let gameWs = null;
-        const WsClient = {
-            isConnected: () => gameWs && gameWs.readyState === WebSocket.OPEN,
-            send: (data) => {
-                if (WsClient.isConnected()) {
-                    gameWs.send(JSON.stringify(data));
-                    return true;
-                }
-                return false;
-            }
-        };
-        
-        // 连接 WebSocket 获取服务器 IP
-        function initWebSocket() {
-            // 始终连接本地 8088 端口的游戏服务器
-            const wsUrl = 'ws://localhost:8088/ws/game';
-            
-            console.log('WebSocket 连接地址:', wsUrl);
-            gameWs = new WebSocket(wsUrl);
-            
-            gameWs.onopen = () => {
-                console.log('已连接到服务器');
-            };
-            
-            gameWs.onmessage = (event) => {
-                // console.log('收到 WebSocket 消息:', event.data);  // 调试时打开
-                try {
-                    const data = JSON.parse(event.data);
-                    // console.log('解析后的数据:', data);  // 调试时打开
-                    
-                    if (data.type === 'connected') {
-                        console.log('连接消息，server_ip:', data.server_ip);
-                        
-                        // 初始化存档数据
-                        if (data.game_data) {
-                            GameData.initFromServer(data.game_data);
-                            GameData.setWebSocket(gameWs);
-                            console.log('[GameData] 从服务器加载存档完成');
-                        }
-                        
-                        // 配置加载完成，现在初始化控制器
-                        initControllerAfterConfig();
-                        
-                        // 应用颜色到玩家
-                        Object.keys(players).forEach(id => {
-                            const savedColor = GameData.playerColors.getPlayerColor(id);
-                            playerColors[id] = savedColor.id || parseInt(id);
-                            GameData.playerColors.applyToPlayer(players[id]);
-                        });
-                        updateWardrobeUI();
-                        
-                        // 获取服务器 IP
-                        if (data.server_ip) {
-                            serverInfo.ip = data.server_ip;
-                            serverInfo.port = data.server_port || 8088;
-                            console.log('调用 generateQRCode，IP:', serverInfo.ip);
-                            generateQRCode();
-                            console.log('二维码生成完成');
-                        } else {
-                            console.log('没有 server_ip 字段！');
-                        }
-                        
-                        // 处理已连接的 Web 控制器
-                        if (data.controllers) {
-                            connectedControllers = {};
-                            data.controllers.forEach(c => {
-                                connectedControllers[c.id] = true;
-                                const actualPlayerId = ControllerManager.onControllerConnected(c.id);
-                                if (actualPlayerId !== null) {
-                                    // 通知 Web Controller 实际的玩家编号
-                                    WsClient.send({
-                                        type: 'update_player_id',
-                                        controller_id: c.id,
-                                        player_id: actualPlayerId
-                                    });
-                                }
-                            });
-                            updateControllerUI();
-                        }
-                        
-                        // 配置加载完成（开场动画会自动结束）
-                        console.log('[Main] 配置加载完成');
-                    }
-                    else if (data.type === 'controller_joined') {
-                        connectedControllers[data.controller_id] = true;
-                        const actualPlayerId = ControllerManager.onControllerConnected(data.controller_id);
-                        if (actualPlayerId !== null) {
-                            initPlayer(actualPlayerId);  // 用实际的 playerId 创建角色
-                            // 通知 Web Controller 实际的玩家编号
-                            WsClient.send({
-                                type: 'update_player_id',
-                                controller_id: data.controller_id,
-                                player_id: actualPlayerId
-                            });
-                            console.log(`Web手柄 ${data.controller_id} -> P${actualPlayerId}`);
-                        }
-                        updateControllerUI();
-                    }
-                    else if (data.type === 'controller_left') {
-                        delete connectedControllers[data.controller_id];
-                        // ControllerManager 内部会处理 playerId 映射和角色移除
-                        ControllerManager.onControllerDisconnected(data.controller_id);
-                        updateControllerUI();
-                        console.log(`Web手柄 ${data.controller_id} 已断开`);
-                    }
-                    else if (data.type === 'state') {
-                        // 轮询模式：完整状态包 - 转发给 ControllerManager
-                        const id = data.controller_id;
-                        ControllerManager.updateControllerInput(id, data.joystick, data.buttons);
-                        
-                        // 同时更新本地 controllerInputs（用于兼容）
-                        if (!controllerInputs[id]) {
-                            controllerInputs[id] = { joystick: { x: 0, y: 0 }, buttons: { N: false, S: false, E: false, W: false } };
-                        }
-                            controllerInputs[id].joystick = data.joystick;
-                            controllerInputs[id].buttons = data.buttons;
-                            
-                        // 检测是否有输入
-                            const hasInput = Math.abs(data.joystick.x) > 0.1 || 
-                                           Math.abs(data.joystick.y) > 0.1 ||
-                                           data.buttons.N || data.buttons.S || 
-                                           data.buttons.E || data.buttons.W;
-                            if (hasInput) {
-                                ControlHint.onInput();
-                        }
-                    }
-                    else if (data.type === 'joystick') {
-                        // 兼容事件驱动模式 - 转发给 ControllerManager
-                        const id = data.controller_id;
-                        const input = ControllerManager.getInput(id);
-                        if (input) {
-                            ControllerManager.updateControllerInput(id, { x: data.x, y: data.y }, input.buttons);
-                        }
-                        if (controllerInputs[id]) {
-                            controllerInputs[id].joystick.x = data.x;
-                            controllerInputs[id].joystick.y = data.y;
-                        }
-                    }
-                    else if (data.type === 'joystick_release') {
-                        // 兼容事件驱动模式 - 转发给 ControllerManager
-                        const id = data.controller_id;
-                        const input = ControllerManager.getInput(id);
-                        if (input) {
-                            ControllerManager.updateControllerInput(id, { x: 0, y: 0 }, input.buttons);
-                        }
-                        if (controllerInputs[id]) {
-                            controllerInputs[id].joystick.x = 0;
-                            controllerInputs[id].joystick.y = 0;
-                        }
-                    }
-                    else if (data.type === 'button') {
-                        // 兼容事件驱动模式 - 转发给 ControllerManager
-                        const id = data.controller_id;
-                        const input = ControllerManager.getInput(id);
-                        if (input) {
-                            const newButtons = { ...input.buttons };
-                            newButtons[data.button] = (data.action === 'press');
-                            ControllerManager.updateControllerInput(id, input.joystick, newButtons);
-                        }
-                        if (controllerInputs[id]) {
-                            controllerInputs[id].buttons[data.button] = (data.action === 'press');
-                        }
-                    }
-                } catch (e) {}
-            };
-            
-            gameWs.onclose = () => {
-                console.log('连接断开，3秒后重连...');
-                connectedControllers = {};
-                updateControllerUI();
-                setTimeout(initWebSocket, 3000);
-            };
-            
-            gameWs.onerror = () => {
-                console.log('WebSocket 连接失败，使用本地地址');
-            };
-        }
-        
-        // 初始化
-        async function init() {
-            // 尝试通过 Tauri 命令获取服务器信息（比 WebSocket 更快）
-            if (window.__TAURI__) {
-                try {
-                    const info = await window.__TAURI__.core.invoke('get_server_info');
-                    if (info.ip) {
-                        serverInfo.ip = info.ip;
-                        serverInfo.port = info.port || 8088;
-                        generateQRCode();
-                        console.log('通过 Tauri 获取服务器 IP:', info.ip);
-                    }
-                } catch (e) {
-                    console.log('Tauri 命令失败，等待 WebSocket:', e);
-                }
-            }
-            // 启动 WebSocket 连接（Tauri 环境下是进程内通信，必然成功）
-            initWebSocket();
-        }
-        init();
-
-        // 创建背景悬浮方块
-        function createBlocks() {
-            const container = document.getElementById('blocks-container');
-            const count = 15;
-            
-            for (let i = 0; i < count; i++) {
-                const block = document.createElement('div');
-                block.className = 'block';
-                
-                const size = Math.random() * 40 + 20;
-                const left = Math.random() * 100;
-                const duration = Math.random() * 10 + 10;
-                
-                // 一半的方块使用负延迟，让它们初始就在画面上
-                // 负延迟 = 动画已经进行了一段时间
-                const delay = i < count / 2 
-                    ? -(Math.random() * duration)  // 负延迟：已在画面中
-                    : Math.random() * 5;            // 正延迟：稍后从底部出现
-                
-                block.style.width = `${size}px`;
-                block.style.height = `${size}px`;
-                block.style.left = `${left}%`;
-                block.style.animationDelay = `${delay}s`;
-                block.style.animationDuration = `${duration}s`;
-                
-                if (Math.random() > 0.5) {
-                    block.style.background = 'transparent';
-                    block.style.borderColor = Math.random() > 0.5 ? 'var(--primary)' : 'var(--secondary)';
-                    block.style.boxShadow = `0 0 10px ${block.style.borderColor}`;
-                }
-
-                container.appendChild(block);
-            }
-        }
-
-        // 菜单切换动画（单入单出，更丝滑）
-        const MENU_FADE_OUT = 180;  // 淡出时长
-        const MENU_FADE_IN = 220;   // 淡入时长
-        
-        function switchMenu(fromMenu, toMenu, options = {}) {
-            const { hideTitle = false, showTitle = false } = options;
-            const titleSection = document.getElementById('title-section');
-            
-            // 1. 淡出当前菜单（向上飘出）
-            if (fromMenu) {
-                fromMenu.classList.add('menu-fade-out');
-            }
-            
-            // 同步隐藏标题
-            if (hideTitle && titleSection) {
-                titleSection.style.transition = `opacity ${MENU_FADE_OUT}ms ease, transform ${MENU_FADE_OUT}ms ease`;
-                titleSection.style.opacity = '0';
-                titleSection.style.transform = 'translateY(-20px)';
-                titleSection.style.pointerEvents = 'none';
-            }
-            
-            // 2. 等淡出完成后再淡入新菜单
-            setTimeout(() => {
-                // 完全隐藏旧菜单
-                if (fromMenu) {
-                    fromMenu.classList.remove('menu-fade-out', 'visible-menu');
-                    fromMenu.classList.add('hidden-menu');
-                }
-                if (hideTitle && titleSection) {
-                    titleSection.style.display = 'none';
-                }
-                
-                // 准备显示标题
-                if (showTitle && titleSection) {
-                    titleSection.style.display = '';
-                    titleSection.style.opacity = '0';
-                    titleSection.style.transform = 'translateY(15px)';
-                }
-                
-                // 3. 新菜单准备淡入（从下方）
-                if (toMenu) {
-                    toMenu.classList.remove('hidden-menu');
-                    toMenu.style.opacity = '0';
-                    toMenu.style.transform = 'translateY(25px)';
-                    
-                    // 强制重绘
-                    toMenu.offsetHeight;
-                    
-                    // 淡入动画
-                    toMenu.style.transition = `opacity ${MENU_FADE_IN}ms ease-out, transform ${MENU_FADE_IN}ms ease-out`;
-                    toMenu.style.opacity = '1';
-                    toMenu.style.transform = 'translateY(0)';
-                    toMenu.classList.add('visible-menu');
-                    
-                    // 标题同步淡入
-                    if (showTitle && titleSection) {
-                        titleSection.style.transition = `opacity ${MENU_FADE_IN}ms ease-out, transform ${MENU_FADE_IN}ms ease-out`;
-                        titleSection.style.opacity = '1';
-                        titleSection.style.transform = 'translateY(0)';
-                        titleSection.style.pointerEvents = '';
-                    }
-                    
-                    // 动画结束后清理 inline style
-                    setTimeout(() => {
-                        toMenu.style.transition = '';
-                        toMenu.style.opacity = '';
-                        toMenu.style.transform = '';
-                        if (showTitle && titleSection) {
-                            titleSection.style.transition = '';
-                        }
-                    }, MENU_FADE_IN);
-                    
-                    lucide.createIcons();
-                    updateControlHints();
-                }
-            }, MENU_FADE_OUT);
-        }
-        
-        function showModeSelection() {
-            const mainMenu = document.getElementById('main-menu');
-            const gameModeMenu = document.getElementById('game-mode-menu');
-            switchMenu(mainMenu, gameModeMenu, { hideTitle: true });
-        }
-        
-        function showCoopLevels() {
-            const gameModeMenu = document.getElementById('game-mode-menu');
-            const coopMenu = document.getElementById('coop-menu');
-            switchMenu(gameModeMenu, coopMenu);
-        }
-        
-        function showVersusLevels() {
-            const gameModeMenu = document.getElementById('game-mode-menu');
-            const versusMenu = document.getElementById('versus-menu');
-            switchMenu(gameModeMenu, versusMenu);
-        }
-        
-        function backToModeSelection() {
-            const coopMenu = document.getElementById('coop-menu');
-            const versusMenu = document.getElementById('versus-menu');
-            const gameModeMenu = document.getElementById('game-mode-menu');
-            
-            // 找出当前显示的菜单
-            const activeMenu = coopMenu.classList.contains('visible-menu') ? coopMenu : versusMenu;
-            switchMenu(activeMenu, gameModeMenu);
-        }
-
-        function backToMain() {
-            const mainMenu = document.getElementById('main-menu');
-            const gameModeMenu = document.getElementById('game-mode-menu');
-            switchMenu(gameModeMenu, mainMenu, { showTitle: true });
-        }
-
-        async function exitGame() {
-            // 退出前保存数据
-            try {
-                await GameData.save();
-            } catch (e) {
-                console.warn('[Exit] 保存失败:', e);
-            }
-            
-            // 通过 WebSocket 发送退出消息给后端
-            if (WsClient.isConnected()) {
-                WsClient.send({ type: 'exit_app' });
-            }
-        }
-
-        function selectLevel(gameType, level) {
-            console.log("Selected Game:", gameType, "Level:", level);
-            
-            // 保存玩家颜色（使用 GameData 统一管理）
-            Object.keys(players).forEach(playerId => {
-                const colorId = playerColors[playerId] || parseInt(playerId);
-                GameData.playerColors.setPlayerColor(playerId, colorId);
-            });
-            console.log('保存玩家颜色完成');
-            
-            // 关卡配置
-            const games = {
-                color: {
-                    1: { name: '颜色收集 I', file: 'gameColorCollect.html' },
-                    2: { name: '颜色收集 II', file: 'gameColorCollect.html' },
-                    3: { name: '颜色收集 III', file: 'gameColorCollect.html' },
-                },
-                redline: {
-                    1: { name: '红线危机 I', file: 'gameRedLine.html' },
-                    2: { name: '红线危机 II', file: 'gameRedLine.html' },
-                    3: { name: '红线危机 III', file: 'gameRedLine.html' },
-                },
-                dangerousPassage: {
-                    1: { name: '危险通道 I', file: 'gameDangerousPassage.html' },
-                    2: { name: '危险通道 II', file: 'gameDangerousPassage.html' },
-                    3: { name: '危险通道 III', file: 'gameDangerousPassage.html' },
-                },
-                // 竞技模式
-                competeColor: {
-                    1: { name: '竞技颜色收集 I', file: 'competeColorCollect.html' },
-                    2: { name: '竞技颜色收集 II', file: 'competeColorCollect.html' },
-                    3: { name: '竞技颜色收集 III', file: 'competeColorCollect.html' },
-                },
-                competeRedLine: {
-                    1: { name: '竞技红线危机 I', file: 'competeRedLine.html' },
-                    2: { name: '竞技红线危机 II', file: 'competeRedLine.html' },
-                    3: { name: '竞技红线危机 III', file: 'competeRedLine.html' },
-                },
-                competeDangerousPassage: {
-                    1: { name: '竞技危险通道 I', file: 'competeDangerousPassage.html' },
-                    2: { name: '竞技危险通道 II', file: 'competeDangerousPassage.html' },
-                    3: { name: '竞技危险通道 III', file: 'competeDangerousPassage.html' },
-                }
-            };
-            
-            const levelInfo = games[gameType]?.[level];
-            if (!levelInfo) {
-                alert('关卡不存在！');
-                return;
-            }
-            
-            document.body.style.transition = 'all 1s ease';
-            document.body.style.transform = 'scale(2)';
-            document.body.style.filter = 'brightness(0) blur(20px)';
-            
-            setTimeout(() => {
-                const message = `正在进入第${level}关：${levelInfo.name}...`;
-                const overlay = document.createElement('div');
-                overlay.className = 'fixed inset-0 z-[100] flex items-center justify-center bg-black text-cyan-400 text-2xl font-bold tracking-widest';
-                overlay.innerText = message;
-                document.body.appendChild(overlay);
-                
-                setTimeout(() => {
-                    window.location.href = `${levelInfo.file}?mode=coop&level=${level}`;
-                }, 800);
-            }, 200);
-        }
-        
-        // 保留旧函数名兼容
-        function selectMode(mode) {
-                    if (mode === 'CO-OP') {
-                selectLevel(1);
-                    } else if (mode === 'VERSUS') {
-                        alert('对战模式正在开发中...');
-                        location.reload();
-                    }
-        }
-
-        function toggleQR() {
-            const modal = document.getElementById('qr-modal');
-            if (modal.classList.contains('active')) {
-                modal.classList.remove('active');
-                setTimeout(() => {
-                    modal.style.display = 'none';
-                    ControlHint.setMode('menu');  // 恢复菜单模式
-                    updateControlHints();
-                }, 300);
-            } else {
-                modal.style.display = 'flex';
-                // 弹窗时只显示关闭提示
-                ControlHint.update({
-                    N: '关闭',
-                    S: null,
-                    E: null,
-                    W: null
-                });
-                ControlHint.show();
-                setTimeout(() => {
-                    modal.classList.add('active');
-                }, 10);
-            }
-        }
-        
-        // ==================== 设置面板 ====================
-        function toggleSettings() {
-            const modal = document.getElementById('settings-modal');
-            if (!modal) return;
-            
-            if (modal.classList.contains('active')) {
-                modal.classList.remove('active');
-                setTimeout(() => {
-                    modal.style.display = 'none';
-                    ControlHint.setMode('menu');
-                    updateControlHints();
-                }, 300);
-            } else {
-                // 打开前先加载当前设置
-                loadSettingsUI();
-                modal.style.display = 'flex';
-                modal.style.opacity = '0';
-                ControlHint.update({
-                    N: '关闭',
-                    S: null,
-                    E: null,
-                    W: null
-                });
-                ControlHint.show();
-                // 强制重绘后再添加 active 类实现淡入效果
-                requestAnimationFrame(() => {
-                    modal.classList.add('active');
-                    modal.style.opacity = '1';
-                    // 刷新图标
-                    lucide.createIcons();
-                });
-            }
-        }
-        
-        // 加载设置到UI
-        function loadSettingsUI() {
-            // 键盘控制
-            const keyboardEnabled = GameData.gameSettings.getKeyboardEnabled();
-            const keyboardToggle = document.getElementById('keyboard-toggle');
-            keyboardToggle.checked = keyboardEnabled;
-            
-            // 游戏难度
-            const difficulty = GameData.gameSettings.getDifficulty();
-            updateDifficultyUI(difficulty);
-            
-            // 声音设置
-            loadAudioSettingsUI();
-            
-            // 显示模式
-            loadDisplaySettingsUI();
-            
-            // 初始化标签页
-            initSettingsTabs();
-        }
-        
-        // 加载显示模式设置到UI
-        function loadDisplaySettingsUI() {
-            const displayMode = GameData.gameSettings.getDisplayMode();
-            // 使用 false 参数避免重复保存
-            setDisplayMode(displayMode, false);
-
-            const fpsEnabled = GameData.gameSettings.getFpsOverlayEnabled();
-            const fpsToggle = document.getElementById('fps-overlay-toggle');
-            if (fpsToggle) fpsToggle.checked = fpsEnabled;
-            if (window.FpsOverlay) window.FpsOverlay.setVisible(fpsEnabled);
-
-            const trailLength = GameData.gameSettings.getTrailLength();
-            const trailInput = document.getElementById('trail-length-input');
-            if (trailInput) trailInput.value = trailLength;
-        }
-        
-        // 初始化标签页切换
-        function initSettingsTabs() {
-            const tabs = document.querySelectorAll('.settings-tab');
-            tabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    // 移除所有 active
-                    tabs.forEach(t => t.classList.remove('active'));
-                    document.querySelectorAll('.settings-panel').forEach(p => {
-                        p.style.display = 'none';
-                    });
-                    
-                    // 添加当前 active
-                    tab.classList.add('active');
-                    const panelId = tab.dataset.tab;
-                    const panel = document.querySelector(`.settings-panel[data-panel="${panelId}"]`);
-                    if (panel) panel.style.display = 'block';
-                    
-                    // 刷新图标
-                    lucide.createIcons();
-                });
-            });
-        }
-        
-        // 加载声音设置到UI
-        function loadAudioSettingsUI() {
-            const volumes = GameData.gameSettings.getVolume();
-            
-            // 主音量
-            const masterSlider = document.getElementById('master-volume');
-            const masterValue = document.getElementById('master-volume-value');
-            if (masterSlider) {
-                masterSlider.value = Math.round(volumes.master * 100);
-                masterValue.textContent = masterSlider.value + '%';
-            }
-            
-            // BGM音量
-            const bgmSlider = document.getElementById('bgm-volume');
-            const bgmValue = document.getElementById('bgm-volume-value');
-            if (bgmSlider) {
-                bgmSlider.value = Math.round(volumes.bgm * 100);
-                bgmValue.textContent = bgmSlider.value + '%';
-            }
-            
-            // 音效音量
-            const sfxSlider = document.getElementById('sfx-volume');
-            const sfxValue = document.getElementById('sfx-volume-value');
-            if (sfxSlider) {
-                sfxSlider.value = Math.round(volumes.sfx * 100);
-                sfxValue.textContent = sfxSlider.value + '%';
-            }
-        }
-        
-        // 主音量变化
-        function onMasterVolumeChange(value) {
-            const volume = parseInt(value) / 100;
-            document.getElementById('master-volume-value').textContent = value + '%';
-            GameData.gameSettings.setVolume('master', volume);
-            SoundManager.setMasterVolume(volume);
-        }
-        
-        // BGM音量变化
-        function onBGMVolumeChange(value) {
-            const volume = parseInt(value) / 100;
-            document.getElementById('bgm-volume-value').textContent = value + '%';
-            GameData.gameSettings.setVolume('bgm', volume);
-            SoundManager.setBGMVolume(volume);
-        }
-        
-        // 音效音量变化
-        function onSFXVolumeChange(value) {
-            const volume = parseInt(value) / 100;
-            document.getElementById('sfx-volume-value').textContent = value + '%';
-            GameData.gameSettings.setVolume('sfx', volume);
-            SoundManager.setSFXVolume(volume);
-            // 播放测试音效
-            SoundManager.playScore();
-        }
-        
-        // 恢复默认音量设置
-        function resetAudioSettings() {
-            // 默认值：主音量100%，BGM 70%，音效 80%
-            const defaults = { master: 1.0, bgm: 0.7, sfx: 0.8 };
-            
-            // 更新UI
-            document.getElementById('master-volume').value = defaults.master * 100;
-            document.getElementById('master-volume-value').textContent = '100%';
-            document.getElementById('bgm-volume').value = defaults.bgm * 100;
-            document.getElementById('bgm-volume-value').textContent = '70%';
-            document.getElementById('sfx-volume').value = defaults.sfx * 100;
-            document.getElementById('sfx-volume-value').textContent = '80%';
-            
-            // 保存并应用
-            GameData.gameSettings.setVolume('master', defaults.master);
-            GameData.gameSettings.setVolume('bgm', defaults.bgm);
-            GameData.gameSettings.setVolume('sfx', defaults.sfx);
-            
-            SoundManager.setMasterVolume(defaults.master);
-            SoundManager.setBGMVolume(defaults.bgm);
-            SoundManager.setSFXVolume(defaults.sfx);
-            
-            // 播放确认音效
-            SoundManager.playScore();
-            console.log('[Settings] 音量已恢复默认');
-        }
-        
-        // 设置语言（预留）
-        function setLanguage(lang) {
-            // 目前只支持中文，其他语言待实现
-            if (lang !== 'zh-CN') {
-                console.log('[Settings] 语言暂不支持:', lang);
-                return;
-            }
-            // 更新UI
-            document.querySelectorAll('.language-option').forEach(opt => {
-                opt.classList.remove('active');
-                if (opt.dataset.lang === lang) {
-                    opt.classList.add('active');
-                }
-            });
-            lucide.createIcons();
-        }
-        
-        // 设置显示模式（通过 WebSocket 发送给 Rust）
-        async function setDisplayMode(mode, saveToStorage = true) {
-            const windowedBtn = document.getElementById('display-windowed');
-            const fullscreenBtn = document.getElementById('display-fullscreen');
-            
-            console.log('[Display] 设置显示模式:', mode);
-            
-            // 通过 WebSocket 发送全屏请求给 Rust 后端
-            if (gameWs && gameWs.readyState === WebSocket.OPEN) {
-                const message = {
-                    type: 'set_fullscreen',
-                    fullscreen: mode === 'fullscreen'
-                };
-                gameWs.send(JSON.stringify(message));
-                console.log('[Display] 已发送全屏请求:', message);
-            } else {
-                console.error('[Display] WebSocket 未连接，无法设置全屏');
-            }
-            
-            // 更新 UI
-            updateDisplayModeUI(mode === 'fullscreen');
-            
-            // 保存到 GameData
-            if (saveToStorage && typeof GameData !== 'undefined') {
-                GameData.gameSettings.setDisplayMode(mode);
-            }
-            
-            lucide.createIcons();
-        }
-        
-        // 更新显示模式 UI
-        function updateDisplayModeUI(isFullscreen) {
-            const windowedBtn = document.getElementById('display-windowed');
-            const fullscreenBtn = document.getElementById('display-fullscreen');
-            
-            if (!windowedBtn || !fullscreenBtn) return;
-            
-            if (isFullscreen) {
-                windowedBtn.classList.remove('active', 'border-cyan-500');
-                windowedBtn.classList.add('border-transparent');
-                windowedBtn.querySelector('.display-check').style.display = 'none';
-                
-                fullscreenBtn.classList.add('active');
-                fullscreenBtn.classList.remove('border-transparent');
-                fullscreenBtn.classList.add('border-cyan-500');
-                fullscreenBtn.querySelector('.display-check').style.display = 'block';
-            } else {
-                fullscreenBtn.classList.remove('active', 'border-cyan-500');
-                fullscreenBtn.classList.add('border-transparent');
-                fullscreenBtn.querySelector('.display-check').style.display = 'none';
-                
-                windowedBtn.classList.add('active');
-                windowedBtn.classList.remove('border-transparent');
-                windowedBtn.classList.add('border-cyan-500');
-                windowedBtn.querySelector('.display-check').style.display = 'block';
-            }
-        }
-
-        // 注意：使用 Tauri 应用级全屏，不需要监听浏览器的 fullscreenchange 事件
-        // UI 更新由 setDisplayMode 函数直接处理
-
-        function onFpsOverlayToggle(enabled) {
-            const nextEnabled = !!enabled;
-            GameData.gameSettings.setFpsOverlayEnabled(nextEnabled);
-            try {
-                localStorage.setItem('blockgame_fps_overlay_enabled', nextEnabled ? '1' : '0');
-            } catch (e) {}
-            if (window.FpsOverlay) window.FpsOverlay.setVisible(nextEnabled);
-        }
-
-        function applyTrailLengthToActivePlayers(length) {
-            const nextLength = Math.max(0, Math.min(1000, Math.round(Number(length) || 0)));
-            Object.values(players).forEach(player => {
-                syncPlayerMovementConfig(player, player.width, { trailLength: nextLength });
-                if (nextLength === 0) player.trail = [];
-            });
-        }
-
-        function setTrailLengthValue(value, syncInput = true) {
-            const nextLength = Math.max(0, Math.min(1000, Math.round(Number(value) || 0)));
-            const trailInput = document.getElementById('trail-length-input');
-            if (syncInput && trailInput) trailInput.value = nextLength;
-            GameData.gameSettings.setTrailLength(nextLength);
-            applyTrailLengthToActivePlayers(nextLength);
-        }
-
-        function onTrailLengthInputChange(value, live = false) {
-            const parsed = Number(value);
-            if (live && !Number.isFinite(parsed)) return;
-            setTrailLengthValue(parsed);
-        }
-
-        function stepTrailLength(delta) {
-            const trailInput = document.getElementById('trail-length-input');
-            const current = trailInput ? Number(trailInput.value) : GameData.gameSettings.getTrailLength();
-            setTrailLengthValue((Number.isFinite(current) ? current : 0) + delta);
-        }
-        
-        // 键盘控制切换
-        function onKeyboardToggle(enabled) {
-            ControllerManager.setKeyboardEnabled(enabled);  // 内部会保存到 GameData
-        }
-        
-        // 设置游戏难度
-        function setDifficulty(difficulty) {
-            GameData.gameSettings.setDifficulty(difficulty);
-            updateDifficultyUI(difficulty);
-            console.log('[Settings] 游戏难度:', difficulty);
-        }
-        
-        // 更新难度UI
-        function updateDifficultyUI(difficulty) {
-            const easyBtn = document.getElementById('difficulty-easy');
-            const normalBtn = document.getElementById('difficulty-normal');
-            
-            easyBtn.classList.remove('selected');
-            normalBtn.classList.remove('selected');
-            
-            if (difficulty === 'easy') {
-                easyBtn.classList.add('selected');
-            } else {
-                normalBtn.classList.add('selected');
-            }
-        }
-        
-        // N 键返回处理
-        function handleBack() {
-            const qrModal = document.getElementById('qr-modal');
-            const settingsModal = document.getElementById('settings-modal');
-            const gameModeMenu = document.getElementById('game-mode-menu');
-            const coopMenu = document.getElementById('coop-menu');
-            const versusMenu = document.getElementById('versus-menu');
-            
-            // 优先关闭二维码弹窗
-            if (qrModal.classList.contains('active')) {
-                toggleQR();
-                return;
-            }
-            
-            // 关闭设置面板
-            if (settingsModal.classList.contains('active')) {
-                toggleSettings();
-                return;
-            }
-            
-            // 如果在关卡选择菜单，返回模式选择
-            if (coopMenu.classList.contains('visible-menu') || versusMenu.classList.contains('visible-menu')) {
-                backToModeSelection();
-                return;
-            }
-            
-            // 如果在模式选择菜单，返回主菜单
-            if (gameModeMenu.classList.contains('visible-menu')) {
-                backToMain();
-                return;
-            }
-        }
-        
-        // ==================== 底部控制提示 ====================
-        // 更新控制提示（根据当前界面状态）
-        function updateControlHints() {
-            const qrModal = document.getElementById('qr-modal');
-            const settingsModal = document.getElementById('settings-modal');
-            const gameModeMenu = document.getElementById('game-mode-menu');
-            const coopMenu = document.getElementById('coop-menu');
-            const versusMenu = document.getElementById('versus-menu');
-            
-            if (qrModal.classList.contains('active')) {
-                // 二维码弹窗
-                ControlHint.update({
-                    N: '关闭',
-                    S: '跳跃',
-                    E: '冲刺',
-                    W: null
-                });
-            } else if (settingsModal.classList.contains('active')) {
-                // 设置面板
-                ControlHint.update({
-                    N: '关闭',
-                    S: null,
-                    E: null,
-                    W: null
-                });
-            } else if (coopMenu.classList.contains('visible-menu') || versusMenu.classList.contains('visible-menu')) {
-                // 关卡选择菜单
-                ControlHint.update({
-                    N: '返回',
-                    S: '跳跃',
-                    E: '冲刺',
-                    W: '选择'
-                });
-            } else if (gameModeMenu.classList.contains('visible-menu')) {
-                // 游戏模式选择菜单
-                ControlHint.update({
-                    N: '返回',
-                    S: '跳跃',
-                    E: '冲刺',
-                    W: '选择'
-                });
-            } else {
-                // 主菜单
-                ControlHint.update({
-                    N: null,
-                    S: '跳跃',
-                    E: '冲刺',
-                    W: '选择'
-                });
-            }
-        }
-
-        window.onload = function() {
-            createBlocks();
-            // 初始化控制提示
-            ControlHint.init({
-                N: null,
-                S: '跳跃',
-                E: '冲刺',
-                W: '选择'
-            });
-        };
-    </script>
 </body>
 </html>

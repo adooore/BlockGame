@@ -18,21 +18,46 @@
 
 - **游戏简介**
   - 方块动作 / 解谜向游戏，目前已包含至少以下模式：
-    - 颜色收集（Color Collect）
-    - 危险通道（Dangerous Passage）
-    - 红线（Red Line）
+    - 颜色收集（Color Collect）、红线危机（Red Line）、危险通道（Dangerous Passage）
+    - 以及对应竞技模式（competeColorCollect、competeRedLine、competeDangerousPassage）
 - **主要运行入口（dist 层）**
-  - `dist/gameColorCollect.html`：颜色收集模式运行页面，负责：
-    - 页面样式与赛博风 UI
-    - 引入核心 JS 模块（`gameData.js`、`gridSystem.js`、`waveSystem.js`、`frameScheduler.js`、`player.js` 等）
-    - HUD / 计时 / 颜色指示器等 UI 元素
+  - `dist/index.html`：**唯一游戏前端入口**，采用单页 + 场景切换架构：
+    - 主菜单与 6 个游戏/竞技场景共享同一 JS 运行时
+    - 通过 `SceneManager` 切换场景（mainMenu、gameColorCollect、gameRedLine、gameDangerousPassage、competeColorCollect、competeRedLine、competeDangerousPassage）
+    - 不再使用 `window.location.href` 整页跳转
+  - `dist/controller.html`：独立页面，供 Web 手柄/遥控单独打开。
+  - 旧版多 HTML 页面已归档至 `dist/legacy/`。
 - **关键前端脚本模块（dist/js）**
-  - `gameData.js`：关卡与游戏数据（关卡配置、颜色目标等，具体结构待进一步整理）。
-  - `gridSystem.js`：网格 / 地图系统，负责方块布局与坐标相关逻辑（待补充细节）。
-  - `waveSystem.js`：波次 / 刷新机制，控制关卡中方块的生成与推进节奏（待补充）。
-  - `frameScheduler.js`：统一帧调度器，负责解耦逻辑更新与渲染帧率（详见后文「特殊处理 / Hack 说明」）。
-  - `player.js`：玩家控制与运动逻辑（移动、跳跃、碰撞等，待进一步总结）。
-  - 其它模块如 `controllerManager.js`、`soundManager.js`、`pauseMenu.js`、`gameWebSocket.js`、`debugPanel.js` 等分别负责输入、音效、暂停菜单、联机/调试等功能。
+  - `scenes/sceneManager.js`：场景注册与 enter/unmount/mount 生命周期。
+  - `data/persistedStore.js`：存档与设置持久化（原 GameData 职责）。
+  - `core/gridSystem.js`：网格 / 地图系统。
+  - `core/waveSystem.js`：波次 / 刷新机制。
+  - `core/frameScheduler.js`：统一帧调度器，逻辑 60Hz / 渲染解耦。
+  - `player/player.js`：玩家控制与运动逻辑。
+  - `scenes/*.js`：各游戏场景的 mount/unmount 实现。
+  - 其它：`player/controllerManager.js`、`dispaly/soundManager.js`、`data/gameWebSocket.js`、`dispaly/pauseMenu.js`、`dispaly/competeScoreboard.js`、`dispaly/debugPanel.js` 等。
+
+#### 1.x 前端脚本加载顺序规范（dist/index.html）
+
+- **总体原则：谁被更多人依赖，谁就先加载；入口脚本永远最后。**
+- **分层模型**
+  - 工具 & 数据层：`data/persistedStore.js`, `utils/gameUtils.js`, `core/gridSystem.js`, `core/waveSystem.js`, `core/frameScheduler.js`, `dispaly/loadingAnimations.js`
+  - 核心系统 / 管理器层：`scenes/sceneManager.js`, `player/player.js`, `player/controllerManager.js`, `dispaly/soundManager.js`, `data/gameWebSocket.js`, `dispaly/fpsOverlay.js`, `dispaly/competeScoreboard.js`, `dispaly/debugPanel.js`
+  - UI 辅助模块：`dispaly/controlHint.js`, `dispaly/pauseMenu.js`, `main/mainMenuUI.js`, `main/floatingBlocks.js`（主菜单悬浮方块）
+  - 场景 / 模式脚本：`js/scenes/*.js`（含 `levelSelectScene.js`、6 个游戏场景等）
+  - 入口：`mainEntry.js`（主菜单预览、WebSocket、`init` 等定义）
+  - 场景注册与启动：`scenes/registerScenes.js`（**必须**紧跟在 `mainEntry.js` 之后，内部 `SceneManager.register` + 调用 `init()`）
+- **推荐 `<script>` 顺序示例（节选）**
+  - 先加载：工具 & 数据层
+  - 再加载：核心系统 / 管理器层
+  - 然后：UI 辅助模块
+  - 接着：所有场景脚本
+  - 然后：`<script src="js/mainEntry.js"></script>`
+  - 最后：`<script src="js/scenes/registerScenes.js"></script>`
+- **新增脚本时的约定**
+  - 先判断脚本属于哪一层（工具/系统/UI/场景/入口）。
+  - 再按「被依赖的在前，依赖别人的在后」插入到对应位置。
+  - 禁止在入口脚本之前再写自己的 `window.onload = ...` 覆盖启动逻辑。
 
 ---
 

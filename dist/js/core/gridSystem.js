@@ -60,7 +60,8 @@ const GridSystem = (function() {
         function resize(canvasWidth, canvasHeight) {
             const minDim = Math.min(canvasWidth, canvasHeight) * 0.85;
             tileSize = (minDim - (config.gridSize - 1) * config.tileGap) / config.gridSize;
-            gridTotalDim = config.gridSize * tileSize + (config.gridSize - 1) * config.tileGap;
+            // 与 minDim 同一真值，避免 N*tileSize+(N-1)*gap 浮点回算略小于 minDim 导致边界少 1px 级误差
+            gridTotalDim = minDim;
             gridX = (canvasWidth - gridTotalDim) / 2;
             gridY = (canvasHeight - gridTotalDim) / 2;
             
@@ -163,15 +164,20 @@ const GridSystem = (function() {
         function drawGridLines(ctx) {
             ctx.strokeStyle = '#111';
             ctx.lineWidth = 1;
+            const ts = tileSize;
+            const g = config.tileGap;
+            // 与 drawTiles / getTilePosition 一致：第 k 列左缘在 gridX + k*(ts+g)，整块区域右/下缘在 gridX/Y + gridTotalDim。
+            // 旧实现用 pos - g/2，会把线画在「间隙正中」，相对逻辑格子整体偏半格。
             for (let i = 0; i <= config.gridSize; i++) {
-                const pos = i * (tileSize + config.tileGap);
+                const xLine = i < config.gridSize ? gridX + i * (ts + g) : gridX + gridTotalDim;
                 ctx.beginPath();
-                ctx.moveTo(gridX + pos - config.tileGap / 2, gridY);
-                ctx.lineTo(gridX + pos - config.tileGap / 2, gridY + gridTotalDim);
+                ctx.moveTo(xLine, gridY);
+                ctx.lineTo(xLine, gridY + gridTotalDim);
                 ctx.stroke();
+                const yLine = i < config.gridSize ? gridY + i * (ts + g) : gridY + gridTotalDim;
                 ctx.beginPath();
-                ctx.moveTo(gridX, gridY + pos - config.tileGap / 2);
-                ctx.lineTo(gridX + gridTotalDim, gridY + pos - config.tileGap / 2);
+                ctx.moveTo(gridX, yLine);
+                ctx.lineTo(gridX + gridTotalDim, yLine);
                 ctx.stroke();
             }
         }

@@ -1,21 +1,27 @@
 /**
  * 底部控制提示控件
  * 
- * 场景模式：
- * - menu: 功能画面，有输入时显示，静止后自动淡出
- * - game: 游戏画面，默认隐藏，只有特殊情况才显示
- * 
  * 使用方法：
  * 1. 引入脚本: <script src="js/controlHint.js"></script>
- * 2. 初始化: ControlHint.init({ N: '返回', S: '跳跃', E: '冲刺', W: '确认' })
- * 3. 设置模式: ControlHint.setMode('menu') 或 ControlHint.setMode('game')
- * 4. 有输入时调用: ControlHint.onInput() 来显示并重置淡出计时器
+ * 2. 初始化: ControlHint.init()
+ * 3. 设置文案状态: ControlHint.setHintsState('main_menu') 等（内部根据状态表决定 N/S/E/W，并显示+重置淡出计时器）
+ * 4. 有输入时由上层调用 ControlHint.show() 来显示并重置淡出计时器
  */
 
 const ControlHint = (function() {
+    // 提示文案 key 的枚举，避免在代码中散用字符串
+    const HINTS_KEY = {
+        MAIN_MENU: 'main_menu',
+        MODE_SELECT: 'mode_select',
+        LEVEL_SELECT: 'level_select',
+        QR_MODAL: 'qr_modal',
+        SETTINGS_MODAL: 'settings_modal'
+    };
+    
     let container = null;
     let buttons = {};
-    let mode = 'menu';  // 'menu' 或 'game'
+    // 当前提示文案 key，默认认为一开始是主菜单状态
+    let currentHintsKey = HINTS_KEY.MAIN_MENU;
     let fadeTimer = null;
     let isVisible = false;
     
@@ -30,6 +36,18 @@ const ControlHint = (function() {
         N: { webKey: '北', xboxKey: 'Y', kbKey: 'I', color: '#facc15' }   // 黄色
     };
     
+    // 底部提示的“状态机”：每种状态对应一套 N/S/E/W 文案
+    // 注意：这里只管“文案”，不管 DOM / 菜单逻辑
+    const STATE_HINTS = {
+        main_menu:   { N: null,  S: '跳跃', E: '冲刺', W: '选择' },
+        mode_select: { N: '返回', S: '跳跃', E: '冲刺', W: '选择' },
+        level_select:{ N: '返回', S: '跳跃', E: '冲刺', W: '选择' },
+        qr_modal:    { N: '关闭', S: null,   E: null,   W: null   },
+        settings_modal:{ N: '关闭', S: null,   E: null,   W: null   }
+        // 如需扩展，在此添加新状态
+    };
+
+    
     // 创建样式（与加载界面一致）
     function injectStyles() {
         if (document.getElementById('control-hint-styles')) return;
@@ -41,7 +59,8 @@ const ControlHint = (function() {
                 position: fixed;
                 bottom: 20px;
                 left: 50%;
-                transform: translateX(-50%);
+                transform: translateX(-50%) scale(var(--control-hint-scale, 1));
+                transform-origin: center bottom;
                 display: flex;
                 gap: 32px;
                 padding: 12px 24px;
@@ -62,7 +81,7 @@ const ControlHint = (function() {
             
             .control-hint-bar.hidden {
                 opacity: 0;
-                transform: translateX(-50%) translateY(10px);
+                transform: translateX(-50%) translateY(10px) scale(var(--control-hint-scale, 1));
                 pointer-events: none;
             }
             
@@ -130,10 +149,10 @@ const ControlHint = (function() {
         `;
         document.head.appendChild(style);
     }
+
     
     // 创建控件
     function createContainer() {
-        if (container) return container;
         
         injectStyles();
         
@@ -149,7 +168,7 @@ const ControlHint = (function() {
             item.className = 'control-hint-item';
             item.dataset.key = key;
             
-            // 按钮组
+            // 按钮组容器
             const btns = document.createElement('div');
             btns.className = 'control-hint-btns';
             btns.style.color = config.color;
@@ -188,15 +207,19 @@ const ControlHint = (function() {
         document.body.appendChild(container);
         return container;
     }
+
+    function setScale(scale) {
+        if (!container) createContainer();
+        const next = Math.max(0.75, Math.min(1.25, Number(scale) || 1));
+        container.style.setProperty('--control-hint-scale', String(next));
+    }
     
-    // 开始淡出计时
+    // 开始淡出计时（统一由上层决定什么时候调用）
     function startFadeTimer() {
         clearFadeTimer();
-        if (mode === 'menu') {
-            fadeTimer = setTimeout(() => {
-                hide();
-            }, FADE_DELAY);
-        }
+        fadeTimer = setTimeout(() => {
+            hide();
+        }, FADE_DELAY);
     }
     
     // 清除淡出计时
@@ -206,18 +229,12 @@ const ControlHint = (function() {
             fadeTimer = null;
         }
     }
-    
+
     // 初始化
-    function init(hints = {}) {
+    function init() {
         createContainer();
-        update(hints);
-        // 初始时显示一下，然后开始淡出计时
-        if (mode === 'menu') {
-            show();
-            startFadeTimer();
-        }
     }
-    
+
     // 更新提示
     function update(hints) {
         if (!container) createContainer();
@@ -237,41 +254,20 @@ const ControlHint = (function() {
             }
         });
     }
-    
-    // 设置模式
-    function setMode(newMode) {
-        mode = newMode;
-        if (mode === 'game') {
-            // 游戏模式：默认隐藏
-            hide();
-            clearFadeTimer();
-        } else {
-            // 菜单模式：显示后开始淡出计时
-            show();
-            startFadeTimer();
-        }
+
+    function applyStateHints() {
+        if (!currentHintsKey) return;
+        const hints = STATE_HINTS[currentHintsKey];
+        if (!hints) return;
+        update(hints);
     }
-    
-    // 有输入时调用（摇杆移动、按钮按下等）
-    function onInput() {
-        if (mode === 'menu') {
-            show();
-            startFadeTimer();
-        }
-        // 游戏模式下不响应普通输入
-    }
-    
-    // 强制显示（用于游戏中的特殊情况）
-    function forceShow(duration = 3000) {
+
+    // 设置当前提示文案所使用的状态（如 main_menu / qr_modal）根据状态表更新文案，并显示一段时间
+    function setHintsState(state) {
+        currentHintsKey = state;
+        applyStateHints();
         show();
-        if (duration > 0) {
-            clearFadeTimer();
-            fadeTimer = setTimeout(() => {
-                if (mode === 'game') {
-                    hide();
-                }
-            }, duration);
-        }
+        startFadeTimer();
     }
     
     // 显示
@@ -280,6 +276,8 @@ const ControlHint = (function() {
         container.classList.add('visible');
         container.classList.remove('hidden');
         isVisible = true;
+
+        startFadeTimer();
     }
     
     // 隐藏
@@ -291,58 +289,14 @@ const ControlHint = (function() {
         }
     }
     
-    // 销毁
-    function destroy() {
-        clearFadeTimer();
-        if (container) {
-            container.remove();
-            container = null;
-            buttons = {};
-        }
-    }
-    
-    // 设置单个按钮
-    function setButton(key, hint) {
-        if (!container) createContainer();
-        
-        const button = buttons[key];
-        if (button) {
-            if (hint) {
-                button.label.textContent = hint;
-                button.item.classList.add('active');
-            } else {
-                button.label.textContent = '-';
-                button.item.classList.remove('active');
-            }
-        }
-    }
-    
-    // 获取当前模式
-    function getMode() {
-        return mode;
-    }
-    
-    // 是否可见
-    function isShowing() {
-        return isVisible;
-    }
-    
     return {
         init,
         update,
         show,
         hide,
-        destroy,
-        setButton,
-        setMode,
-        onInput,
-        forceShow,
-        getMode,
-        isShowing
+        setHintsState,
+        setScale
     };
 })();
 
-// 如果在模块环境中，导出
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = ControlHint;
-}
+if (typeof window !== 'undefined') { window.ControlHint = ControlHint; }

@@ -115,6 +115,72 @@ const GameUtils = (function() {
         return { show, update, draw, clear, get count() { return texts.length; } };
     }
     
+    // ==================== 加速系统 ====================
+    /**
+     * 通用加速状态机：
+     * - 从 `minBodyPerSec` 到 `maxBodyPerSec` 做离散爬升（吃到正确块）
+     * - 吃到错误/惩罚时回到初始（重置）
+     * - 内部以 unitless 倍率乘到 speedMult；同时可换算成 “身位/秒” 方便 UI/浮字
+     */
+    function createSpeedBoostSystem(options = {}) {
+        const {
+            minBodyPerSec = 10,
+            maxBodyPerSec = 30,
+            stepsToMax = 16,
+            baseMoveBodyLengthsPerSecond = 15.75
+        } = options;
+
+        const base = Number.isFinite(baseMoveBodyLengthsPerSecond) && baseMoveBodyLengthsPerSecond > 0
+            ? baseMoveBodyLengthsPerSecond
+            : 15.75;
+        const safeSteps = Number.isFinite(stepsToMax) && stepsToMax > 0 ? stepsToMax : 16;
+
+        const minMult = (Number.isFinite(minBodyPerSec) ? minBodyPerSec : 10) / base;
+        const maxMult = (Number.isFinite(maxBodyPerSec) ? maxBodyPerSec : 30) / base;
+        const stepMult = (maxMult - minMult) / safeSteps;
+
+        let currentMult = minMult;
+
+        function reset() {
+            currentMult = minMult;
+        }
+
+        /**
+         * @returns {{ boostMult:number, increased:boolean }}
+         */
+        function onCorrect() {
+            const prev = currentMult;
+            currentMult = Math.min(maxMult, currentMult + stepMult);
+            return { boostMult: currentMult, increased: currentMult > prev + 1e-9 };
+        }
+
+        function onPenalty() {
+            currentMult = minMult;
+        }
+
+        function getBoostMult() {
+            return currentMult;
+        }
+
+        /**
+         * @param {number} inputSpeedMult - handlePlayerInput 返回的 speedMult（1 或 preciseSpeedMultiplier）
+         */
+        function getBodyPerSec(inputSpeedMult = 1) {
+            return base * currentMult * inputSpeedMult;
+        }
+
+        return {
+            reset,
+            onCorrect,
+            onPenalty,
+            getBoostMult,
+            getBodyPerSec,
+            get bodyRange() {
+                return { minBodyPerSec, maxBodyPerSec };
+            }
+        };
+    }
+    
     // ==================== 菜单系统 ====================
     
     /**
@@ -426,6 +492,7 @@ const GameUtils = (function() {
      */
     function createGameScreens(options = {}) {
         const {
+            parent = null,              // 挂载父节点（建议传场景根），不传则挂 body
             containerId = 'game-screens-container',  // 容器 ID
             onRestart = null,           // 重新开始回调
             onRevive = null,            // 复活回调（可选）
@@ -435,6 +502,7 @@ const GameUtils = (function() {
             currentLevel = 1,           // 当前关卡
             maxLevel = 3                // 最大关卡数
         } = options;
+        const mountRoot = parent || document.body;
         
         let gameoverScreen = null;
         let victoryScreen = null;
@@ -882,15 +950,15 @@ const GameUtils = (function() {
          * 创建 HTML 结构
          */
         function createHTML() {
-            // 创建遮罩层
+            // 创建遮罩层（挂到 mountRoot 则随场景卸载自然带走）
             overlayElement = document.createElement('div');
             overlayElement.className = 'game-screen-overlay';
-            document.body.appendChild(overlayElement);
+            mountRoot.appendChild(overlayElement);
             
             // 创建闪烁效果元素
             flashElement = document.createElement('div');
             flashElement.className = 'screen-flash';
-            document.body.appendChild(flashElement);
+            mountRoot.appendChild(flashElement);
             
             // Game Over 界面
             gameoverScreen = document.createElement('div');
@@ -992,9 +1060,9 @@ const GameUtils = (function() {
                 </div>
             `;
             
-            // 添加到 body
-            document.body.appendChild(gameoverScreen);
-            document.body.appendChild(victoryScreen);
+            // 添加到挂载根（场景根或 body）
+            mountRoot.appendChild(gameoverScreen);
+            mountRoot.appendChild(victoryScreen);
             
             // 绑定按钮事件
             bindButtonEvents();
@@ -1088,8 +1156,8 @@ const GameUtils = (function() {
             // 根据难度设置显示/隐藏复活按钮
             const reviveBtn = document.getElementById('gs-revive-btn');
             if (reviveBtn) {
-                const difficulty = (typeof GameData !== 'undefined' && GameData.gameSettings) 
-                    ? GameData.gameSettings.getDifficulty() 
+                const difficulty = (typeof PersistedStore !== 'undefined' && PersistedStore.gameSettings) 
+                    ? PersistedStore.gameSettings.getDifficulty() 
                     : 'normal';
                 reviveBtn.style.display = (difficulty === 'easy') ? 'block' : 'none';
             }
@@ -1369,12 +1437,7 @@ const GameUtils = (function() {
      * @returns {Object} 日志系统实例
      */
     function createDebugLog(containerId, maxItems = 20) {
-        // 如果 DebugPanel 模块可用，直接使用它
-        if (typeof DebugPanel !== 'undefined') {
-            return DebugPanel;
-        }
-        
-        // 兼容模式：使用旧的内嵌 HTML 面板
+        // DebugPanel 已改为类，场景内用 new DebugPanel(sceneRoot, options)；此处仅提供兼容的 fallback
         const container = document.getElementById(containerId);
         
         /**
@@ -1571,6 +1634,7 @@ const GameUtils = (function() {
         
         // 工厂函数
         createFloatingTextSystem,
+        createSpeedBoostSystem,
         createMenuSystem,
         createDebugLog,
         createStartOverlay,   // 开始蒙版（按任意键开始）
